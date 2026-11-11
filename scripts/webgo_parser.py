@@ -251,15 +251,47 @@ async def fetch_kp_batch(session,kp_ids):
     save_cache(cache)
     return {k:d for k,d in results if d}
 
+async def kp_search_title(session, title):
+    """KP search-by-keyword — возвращает kp_id или None"""
+    clean = clean_title(title)
+    if not clean or len(clean) < 2: return None
+    try:
+        q = clean.replace(' ', '+')
+        async with session.get(f"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword={q}&page=1",headers=HEADERS_KP,timeout=10) as r:
+            if r.status != 200: return None
+            d = await r.json()
+            films = d.get('films', [])
+            if not films: return None
+            f0 = films[0]
+            return str(f0.get('filmId')) if f0.get('filmId') else None
+    except: return None
+
 async def run_enrich_kp():
     print("🔄 KP обогащение...")
     start = time.time()
     movies = load_db()
     need = {}
+    no_kp = []
     for m in movies:
         kp = m.get('kp_id')
-        if not kp: continue
+        if not kp:
+            cat = m.get('category', '').lower()
+            if 'наши' in cat:  # только Наши фильмы/сериалы
+                no_kp.append(m)
+            continue
         need.setdefault(kp,[]).append(m)
+    # Search for kp_id для «Наших»
+    kp_budget = 450 - len(need)
+    if no_kp and kp_budget > 0:
+        print(f"🔍 KP search-by-keyword для {min(len(no_kp), kp_budget)} «Наших»...")
+        import asyncio as _a
+        async with aiohttp.ClientSession() as _session:
+            for m in no_kp[:kp_budget]:
+                kpid = await kp_search_title(_session, m.get('title', ''))
+                if kpid:
+                    m['kp_id'] = kpid
+                    need.setdefault(kpid, []).append(m)
+        print(f"✅ KP search: {len([m for m in no_kp[:kp_budget] if m.get('kp_id')])} match")
     pending = [kp for kp,g in need.items() if any(not m.get('genre') or not m.get('poster') or not m.get('director') for m in g)]
     if MAX_ENRICH_PER_RUN > 0: pending = pending[:MAX_ENRICH_PER_RUN]
     total = len(pending)
@@ -311,11 +343,28 @@ async def fetch_tmdb_batch(session,items):
                             if d.get('movie_results'): tmdb_id = d['movie_results'][0]['id']
                 if not tmdb_id and title:
                     clean = clean_title(title)
-                    if clean:
-                        async with session.get(f"{TMDB_BASE}/search/multi?query={clean}&language=ru&api_key={TMDB_API_KEY}",timeout=10) as r:
-                            if r.status==200:
-                                d = await r.json()
-                                if d.get('results'): tmdb_id = d['results'][0]['id']
+                    candidates = [clean]
+                    if ' / ' in title:
+                        eng = title.split(' / ', 1)[1].strip()
+                        import re as _re
+                        eng = _re.sub(r'\s*[\[\]\(\{\}].*$', '', eng).strip()
+                        eng = _re.sub(r'\s+(WEB|BDRip|WEBRip|WEB-DL|HDRip|HDTV|BluRay|1080p|720p|2160p|4K|UHD|HEVC|AVC|от\s+.*|\|.*)$', '', eng, flags=_re.IGNORECASE).strip()
+                        if eng and eng.lower() != clean.lower(): candidates.append(eng)
+                    if clean: candidates.append(clean)
+                    langs = ['ru-RU', 'en-US']
+                    for cand in candidates:
+                        if not cand or tmdb_id: continue
+                        for lang in langs:
+                            if tmdb_id: break
+                            try:
+                                q = cand.replace(' ', '+')
+                                async with session.get(f"{TMDB_BASE}/search/multi?query={q}&language={lang}&api_key={TMDB_API_KEY}",timeout=10) as r:
+                                    if r.status==200:
+                                        d = await r.json()
+                                        for res in d.get('results', [])[:3]:
+                                            if res.get('media_type') in ('movie', 'tv'):
+                                                tmdb_id = res['id']; break
+                            except: pass
                 if not tmdb_id: return gid,None
                 data = None
                 for mt in ('movie','tv'):
@@ -455,4 +504,5 @@ def main():
     elif args.mode == 'tmdb' and TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
 
 if __name__ == '__main__':
-    main()
+    main()    total = len(pending)
+    if total == 0: print("ℹ️ Всё обогащено TMDB."); return
