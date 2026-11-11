@@ -12,11 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.data.store.SettingsStore
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.domain.model.Settings
-import com.garickbox.jecwebgo.ui.search.SearchViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -61,14 +61,13 @@ fun SettingsScreen() {
                     5 -> "макс (150MB / 10)"
                     else -> "—"
                 },
-                fontSize = 12.sp.color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(onClick = {
                 if (measuring) return@Button
                 measuring = true
                 scope.launch {
-                    val activeHash = TorrentRepository.list()
-                        .firstOrNull()?.jsonObject?.get("hash")?.jsonPrimitive?.contentOrNull
+                    val activeHash = TorrentRepository.firstHash()
                     if (activeHash == null) {
                         Toast.makeText(ctx, "Запустите любой фильм для замера", Toast.LENGTH_LONG).show()
                         measuring = false

@@ -36,6 +36,18 @@ object TorrentRepository {
         } catch (e: Exception) { JsonArray(emptyList()) }
     }
 
+    suspend fun firstHash(): String? = withContext(Dispatchers.IO) {
+        try {
+            val arr = list()
+            for (el in arr) {
+                val obj = el.jsonObject
+                val h = obj["hash"]?.jsonPrimitive?.contentOrNull
+                if (h != null) return@withContext h
+            }
+            null
+        } catch (_: Exception) { null }
+    }
+
     suspend fun get(hash: String): JsonObject? = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject { put("action","get"); put("hash",hash) }.toString()
