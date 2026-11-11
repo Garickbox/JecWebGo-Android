@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -144,26 +145,37 @@ private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
                         error = { ph() }
                     )
                 } else { ph() }
+                // Badges поверх постера
+                if (g.rating > 0.0) {
+                    Box(Modifier.align(Alignment.TopStart).padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFFFC107).copy(alpha = 0.95f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("★ %.1f".format(g.rating), fontSize = 10.sp,
+                            color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
                 if (g.count > 1) {
                     Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f))
                         .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("${g.count} разд.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                        Text("${g.count} разд.", fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (g.year.isNotBlank()) {
+                    Box(Modifier.align(Alignment.BottomStart).padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text(g.year, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Column(Modifier.padding(8.dp)) {
+            Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).height(36.dp)) {
                 Text(g.cleanTitle, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
-                Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (g.rating > 0.0)
-                        Text("★ %.1f".format(g.rating), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.weight(1f))
-                    if (g.year.isNotBlank())
-                        Text(g.year, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
         }
     }
