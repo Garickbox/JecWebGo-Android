@@ -1,5 +1,8 @@
 package com.garickbox.jecwebgo.ui.home
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,6 +49,14 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf<GroupedTorrent?>(null) }
+    var noNet by remember { mutableStateOf(false) }
+    var netCheckKey by remember { mutableStateOf(0) }
+    LaunchedEffect(netCheckKey) {
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val net = cm.activeNetwork
+        val caps = if (net != null) cm.getNetworkCapabilities(net) else null
+        noNet = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true
+    }
     LaunchedEffect(Unit) { if (s.items.isEmpty() && !s.loading) vm.load() }
 
     Scaffold(
@@ -86,6 +97,16 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
                 ) { items(s.items) { g -> GroupCard(g) { selected = g } } }
             }
         }
+    }
+
+    if (noNet) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Нет интернета") },
+            text = { Text("Проверьте подключение и попробуйте снова.") },
+            confirmButton = { TextButton(onClick = { netCheckKey++ }) { Text("Повторить") } },
+            dismissButton = { TextButton(onClick = { noNet = false }) { Text("Позже") } }
+        )
     }
 
     selected?.let { g ->

@@ -12,26 +12,38 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.garickbox.jecwebgo.data.network.HttpClient
+import com.garickbox.jecwebgo.data.store.SettingsStore
 import com.garickbox.jecwebgo.domain.TorrentRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.Request
 
 @Composable
 fun StatusBar() {
     val ctx = LocalContext.current
     var tsAlive by remember { mutableStateOf<Boolean?>(null) }
     var jacAlive by remember { mutableStateOf<Boolean?>(null) }
+    var tvAlive by remember { mutableStateOf<Boolean?>(null) }
+    var posterAlive by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
         while (true) {
-            tsAlive = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                TorrentRepository.isAlive()
-            }
-            jacAlive = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            tsAlive = withContext(Dispatchers.IO) { TorrentRepository.isAlive() }
+            jacAlive = withContext(Dispatchers.IO) {
                 runCatching {
-                    com.garickbox.jecwebgo.data.network.HttpClient
-                        .get("https://jac.red/api/v1.0/torrents?search=a").isNotBlank()
+                    HttpClient.get("https://jac.red/api/v1.0/torrents?search=a").isNotBlank()
+                }.getOrDefault(false)
+            }
+            tvAlive = withContext(Dispatchers.IO) {
+                val s = SettingsStore.load(ctx)
+                if (s.tv_ip.isBlank()) null else TorrentRepository.isAliveAt(s.tv_ip.trim())
+            }
+            posterAlive = withContext(Dispatchers.IO) {
+                runCatching {
+                    val req = Request.Builder().url("https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/torrents.json").head().build()
+                    HttpClient.client.newCall(req).execute().use { it.code in 200..299 }
                 }.getOrDefault(false)
             }
             delay(30_000)
@@ -44,9 +56,9 @@ fun StatusBar() {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Dot("TorrServer", tsAlive)
-        Dot("ТВ", null)
+        Dot("ТВ", tvAlive)
         Dot("JacRed", jacAlive)
-        Dot("Постеры", null)
+        Dot("Постеры", posterAlive)
     }
 }
 
