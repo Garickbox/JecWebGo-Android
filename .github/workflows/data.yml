@@ -1,0 +1,41 @@
+name: data
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install aiohttp beautifulsoup4
+      - name: Run parser
+        working-directory: scripts
+        env:
+          KP_TOKEN: ${{ secrets.KP_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          PAGES: '20'
+          MAX_ENRICH_PER_RUN: '450'
+        run: python webgo_parser.py --mode fast
+      - name: Publish to data branch
+        run: |
+          set -e
+          if [ ! -f scripts/torrents.json ]; then echo "no torrents.json"; exit 1; fi
+          SIZE=$(stat -c%s scripts/torrents.json)
+          echo "torrents.json: $SIZE bytes"
+          mkdir -p /tmp/data-out && cd /tmp/data-out
+          git init -q
+          git checkout -q -b data
+          cp ~/work/JecWebGo-Android/JecWebGo-Android/scripts/torrents.json . 2>/dev/null || cp $GITHUB_WORKSPACE/scripts/torrents.json .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add torrents.json
+          git commit -q -m "data: $(date -u +%F_%H:%M)"
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push -f origin data
