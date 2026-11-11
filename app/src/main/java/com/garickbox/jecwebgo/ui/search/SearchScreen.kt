@@ -18,6 +18,7 @@ import android.net.Uri
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.data.store.BookmarkStore
+import com.garickbox.jecwebgo.ui.ai.AiSheet
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
     val s by vm.state.collectAsState()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    var showAi by remember { mutableStateOf(false) }
     val onPlayPhone: (SearchItem) -> Unit = { item ->
         PlayActions.playPhone(ctx, scope, item.magnet, item.title)
     }
@@ -45,6 +47,7 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
             Toast.makeText(ctx, "В закладки: ${item.title}", Toast.LENGTH_SHORT).show()
         }
     }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
             value = s.query,
@@ -68,6 +71,15 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
                 items(s.items) { item -> SearchCard(item, onPlayPhone, onPlayTV, onBookmark) }
             }
         }
+    }
+        FloatingActionButton(
+            onClick = { showAi = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) { Text("🤖", fontSize = 20.sp) }
+        if (showAi) AiSheet(
+            onDismiss = { showAi = false },
+            onSearch = { q, _ -> vm.onQuery(q); vm.search(); showAi = false }
+        )
     }
 }
 @Composable
