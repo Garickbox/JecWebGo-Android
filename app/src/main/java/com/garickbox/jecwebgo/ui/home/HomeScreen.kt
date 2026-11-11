@@ -89,8 +89,8 @@ private fun HomeCard(item: TorrentItem, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.rating.isNotBlank() && item.rating != "0.0")
-                        Text("★ ${item.rating}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                    if (item.rating > 0.0)
+                        Text("★ %.1f".format(item.rating), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.weight(1f))
                     if (item.year.isNotBlank())
                         Text(item.year, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

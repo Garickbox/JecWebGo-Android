@@ -10,6 +10,24 @@ import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonPrimitive
+
+object DoubleOrEmptySerializer : KSerializer<Double> {
+    override val descriptor = PrimitiveSerialDescriptor("DoubleOrEmpty", PrimitiveKind.DOUBLE)
+    override fun deserialize(decoder: Decoder): Double {
+        val input = decoder as? JsonDecoder ?: return 0.0
+        val el = input.decodeJsonElement()
+        return if (el is JsonPrimitive) (el.content.toDoubleOrNull() ?: 0.0) else 0.0
+    }
+    override fun serialize(encoder: Encoder, value: Double) { encoder.encodeDouble(value) }
+}
+
 @Serializable
 data class TorrentItem(
     val title: String = "",
@@ -18,7 +36,7 @@ data class TorrentItem(
     val leeches: Int = 0,
     val magnet: String = "",
     val poster: String = "",
-    val rating: String = "",
+    @Serializable(with = DoubleOrEmptySerializer::class) val rating: Double = 0.0,
     val genre: String = "",
     val year: String = "",
     val description: String = "",
