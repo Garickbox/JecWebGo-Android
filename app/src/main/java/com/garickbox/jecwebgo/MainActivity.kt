@@ -21,7 +21,7 @@ import com.garickbox.jecwebgo.service.TorrServerService
 import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
 import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.settings.SettingsScreen
-import com.garickbox.jecwebgo.ui.placeholders.MagnetsScreen
+import com.garickbox.jecwebgo.ui.download.DownloadScreen
 import com.garickbox.jecwebgo.ui.status.StatusBar
 import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
@@ -33,7 +33,7 @@ val tabs = listOf(
     Tab("search", "Поиск", Icons.Filled.Search),
     Tab("bookmarks", "Метки", Icons.Filled.Star),
     Tab("history", "История", Icons.Filled.History),
-    Tab("magnets", "Магниты", Icons.Filled.Download),
+    Tab("downloads", "Загрузки", Icons.Filled.Download),
     Tab("settings", "Настройки", Icons.Filled.Settings)
 )
 
@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                         ) }
                         composable("bookmarks") { BookmarksScreen() }
                         composable("history") { HistoryScreen() }
-                        composable("magnets") { MagnetsScreen() }
+                        composable("downloads") { DownloadScreen() }
                         composable("settings") { SettingsScreen() }
                     }
                     }

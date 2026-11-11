@@ -12,6 +12,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 data class SuperblitzParams(val preloadMB: Int, val threads: Int)
 
+data class TorrentFile(val id: Int, val path: String, val length: Long)
+
 object TorrentRepository {
     private const val BASE = "http://127.0.0.1:8090"
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -55,11 +57,17 @@ object TorrentRepository {
         } catch (e: Exception) { null }
     }
 
-    suspend fun getFiles(hash: String): List<String> = withContext(Dispatchers.IO) {
+    suspend fun getFiles(hash: String): List<TorrentFile> = withContext(Dispatchers.IO) {
         try {
             val obj = get(hash) ?: return@withContext emptyList()
             val stats = obj["file_stats"]?.jsonArray ?: return@withContext emptyList()
-            stats.mapNotNull { it.jsonObject["path"]?.jsonPrimitive?.contentOrNull }
+            stats.mapNotNull { el ->
+                val o = el.jsonObject
+                val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+                val path = o["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val len = o["length"]?.jsonPrimitive?.longOrNull ?: 0L
+                if (len > 0) TorrentFile(id, path, len) else null
+            }
         } catch (e: Exception) { emptyList() }
     }
 

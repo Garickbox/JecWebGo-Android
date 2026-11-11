@@ -33,6 +33,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import com.garickbox.jecwebgo.data.model.GroupedTorrent
+import com.garickbox.jecwebgo.domain.TorrentRepository
+import com.garickbox.jecwebgo.domain.TorrentFile
+import com.garickbox.jecwebgo.data.download.DownloadRepository
+import com.garickbox.jecwebgo.data.download.DownloadRequest
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import java.net.URLEncoder
@@ -189,6 +193,35 @@ private fun DetailsDialog(
     onTV: (TorrentItem) -> Unit,
     onSearch: () -> Unit
 ) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var pickerFor by remember { mutableStateOf<TorrentItem?>(null) }
+    var filesFor by remember { mutableStateOf<List<TorrentFile>>(emptyList()) }
+    var loadingFiles by remember { mutableStateOf(false) }
+
+    pickerFor?.let { item ->
+        FilePickerDialog(
+            title = item.title,
+            files = filesFor,
+            loading = loadingFiles,
+            onDismiss = { pickerFor = null },
+            onConfirm = { picked ->
+                picked.forEach { f ->
+                    DownloadRepository.enqueue(ctx, DownloadRequest(
+                        hash = hashOf(item.magnet),
+                        fileIndex = f.id,
+                        fileName = f.path.substringAfterLast("/"),
+                        title = cleanTitleStatic(item.title),
+                        magnet = item.magnet
+                    ))
+                }
+                androidx.widget.Toast.makeText(ctx, "В очередь: ${picked.size}", android.widget.Toast.LENGTH_SHORT).show()
+                pickerFor = null
+                onClose()
+            }
+        )
+    }
+
     Dialog(onDismissRequest = onClose) {
         Card(Modifier.fillMaxWidth().padding(8.dp)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
