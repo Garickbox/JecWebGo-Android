@@ -432,11 +432,9 @@ def main():
         asyncio.run(run_parser())
         if KP_TOKEN: asyncio.run(run_enrich_kp())
         if TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
-        asyncio.run(download_posters_step())
     elif args.mode == 'parse': asyncio.run(run_parser())
     elif args.mode == 'kp' and KP_TOKEN: asyncio.run(run_enrich_kp())
     elif args.mode == 'tmdb' and TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
-        asyncio.run(download_posters_step())
 
 if __name__ == '__main__':
     main()
