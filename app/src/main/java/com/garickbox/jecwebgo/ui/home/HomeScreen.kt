@@ -272,14 +272,27 @@ private fun DetailsDialog(
                             }
                             Spacer(Modifier.width(6.dp))
                             Button(onClick = { onPlay(item); onClose() },
-                                modifier = Modifier.height(36.dp).width(52.dp), contentPadding = PaddingValues(0.dp)) {
+                                modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp)) {
                                 Text("▶", fontSize = 14.sp)
                             }
                             Spacer(Modifier.width(4.dp))
                             Button(onClick = { onTV(item); onClose() },
-                                modifier = Modifier.height(36.dp).width(52.dp), contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
                                 Text("📺", fontSize = 14.sp)
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            Button(onClick = {
+                                pickerFor = item
+                                loadingFiles = true
+                                filesFor = emptyList()
+                                scope.launch {
+                                    val h = MagnetUtil.hashOf(item.magnet)
+                                    filesFor = TorrentRepository.getFiles(h)
+                                    loadingFiles = false
+                                }
+                            }, modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp)) {
+                                Text("⬇", fontSize = 14.sp)
                             }
                         }
                         Divider()
