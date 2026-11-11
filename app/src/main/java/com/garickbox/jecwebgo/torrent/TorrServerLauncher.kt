@@ -15,11 +15,12 @@ object TorrServerLauncher {
                 Log.e(TAG, "not found: ${lib.absolutePath}")
                 return
             }
-            val pb = ProcessBuilder(lib.absolutePath).redirectErrorStream(true)
-            pb.environment()["HOME"] = ctx.filesDir.absolutePath
-            pb.environment()["TORRSERVER_PORT"] = "8090"
+            val logFile = File(ctx.filesDir, "torrserver.log")
+            val pb = ProcessBuilder(lib.absolutePath, "-p", "8090", "-d", ctx.filesDir.absolutePath)
+                .redirectErrorStream(true)
+                .redirectOutput(logFile)
             proc = pb.start()
-            Log.i(TAG, "started")
+            Log.i(TAG, "started log=${logFile.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "start fail: ${e.message}")
         }

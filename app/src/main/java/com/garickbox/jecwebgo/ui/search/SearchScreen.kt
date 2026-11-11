@@ -8,10 +8,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import android.widget.Toast
 import androidx.compose.runtime.*
+import android.content.ClipboardManager
+import android.content.Intent
+import android.net.Uri
+import com.garickbox.jecwebgo.domain.TorrentRepository
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +29,28 @@ import com.garickbox.jecwebgo.domain.model.SearchItem
 fun SearchScreen(vm: SearchViewModel = viewModel()) {
     val s by vm.state.collectAsState()
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val onPlayPhone: (SearchItem) -> Unit = { it ->
+        scope.launch {
+            val h = TorrentRepository.add(it.magnet)
+            if (h == null) Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
+            else runCatching {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TorrentRepository.streamM3U(h))).setType("video/*"))
+            }.onFailure { Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show() }
+        }
+    }
+    val onPlayTV: (SearchItem) -> Unit = { it ->
+        scope.launch {
+            val h = TorrentRepository.add(it.magnet)
+            if (h == null) Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
+            else {
+                val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("m3u", TorrentRepository.streamM3U(h)))
+                Toast.makeText(ctx, "M3U скопирован для ТВ", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val onBookmark: (SearchItem) -> Unit = { Toast.makeText(ctx, "Закладка: ${it.title}", Toast.LENGTH_SHORT).show() }
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
             value = s.query,
@@ -45,13 +71,13 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
             s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.items) { item -> SearchCard(item) { Toast.makeText(ctx, "Закладка: ${item.title}", Toast.LENGTH_SHORT).show() } }
+                items(s.items) { item -> SearchCard(item, onPlayPhone, onPlayTV, onBookmark) }
             }
         }
     }
 }
 @Composable
-fun SearchCard(item: SearchItem, onBookmark: (SearchItem) -> Unit) {
+fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onPlayTV: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(12.dp)) {
             Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
@@ -68,10 +94,13 @@ fun SearchCard(item: SearchItem, onBookmark: (SearchItem) -> Unit) {
                 Text("🔽 ${item.pir}", fontSize = 12.sp)
             }
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("▶ Телефон") }
-                Button(onClick = {}, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺 ТВ") }
-                OutlinedButton(onClick = { onBookmark(item) }, modifier = Modifier.weight(1f)) { Text("🔖") }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(onClick = { onPlayPhone(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 16.sp, maxLines = 1) }
+                Button(onClick = { onPlayTV(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺", fontSize = 16.sp, maxLines = 1) }
+                OutlinedButton(onClick = { onBookmark(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("🔖", fontSize = 16.sp, maxLines = 1) }
             }
         }
     }
