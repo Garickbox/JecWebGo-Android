@@ -6,20 +6,19 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import java.io.InputStream
 import java.nio.ByteBuffer
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
+import java.nio.channels.FileChannel
 import kotlin.math.min
 
 @RequiresApi(Build.VERSION_CODES.Q)
 object TorrentDownloader {
-    private const val THREADS = 10
-    private const val CHUNK_SIZE = 4L * 1024 * 1024
+    private const val CHUNK_SIZE = 512L * 1024       // 512 KB Range
+    private const val IO_BUFFER = 64 * 1024          // 64 KB RAM
+    private const val MAX_ATTEMPTS = 5
 
     suspend fun download(
         ctx: Context,
@@ -33,74 +32,115 @@ object TorrentDownloader {
         val handle = MediaStoreWriter.openChannel(ctx, targetUri) ?: return@withContext false
         val channel = handle.channel
         val url = "http://127.0.0.1:8090/stream?link=$hash&index=$fileIndex&play"
-        val totalChunks = ((totalBytes + CHUNK_SIZE - 1) / CHUNK_SIZE).toInt()
-        val nextChunk = AtomicInteger(0)
-        val downloaded = AtomicLong(0L)
-        val lastTime = AtomicLong(System.currentTimeMillis())
-        val lastBytes = AtomicLong(0L)
+        var downloaded = 0L
+        var lastReport = System.currentTimeMillis()
+        var lastBytes = 0L
 
         try {
-            val jobs = (0 until THREADS).map {
-                async(Dispatchers.IO) {
-                    while (!isCancelled()) {
-                        val i = nextChunk.getAndIncrement()
-                        if (i >= totalChunks) return@async
-                        val start = i.toLong() * CHUNK_SIZE
-                        val end = min(start + CHUNK_SIZE - 1, totalBytes - 1)
-                        val bytes = fetchChunk(url, start, end, isCancelled) ?: return@async
-                        channel.write(ByteBuffer.wrap(bytes), start)
-                        val total = downloaded.addAndGet(bytes.size.toLong())
-                        val now = System.currentTimeMillis()
-                        val elapsed = now - lastTime.get()
-                        val speed = if (elapsed >= 500L) {
-                            val delta = total - lastBytes.get()
-                            val sp = (delta * 1000L) / elapsed
-                            lastBytes.set(total)
-                            lastTime.set(now)
-                            sp
-                        } else 0L
-                        // Прогресс каждый chunk — не по времени
-                        onProgress(total, totalBytes, speed)
-                    }
+            android.util.Log.d("JecWeb", "download: total=$totalBytes chunk=$CHUNK_SIZE buf=$IO_BUFFER")
+
+            while (downloaded < totalBytes && !isCancelled()) {
+                val start = downloaded
+                val end = min(start + CHUNK_SIZE - 1, totalBytes - 1)
+                val expected = (end - start + 1)
+
+                val written = fetchChunk(url, start, end, channel, isCancelled)
+
+                if (written <= 0) {
+                    android.util.Log.e("JecWeb", "chunk $start-$end fail after $MAX_ATTEMPTS attempts → abort")
+                    handle.close()
+                    MediaStoreWriter.delete(ctx, targetUri)
+                    return@withContext false
+                }
+
+                downloaded += written
+
+                if (written < expected) {
+                    android.util.Log.w("JecWeb", "partial $start-$end got $written/$expected")
+                    delay(500)
+                }
+
+                val now = System.currentTimeMillis()
+                if (now - lastReport >= 500L) {
+                    val speed = if (now > lastReport) ((downloaded - lastBytes) * 1000L) / (now - lastReport) else 0L
+                    onProgress(downloaded, totalBytes, speed)
+                    lastReport = now
+                    lastBytes = downloaded
                 }
             }
-            jobs.awaitAll()
-            handle.close()
-            if (isCancelled()) {
+
+            if (downloaded < totalBytes) {
+                android.util.Log.e("JecWeb", "incomplete $downloaded/$totalBytes")
+                handle.close()
                 MediaStoreWriter.delete(ctx, targetUri)
-                false
-            } else {
-                onProgress(downloaded.get(), totalBytes, 0L)
-                MediaStoreWriter.finalizeFile(ctx, targetUri)
-                true
+                return@withContext false
             }
+
+            onProgress(downloaded, totalBytes, 0L)
+            handle.close()
+            MediaStoreWriter.finalizeFile(ctx, targetUri)
+            android.util.Log.d("JecWeb", "download complete: $downloaded/$totalBytes")
+            true
         } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "downloader fail: ${e.message}")
+            android.util.Log.e("JecWeb", "download error: ${e.message}")
             runCatching { handle.close() }
             runCatching { MediaStoreWriter.delete(ctx, targetUri) }
             false
         }
     }
 
-    private suspend fun fetchChunk(url: String, start: Long, end: Long, isCancelled: () -> Boolean): ByteArray? {
-        var attempts = 0
-        while (attempts < 3 && !isCancelled()) {
-            attempts++
+    private suspend fun fetchChunk(
+        url: String,
+        start: Long,
+        end: Long,
+        channel: FileChannel,
+        isCancelled: () -> Boolean
+    ): Long {
+        for (attempt in 1..MAX_ATTEMPTS) {
+            if (isCancelled()) return 0L
             try {
-                val req = Request.Builder().url(url)
-                    .header("Range", "bytes=$start-$end").build()
-                return HttpClient.downloadClient.newCall(req).execute().use { resp ->
+                val req = Request.Builder().url(url).header("Range", "bytes=$start-$end").build()
+                HttpClient.downloadClient.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
-                    resp.body?.bytes() ?: throw RuntimeException("empty body")
+                    val body = resp.body ?: throw RuntimeException("empty body")
+                    val written = body.byteStream().use { input ->
+                        streamToChannel(input, channel, start, isCancelled)
+                    }
+                    if (written > 0) return written
+                    throw RuntimeException("0 bytes")
                 }
             } catch (e: Exception) {
-                if (attempts >= 3) {
-                    android.util.Log.e("JecWeb", "chunk $start-$end failed after 3 attempts: ${e.message}")
-                    return null
-                }
-                delay(2000)
+                android.util.Log.w("JecWeb", "chunk $start-$end a$attempt/$MAX_ATTEMPTS: ${e.message}")
+                if (attempt < MAX_ATTEMPTS) delay(1500)
             }
         }
-        return null
+        return 0L
+    }
+
+    /**
+     * Читает InputStream и пишет в FileChannel с гарантией полной записи (FUSE на Android
+     * может резать write на 1-2 MB). Возвращает реально записанные байты.
+     */
+    private fun streamToChannel(
+        input: InputStream,
+        channel: FileChannel,
+        startPos: Long,
+        isCancelled: () -> Boolean
+    ): Long {
+        val buf = ByteArray(IO_BUFFER)
+        var pos = startPos
+        var written = 0L
+        while (!isCancelled()) {
+            val n = input.read(buf)
+            if (n <= 0) break
+            val bb = ByteBuffer.wrap(buf, 0, n)
+            while (bb.hasRemaining()) {
+                val w = channel.write(bb, pos)
+                if (w < 0) throw RuntimeException("channel write returned -1")
+                pos += w
+                written += w
+            }
+        }
+        return written
     }
 }
