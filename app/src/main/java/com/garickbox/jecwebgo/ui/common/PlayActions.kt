@@ -43,7 +43,7 @@ object PlayActions {
         }
     }
 
-    private fun openVlc(ctx: Context, hash: String, title: String, magnet: String) {
+    private suspend fun openVlc(ctx: Context, hash: String, title: String, magnet: String) {
         PlayLogStore.add(ctx, PlayLogEntry("phone", title, magnet, hash, System.currentTimeMillis()/1000))
         val url = TorrentRepository.streamM3U(hash)
         val vlc = Intent(Intent.ACTION_VIEW).apply {
