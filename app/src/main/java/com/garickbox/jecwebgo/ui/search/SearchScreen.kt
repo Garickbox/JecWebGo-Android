@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import android.widget.Toast
 import androidx.compose.runtime.*
+import android.util.Log
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
@@ -33,10 +34,21 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
     val onPlayPhone: (SearchItem) -> Unit = { it ->
         scope.launch {
             val h = TorrentRepository.add(it.magnet)
-            if (h == null) Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
-            else runCatching {
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TorrentRepository.streamM3U(h))).setType("video/*"))
-            }.onFailure { Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show() }
+            android.util.Log.d("JecWeb", "play_phone hash=$h title=${it.title}")
+            if (h == null) {
+                Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
+            } else {
+                val url = TorrentRepository.streamPlay(h)
+                android.util.Log.d("JecWeb", "play_phone url=$url")
+                val vlc = Intent(Intent.ACTION_VIEW).apply {
+                    setPackage("org.videolan.vlc")
+                    setDataAndType(Uri.parse(url), "video/*")
+                }
+                val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
+                val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
+                         runCatching { ctx.startActivity(generic) }.isSuccess
+                if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     val onPlayTV: (SearchItem) -> Unit = { it ->
