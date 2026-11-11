@@ -50,7 +50,7 @@ data class TorrentItem(
 object DataRepository {
     private const val URL = "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/torrents.json"
     private const val FNAME = "torrents.json"
-    private const val MAX_AGE_MS = 24L * 60 * 60 * 1000  // 24 часа
+    private const val MAX_AGE_MS = 60L * 60 * 1000  // 1 час
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)

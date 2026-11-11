@@ -2,9 +2,11 @@ package com.garickbox.jecwebgo.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -24,25 +26,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.garickbox.jecwebgo.data.model.GroupedTorrent
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import java.net.URLEncoder
 
-private const val CF = "https://ai-jecweb.garickwot.workers.dev"
-
-private fun cleanTitle(raw: String): String {
-    var t = raw.trim()
-    if (t.contains(" / ")) t = t.substringBefore(" / ").trim()
-    val p = t.indexOf(" ("); if (p > 0) t = t.substring(0, p).trim()
-    val b = t.indexOf(" ["); if (b > 0) t = t.substring(0, b).trim()
-    return t.ifBlank { raw }
-}
-
-private fun proxyUrl(poster: String): String {
+private fun posterUrl(poster: String): String {
     if (poster.isBlank()) return ""
     if (poster.startsWith("posters/"))
         return "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/" + poster
-    return "$CF/img?url=" + URLEncoder.encode(poster, "UTF-8")
+    return "https://ai-jecweb.garickwot.workers.dev/img?url=" + URLEncoder.encode(poster, "UTF-8")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +44,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     val s by vm.state.collectAsState()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selected by remember { mutableStateOf<TorrentItem?>(null) }
+    var selected by remember { mutableStateOf<GroupedTorrent?>(null) }
     LaunchedEffect(Unit) { if (s.items.isEmpty() && !s.loading) vm.load() }
 
     Scaffold(
@@ -61,7 +54,8 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
                     Column {
                         Text("Главная", fontWeight = FontWeight.SemiBold)
                         if (s.lastUpdate.isNotEmpty() && s.lastUpdate != "—")
-                            Text("Обновлено: ${s.lastUpdate}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Обновлено: ${s.lastUpdate}  ·  ${s.items.size} фильмов",
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 actions = {
@@ -88,29 +82,34 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
                     modifier = Modifier.fillMaxSize().padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) { items(s.items) { item -> HomeCard(item) { selected = item } } }
+                ) { items(s.items) { g -> GroupCard(g) { selected = g } } }
             }
         }
     }
 
-    selected?.let { it ->
+    selected?.let { g ->
         DetailsDialog(
-            item = it, onClose = { selected = null },
-            onPlayPhone = { PlayActions.playPhone(ctx, scope, it.magnet, it.title); selected = null },
-            onPlayTV = { PlayActions.playTV(ctx, scope, it.magnet, it.title); selected = null },
-            onSearch = { onOpenSearch(cleanTitle(it.title)); selected = null }
+            g = g,
+            onClose = { selected = null },
+            onPlay = { item ->
+                PlayActions.playPhone(ctx, scope, item.magnet, item.title)
+            },
+            onTV = { item ->
+                PlayActions.playTV(ctx, scope, item.magnet, item.title)
+            },
+            onSearch = { onOpenSearch(g.cleanTitle); selected = null }
         )
     }
 }
 
 @Composable
-private fun HomeCard(item: TorrentItem, onClick: () -> Unit) {
+private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
     Card(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
-                val url = proxyUrl(item.poster)
+                val url = posterUrl(g.poster)
                 if (url.isNotBlank()) {
-                    AsyncImage(model = url, contentDescription = item.title,
+                    AsyncImage(model = url, contentDescription = g.cleanTitle,
                         modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
                         contentScale = ContentScale.Crop)
                 } else {
@@ -118,68 +117,117 @@ private fun HomeCard(item: TorrentItem, onClick: () -> Unit) {
                         Text("🎬", fontSize = 32.sp)
                     }
                 }
+                if (g.count > 1) {
+                    Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("${g.count} разд.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             Column(Modifier.padding(8.dp)) {
-                Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2,
+                Text(g.cleanTitle, fontWeight = FontWeight.SemiBold, maxLines = 2,
                     overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.rating > 0.0)
-                        Text("★ %.1f".format(item.rating), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                    if (g.rating > 0.0)
+                        Text("★ %.1f".format(g.rating), fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.weight(1f))
-                    if (item.year.isNotBlank())
-                        Text(item.year, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (g.year.isNotBlank())
+                        Text(g.year, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (item.seeds > 0)
-                    Text("🔼 ${item.seeds}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun DetailsDialog(item: TorrentItem, onClose: () -> Unit,
-    onPlayPhone: () -> Unit, onPlayTV: () -> Unit, onSearch: () -> Unit) {
+private fun DetailsDialog(
+    g: GroupedTorrent,
+    onClose: () -> Unit,
+    onPlay: (TorrentItem) -> Unit,
+    onTV: (TorrentItem) -> Unit,
+    onSearch: () -> Unit
+) {
     Dialog(onDismissRequest = onClose) {
         Card(Modifier.fillMaxWidth().padding(8.dp)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Box(Modifier.fillMaxWidth().height(280.dp)) {
-                    val url = proxyUrl(item.poster)
+                Box(Modifier.fillMaxWidth().height(240.dp)) {
+                    val url = posterUrl(g.poster)
                     if (url.isNotBlank()) {
-                        AsyncImage(model = url, contentDescription = item.title,
+                        AsyncImage(model = url, contentDescription = g.cleanTitle,
                             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     } else {
                         Box(Modifier.fillMaxSize(), Alignment.Center) { Text("🎬", fontSize = 64.sp) }
                     }
                 }
                 Column(Modifier.padding(12.dp)) {
-                    Text(cleanTitle(item.title), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(g.cleanTitle, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (item.rating > 0.0)
-                            Text("★ %.1f".format(item.rating), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                        if (item.year.isNotBlank()) { Spacer(Modifier.width(8.dp)); Text(item.year, fontSize = 12.sp) }
-                        if (item.genre.isNotBlank()) { Spacer(Modifier.width(8.dp)); Text(item.genre, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (g.rating > 0.0)
+                            Text("★ %.1f".format(g.rating), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        if (g.year.isNotBlank()) { Spacer(Modifier.width(8.dp)); Text(g.year, fontSize = 12.sp) }
+                        if (g.genre.isNotBlank()) { Spacer(Modifier.width(8.dp)); Text(g.genre, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                    if (item.description.isNotBlank()) {
+                    if (g.description.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
-                        Text(item.description, fontSize = 12.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                        Text(g.description, fontSize = 12.sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
                     }
-                    if (item.director.isNotBlank()) {
+                    if (g.director.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
-                        Text("Режиссёр: ${item.director}", fontSize = 11.sp)
+                        Text("Режиссёр: ${g.director}", fontSize = 11.sp)
                     }
-                    if (item.actors.isNotBlank())
-                        Text("В ролях: ${item.actors}", fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (g.actors.isNotBlank())
+                        Text("В ролях: ${g.actors}", fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Button(onClick = onPlayPhone, modifier = Modifier.weight(1f)) { Text("▶", fontSize = 16.sp) }
-                        Button(onClick = onPlayTV, modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺", fontSize = 16.sp) }
-                        OutlinedButton(onClick = onSearch, modifier = Modifier.weight(1f)) { Text("🔍", fontSize = 16.sp) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Раздачи (${g.count})", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onSearch) { Text("🔍 Найти свежие") }
                     }
+                    Spacer(Modifier.height(4.dp))
+
+                    g.items.forEach { item ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(buildSpec(item), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text(item.title, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Button(onClick = { onPlay(item); onClose() },
+                                modifier = Modifier.height(36.dp).width(52.dp), contentPadding = PaddingValues(0.dp)) {
+                                Text("▶", fontSize = 14.sp)
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            Button(onClick = { onTV(item); onClose() },
+                                modifier = Modifier.height(36.dp).width(52.dp), contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
+                                Text("📺", fontSize = 14.sp)
+                            }
+                        }
+                        Divider()
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
     }
+}
+
+private fun buildSpec(item: TorrentItem): String {
+    val parts = mutableListOf<String>()
+    val q = extractQuality(item.title)
+    if (q.isNotBlank()) parts.add(q)
+    if (item.size.isNotBlank()) parts.add(item.size)
+    parts.add("🔼 ${item.seeds}")
+    return parts.joinToString(" · ")
+}
+
+private fun extractQuality(title: String): String {
+    val m = Regex("""(2160p|1080p|720p|480p|WEB-?DL|WEB-?Rip|BDRip|HDRip|HDTV|BluRay|4K|UHD|HEVC|AVC)""", RegexOption.IGNORE_CASE).findAll(title)
+        .map { it.value.uppercase() }.take(2).toList()
+    return m.joinToString(" ")
 }
