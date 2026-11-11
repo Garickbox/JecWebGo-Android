@@ -21,7 +21,6 @@ jobs:
           KP_TOKEN: ${{ secrets.KP_TOKEN }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           PAGES: '20'
-          MAX_ENRICH_PER_RUN: '450'
         run: python webgo_parser.py --mode fast
       - name: Publish to data branch
         run: |

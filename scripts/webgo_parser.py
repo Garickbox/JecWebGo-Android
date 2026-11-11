@@ -24,13 +24,13 @@ KP_TOKEN = os.getenv("KP_TOKEN","")
 KP_API_URL = "https://kinopoiskapiunofficial.tech/api/v2.2/films"
 KP_STAFF_URL = "https://kinopoiskapiunofficial.tech/api/v1/staff"
 HEADERS_KP = {"X-API-KEY":KP_TOKEN,"accept":"application/json"}
-DELAY_KP = 0.3
-KP_BATCH_SIZE = 10
+DELAY_KP = 0.05
+KP_BATCH_SIZE = 20
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY","")
 TMDB_BASE = "https://api.themoviedb.org/3"
-TMDB_BATCH_SIZE = 20
-DELAY_TMDB = 0.1
+TMDB_BATCH_SIZE = 30
+DELAY_TMDB = 0.05
 MAX_ENRICH_PER_RUN = int(os.getenv("MAX_ENRICH_PER_RUN","0"))
 
 def load_cache():
@@ -280,20 +280,23 @@ async def run_enrich_kp():
                 no_kp.append(m)
             continue
         need.setdefault(kp,[]).append(m)
-    # Search for kp_id для «Наших»
-    kp_budget = 450 - len(need)
-    if no_kp and kp_budget > 0:
-        print(f"🔍 KP search-by-keyword для {min(len(no_kp), kp_budget)} «Наших»...")
-        import asyncio as _a
+    # Search kp_id для ВСЕХ без kp_id (KP безлимит)
+    if no_kp:
+        print(f"🔍 KP search-by-keyword для {len(no_kp)} без kp_id...")
         async with aiohttp.ClientSession() as _session:
-            for m in no_kp[:kp_budget]:
-                kpid = await kp_search_title(_session, m.get('title', ''))
-                if kpid:
-                    m['kp_id'] = kpid
-                    need.setdefault(kpid, []).append(m)
-        print(f"✅ KP search: {len([m for m in no_kp[:kp_budget] if m.get('kp_id')])} match")
+            sem_s = asyncio.Semaphore(10)
+            async def _search_one(m):
+                async with sem_s:
+                    kpid = await kp_search_title(_session, m.get('title', ''))
+                    if kpid:
+                        m['kp_id'] = kpid
+                        need.setdefault(kpid, []).append(m)
+                        return True
+                    return False
+            results = await asyncio.gather(*[_search_one(m) for m in no_kp])
+            matched = sum(1 for r in results if r)
+            print(f"✅ KP search: {matched}/{len(no_kp)} match")
     pending = [kp for kp,g in need.items() if any(not m.get('genre') or not m.get('poster') or not m.get('director') for m in g)]
-    if MAX_ENRICH_PER_RUN > 0: pending = pending[:MAX_ENRICH_PER_RUN]
     total = len(pending)
     if total == 0: print("ℹ️ Всё обогащено KP."); return
     print(f"📊 KP: {total} (пакеты по {KP_BATCH_SIZE})")
