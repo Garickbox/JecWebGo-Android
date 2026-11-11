@@ -39,6 +39,8 @@ import com.garickbox.jecwebgo.data.download.DownloadRepository
 import com.garickbox.jecwebgo.data.download.DownloadRequest
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import com.garickbox.jecwebgo.ui.common.PlayActions
+import com.garickbox.jecwebgo.util.MagnetUtil
+import com.garickbox.jecwebgo.util.TitleUtil
 import java.net.URLEncoder
 
 private fun posterUrl(poster: String): String {
@@ -205,13 +207,13 @@ private fun DetailsDialog(
             files = filesFor,
             loading = loadingFiles,
             onDismiss = { pickerFor = null },
-            onConfirm = { picked ->
+            onConfirm = { picked: List<TorrentFile> ->
                 picked.forEach { f ->
                     DownloadRepository.enqueue(ctx, DownloadRequest(
-                        hash = hashOf(item.magnet),
+                        hash = MagnetUtil.hashOf(item.magnet),
                         fileIndex = f.id,
                         fileName = f.path.substringAfterLast("/"),
-                        title = cleanTitleStatic(item.title),
+                        title = TitleUtil.cleanTitle(item.title),
                         magnet = item.magnet
                     ))
                 }

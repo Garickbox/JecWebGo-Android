@@ -1,5 +1,6 @@
 package com.garickbox.jecwebgo.ui.download
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,7 +52,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             }
             if (history.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})") }
-                items(history) { h -> HistoryCard(h, fmt) { vm.open(ctx, h.uri) } }
+                items(history) { h -> HistoryCard(h, fmt, onOpen = { vm.open(ctx, h.uri) }) }
             }
             if (active == null && queue.isEmpty() && history.isEmpty()) {
                 item {
