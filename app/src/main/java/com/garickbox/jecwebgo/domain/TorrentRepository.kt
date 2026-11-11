@@ -93,6 +93,27 @@ object TorrentRepository {
         } catch (_: Exception) { null }
     }
 
+    /**
+     * Прогрев торрента БЕЗ &play (низкий приоритет) — раскручивает пиры,
+     * заполняет кэш TorrServer для последующего sequential download.
+     * Параллельные Range-запросы заставляют TorrServer качать с разных пиров.
+     */
+    suspend fun preload(hash: String, totalMB: Int = 50, threads: Int = 6) = withContext(Dispatchers.IO) {
+        val url = "$BASE/stream?link=$hash&index=1"
+        val chunkBytes = (totalMB.coerceIn(10, 200) * 1024L * 1024L) / threads
+        val jobs = (0 until threads).map { i ->
+            kotlinx.coroutines.async(Dispatchers.IO) {
+                try {
+                    val s = i.toLong() * chunkBytes
+                    val e = s + chunkBytes - 1
+                    val r = Request.Builder().url(url).header("Range", "bytes=$s-$e").build()
+                    HttpClient.downloadClient.newCall(r).execute().use { it.body?.bytes() }
+                } catch (_: Exception) {}
+            }
+        }
+        jobs.forEach { it.await() }
+    }
+
     suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 30000L): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         val url = "$BASE/stream?link=$hash&index=$index&play"

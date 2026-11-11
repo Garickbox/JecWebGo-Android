@@ -82,6 +82,13 @@ class DownloadService : Service() {
         android.util.Log.d("JecWeb", "download waitReady=${ready}")
         if (!ready) { DownloadRepository.fail(item, "torrent not ready"); return }
 
+        // 1b. Прогрев TorrServer (50MB × 6 потоков, без &play)
+        //     ускоряет sequential download — TorrServer качает с пиров параллельно
+        CoroutineScope(Dispatchers.IO).launch {
+            TorrentRepository.preload(item.request.hash, 50, 6)
+            android.util.Log.d("JecWeb", "preload done: 50MB")
+        }
+
         // 2. Размер: из request (getFiles) или fallback на HEAD
         var totalBytes = item.request.totalBytes
         if (totalBytes <= 0) {
