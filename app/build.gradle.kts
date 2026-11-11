@@ -14,7 +14,7 @@ android {
         versionName = "0.1-mvp"
     }
     signingConfigs {
-        create("debug") {
+        getByName("debug") {
             storeFile = file("debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
