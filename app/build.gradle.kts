@@ -8,17 +8,14 @@ android {
     compileSdk = 34
     defaultConfig {
         applicationId = "com.garickbox.jecwebgo"
-        minSdk = 26
-        targetSdk = 34
+        minSdk = 26; targetSdk = 34
         versionCode = ((System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt())
-        versionName = "0.1-mvp"
+        versionName = "0.2-mvp"
     }
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android"
         }
     }
     buildTypes {
@@ -27,21 +24,22 @@ android {
     }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { buildConfig = true }
-    packaging { jniLibs { useLegacyPackaging = true } }
+    buildFeatures { compose = true; buildConfig = true }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 }
 dependencies {
+    val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation("androidx.navigation:navigation-compose:2.8.2")
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jsoup:jsoup:1.18.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("io.ktor:ktor-server-core:2.3.12")
-    implementation("io.ktor:ktor-server-cio:2.3.12")
-    implementation("io.ktor:ktor-server-content-negotiation:2.3.12")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
-    implementation("io.ktor:ktor-server-call-logging:2.3.12")
-    implementation("io.ktor:ktor-client-core:2.3.12")
-    implementation("io.ktor:ktor-client-okhttp:2.3.12")
-    implementation("org.mindrot:jbcrypt:0.4")
 }
