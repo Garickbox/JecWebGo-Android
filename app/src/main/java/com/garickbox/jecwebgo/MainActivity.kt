@@ -1,6 +1,9 @@
 package com.garickbox.jecwebgo
 
 import android.os.Bundle
+import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
+import android.net.Uri
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -38,11 +41,22 @@ val tabs = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+    private var handoffMagnet by mutableStateOf<String?>(null)
+    private var handoffTorrent by mutableStateOf<ByteArray?>(null)
+    private var handoffTitle by mutableStateOf("")
+
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         TorrServerService.start(this)
+        handleIntent(intent)
         setContent {
             JecWebTheme {
+                HandoffDialog(
+                    magnet = handoffMagnet,
+                    torrentBytes = handoffTorrent,
+                    title = handoffTitle,
+                    onDismiss = { handoffMagnet = null; handoffTorrent = null; handoffTitle = "" }
+                )
                 val nav = rememberNavController()
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"
@@ -83,5 +97,31 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        val scheme = data.scheme ?: return
+        if (scheme == "magnet") {
+            val dn = data.getQueryParameter("dn") ?: "Magnet"
+            handoffMagnet = data.toString()
+            handoffTorrent = null
+            handoffTitle = dn
+            return
+        }
+        if ((scheme == "content" || scheme == "file") && intent.type == "application/x-bittorrent") {
+            try {
+                val bytes = contentResolver.openInputStream(data)?.use { it.readBytes() } ?: return
+                handoffMagnet = null
+                handoffTorrent = bytes
+                handoffTitle = data.lastPathSegment?.removeSuffix(".torrent") ?: "Torrent"
+            } catch (_: Exception) {}
+        }
+    }
     }
 }

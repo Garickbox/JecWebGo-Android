@@ -56,6 +56,29 @@ object PlayActions {
         }
     }
 
+    fun playHash(ctx: Context, scope: CoroutineScope, hash: String, title: String) {
+        scope.launch {
+            val p = paramsFor(ctx)
+            Toast.makeText(ctx, "Загрузка торрента… (${p.preloadMB}MB × ${p.threads})", Toast.LENGTH_SHORT).show()
+            CoroutineScope(Dispatchers.IO).launch { TorrentRepository.preload(hash, p.preloadMB, p.threads) }
+            PlayLogStore.add(ctx, PlayLogEntry("phone", title, "", hash, System.currentTimeMillis()/1000))
+            val ready = TorrentRepository.waitReady(hash, 15000L)
+            if (!ready) {
+                Toast.makeText(ctx, "Торрент не готов за 15с", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val url = TorrentRepository.streamM3U(hash)
+            val vlc = Intent(Intent.ACTION_VIEW).apply {
+                setPackage("org.videolan.vlc")
+                setDataAndType(Uri.parse(url), "video/x-mpegurl")
+            }
+            val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
+            val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
+                     runCatching { ctx.startActivity(generic) }.isSuccess
+            if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun playTV(ctx: Context, scope: CoroutineScope, magnet: String, title: String) {
         scope.launch {
             val s = SettingsStore.load(ctx)

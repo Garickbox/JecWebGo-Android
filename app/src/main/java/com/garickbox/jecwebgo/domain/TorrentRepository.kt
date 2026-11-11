@@ -31,6 +31,17 @@ object TorrentRepository {
         } catch (e: Exception) { null }
     }
 
+    suspend fun addTorrentBase64(b64: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val b = buildJsonObject {
+                put("action", "add")
+                put("torrent", b64)
+                put("save_to_db", true)
+            }.toString()
+            json.parseToJsonElement(post(b)).jsonObject["hash"]?.jsonPrimitive?.contentOrNull
+        } catch (e: Exception) { null }
+    }
+
     suspend fun list(): JsonArray = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject { put("action","list") }.toString()
