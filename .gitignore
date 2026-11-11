@@ -1,0 +1,5 @@
+scripts/torrents.json
+scripts/api_cache.json
+scripts/enrich_state_kp.json
+scripts/enrich_state_tmdb.json
+scripts/__pycache__/

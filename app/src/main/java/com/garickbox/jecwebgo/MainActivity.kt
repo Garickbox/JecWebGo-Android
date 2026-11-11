@@ -23,10 +23,12 @@ import com.garickbox.jecwebgo.ui.settings.SettingsScreen
 import com.garickbox.jecwebgo.ui.placeholders.MagnetsScreen
 import com.garickbox.jecwebgo.ui.status.StatusBar
 import com.garickbox.jecwebgo.ui.search.SearchScreen
+import com.garickbox.jecwebgo.ui.home.HomeScreen
 import com.garickbox.jecwebgo.ui.theme.JecWebTheme
 
 data class Tab(val route: String, val label: String, val icon: ImageVector)
 val tabs = listOf(
+    Tab("home", "Главная", Icons.Filled.Home),
     Tab("search", "Поиск", Icons.Filled.Search),
     Tab("bookmarks", "Закладки", Icons.Filled.Star),
     Tab("history", "История", Icons.Filled.History),
@@ -42,7 +44,8 @@ class MainActivity : ComponentActivity() {
             JecWebTheme {
                 val nav = rememberNavController()
                 val entry by nav.currentBackStackEntryAsState()
-                val current = entry?.destination?.route ?: "search"
+                val current = entry?.destination?.route ?: "home"
+                var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(bottomBar = {
                     NavigationBar {
                         tabs.forEach { t ->
@@ -50,7 +53,7 @@ class MainActivity : ComponentActivity() {
                                 selected = current == t.route,
                                 onClick = {
                                     if (current != t.route) nav.navigate(t.route) {
-                                        popUpTo("search"); launchSingleTop = true
+                                        popUpTo("home"); launchSingleTop = true
                                     }
                                 },
                                 icon = { Icon(t.icon, t.label) },
@@ -61,8 +64,15 @@ class MainActivity : ComponentActivity() {
                 }) { pad ->
                     Column(Modifier.fillMaxSize().padding(pad)) {
                     StatusBar()
-                    NavHost(nav, "search", Modifier.fillMaxSize()) {
-                        composable("search") { SearchScreen() }
+                    NavHost(nav, "home", Modifier.fillMaxSize()) {
+                        composable("home") { HomeScreen(onOpenSearch = { q ->
+                            pendingSearch = q
+                            nav.navigate("search") { popUpTo("search"); launchSingleTop = true }
+                        }) }
+                        composable("search") { SearchScreen(
+                            pendingQuery = pendingSearch,
+                            onQueryConsumed = { pendingSearch = null }
+                        ) }
                         composable("bookmarks") { BookmarksScreen() }
                         composable("history") { HistoryScreen() }
                         composable("magnets") { MagnetsScreen() }

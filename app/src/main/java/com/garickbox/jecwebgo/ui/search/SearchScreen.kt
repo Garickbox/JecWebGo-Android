@@ -30,8 +30,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.domain.model.SearchItem
 @Composable
-fun SearchScreen(vm: SearchViewModel = viewModel()) {
+fun SearchScreen(
+    pendingQuery: String? = null,
+    onQueryConsumed: () -> Unit = {},
+    vm: SearchViewModel = viewModel()
+) {
     val s by vm.state.collectAsState()
+    LaunchedEffect(pendingQuery) {
+        pendingQuery?.let {
+            vm.onQuery(it)
+            vm.search()
+            onQueryConsumed()
+        }
+    }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var showAi by remember { mutableStateOf(false) }
