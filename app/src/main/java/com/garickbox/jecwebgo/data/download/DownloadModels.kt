@@ -5,7 +5,8 @@ data class DownloadRequest(
     val fileIndex: Int,
     val fileName: String,
     val title: String,
-    val magnet: String
+    val magnet: String,
+    val totalBytes: Long = 0L
 )
 
 data class DownloadItem(

@@ -215,7 +215,8 @@ private fun DetailsDialog(
                         fileIndex = f.id,
                         fileName = f.path.substringAfterLast("/"),
                         title = TitleUtil.cleanTitle(item.title),
-                        magnet = item.magnet
+                        magnet = item.magnet,
+                        totalBytes = f.length
                     ))
                 }
                 android.widget.Toast.makeText(ctx, "В очередь: ${picked.size}", android.widget.Toast.LENGTH_SHORT).show()

@@ -52,7 +52,8 @@ fun HandoffDialog(
                         fileIndex = f.id,
                         fileName = f.path.substringAfterLast("/"),
                         title = TitleUtil.cleanTitle(title),
-                        magnet = magnet ?: ""
+                        magnet = magnet ?: "",
+                        totalBytes = f.length
                     ))
                 }
                 Toast.makeText(ctx, "В очередь: ${picked.size}", Toast.LENGTH_SHORT).show()

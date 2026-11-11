@@ -61,6 +61,19 @@ object TorrentRepository {
         } catch (_: Exception) { null }
     }
 
+    suspend fun pickBestHash(): String? = withContext(Dispatchers.IO) {
+        try {
+            val arr = list()
+            arr.mapNotNull { it.jsonObject }
+               .filter { o ->
+                   val stat = o["stat"]?.jsonPrimitive?.intOrNull ?: 0
+                   stat == 3 || stat == 5
+               }
+               .maxByOrNull { it["file_size"]?.jsonPrimitive?.longOrNull ?: 0L }
+               ?.get("hash")?.jsonPrimitive?.contentOrNull
+        } catch (_: Exception) { null }
+    }
+
     suspend fun get(hash: String): JsonObject? = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject { put("action","get"); put("hash",hash) }.toString()
@@ -165,14 +178,16 @@ object TorrentRepository {
         jobs.awaitAll()
     }
 
-    suspend fun waitReady(hash: String, timeoutMs: Long = 15000L): Boolean = withContext(Dispatchers.IO) {
+    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 30000L): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
-        val url = "$BASE/stream?link=$hash&index=1&play"
-        val req0 = Request.Builder().url(url).head().build()
+        val url = "$BASE/stream?link=$hash&index=$index&play"
         while (System.currentTimeMillis() < deadline) {
             try {
-                val code = HttpClient.client.newCall(req0).execute().use { it.code }
-                if (code in 200..299) return@withContext true
+                val req = Request.Builder().url(url).head().build()
+                val (code, len) = HttpClient.client.newCall(req).execute().use {
+                    Pair(it.code, it.header("Content-Length")?.toLongOrNull() ?: 0L)
+                }
+                if (code in 200..299 && len > 0) return@withContext true
             } catch (_: Exception) {}
             Thread.sleep(2000)
         }

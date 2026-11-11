@@ -8,6 +8,7 @@ import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.nio.ByteBuffer
@@ -17,8 +18,8 @@ import kotlin.math.min
 
 @RequiresApi(Build.VERSION_CODES.Q)
 object TorrentDownloader {
-    private const val THREADS = 6
-    private const val CHUNK_SIZE = 8L * 1024 * 1024
+    private const val THREADS = 10
+    private const val CHUNK_SIZE = 4L * 1024 * 1024
 
     suspend fun download(
         ctx: Context,
@@ -26,7 +27,7 @@ object TorrentDownloader {
         fileIndex: Int,
         targetUri: Uri,
         totalBytes: Long,
-        onProgress: (downloaded: Long, speedBps: Long) -> Unit,
+        onProgress: (downloaded: Long, total: Long, speedBps: Long) -> Unit,
         isCancelled: () -> Boolean
     ): Boolean = withContext(Dispatchers.IO) {
         val handle = MediaStoreWriter.openChannel(ctx, targetUri) ?: return@withContext false
@@ -46,23 +47,20 @@ object TorrentDownloader {
                         if (i >= totalChunks) return@async
                         val start = i.toLong() * CHUNK_SIZE
                         val end = min(start + CHUNK_SIZE - 1, totalBytes - 1)
-                        val req = Request.Builder().url(url)
-                            .header("Range", "bytes=$start-$end").build()
-                        val bytes = HttpClient.client.newCall(req).execute().use { resp ->
-                            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
-                            resp.body?.bytes() ?: throw RuntimeException("empty body")
-                        }
+                        val bytes = fetchChunk(url, start, end, isCancelled) ?: return@async
                         channel.write(ByteBuffer.wrap(bytes), start)
-                        val now = System.currentTimeMillis()
                         val total = downloaded.addAndGet(bytes.size.toLong())
+                        val now = System.currentTimeMillis()
                         val elapsed = now - lastTime.get()
-                        if (elapsed >= 1000L) {
+                        val speed = if (elapsed >= 500L) {
                             val delta = total - lastBytes.get()
-                            val speed = (delta * 1000L) / elapsed
+                            val sp = (delta * 1000L) / elapsed
                             lastBytes.set(total)
                             lastTime.set(now)
-                            onProgress(total, speed)
-                        }
+                            sp
+                        } else 0L
+                        // Прогресс каждый chunk — не по времени
+                        onProgress(total, totalBytes, speed)
                     }
                 }
             }
@@ -72,14 +70,37 @@ object TorrentDownloader {
                 MediaStoreWriter.delete(ctx, targetUri)
                 false
             } else {
-                onProgress(downloaded.get(), 0L)
+                onProgress(downloaded.get(), totalBytes, 0L)
                 MediaStoreWriter.finalizeFile(ctx, targetUri)
                 true
             }
         } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "downloader fail: ${e.message}")
             runCatching { handle.close() }
             runCatching { MediaStoreWriter.delete(ctx, targetUri) }
             false
         }
+    }
+
+    private suspend fun fetchChunk(url: String, start: Long, end: Long, isCancelled: () -> Boolean): ByteArray? {
+        var attempts = 0
+        while (attempts < 3 && !isCancelled()) {
+            attempts++
+            try {
+                val req = Request.Builder().url(url)
+                    .header("Range", "bytes=$start-$end").build()
+                return HttpClient.downloadClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+                    resp.body?.bytes() ?: throw RuntimeException("empty body")
+                }
+            } catch (e: Exception) {
+                if (attempts >= 3) {
+                    android.util.Log.e("JecWeb", "chunk $start-$end failed after 3 attempts: ${e.message}")
+                    return null
+                }
+                delay(2000)
+            }
+        }
+        return null
     }
 }

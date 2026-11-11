@@ -67,7 +67,7 @@ fun SettingsScreen() {
                 if (measuring) return@Button
                 measuring = true
                 scope.launch {
-                    val activeHash = TorrentRepository.firstHash()
+                    val activeHash = TorrentRepository.pickBestHash()
                     if (activeHash == null) {
                         Toast.makeText(ctx, "Запустите любой фильм для замера", Toast.LENGTH_LONG).show()
                         measuring = false

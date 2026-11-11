@@ -75,15 +75,28 @@ class DownloadService : Service() {
     @RequiresApi(Build.VERSION_CODES.Q)
     private suspend fun process(item: DownloadItem) {
         cancelled = false
+        android.util.Log.d("JecWeb", "download start: ${item.request.fileName} idx=${item.request.fileIndex}")
+
+        // 1. Ждём готовности стрима (правильный index)
+        val ready = TorrentRepository.waitReady(item.request.hash, item.request.fileIndex, 30000L)
+        android.util.Log.d("JecWeb", "download waitReady=${ready}")
+        if (!ready) { DownloadRepository.fail(item, "torrent not ready"); return }
+
+        // 2. Размер: из request (getFiles) или fallback на HEAD
+        var totalBytes = item.request.totalBytes
+        if (totalBytes <= 0) {
+            totalBytes = getFileSize(item.request.hash, item.request.fileIndex)
+            android.util.Log.d("JecWeb", "download size fallback HEAD=$totalBytes")
+        }
+        if (totalBytes <= 0) { DownloadRepository.fail(item, "size 0"); return }
+        DownloadRepository.setTotal(totalBytes)
+
+        // 3. Создать файл
         val safeName = sanitize(item.request.fileName)
         val uri = MediaStoreWriter.createFile(this, safeName)
         if (uri == null) { DownloadRepository.fail(item, "create fail"); return }
-        val totalBytes = getFileSize(item.request.hash, item.request.fileIndex)
-        if (totalBytes <= 0) {
-            MediaStoreWriter.delete(this, uri)
-            DownloadRepository.fail(item, "size 0")
-            return
-        }
+
+        // 4. Скачать
         updateNotif(item, 0L, totalBytes)
         val ok = TorrentDownloader.download(
             ctx = this,
@@ -91,9 +104,9 @@ class DownloadService : Service() {
             fileIndex = item.request.fileIndex,
             targetUri = uri,
             totalBytes = totalBytes,
-            onProgress = { dl, sp ->
-                DownloadRepository.updateProgress(dl, sp)
-                updateNotif(item, dl, totalBytes)
+            onProgress = { dl, total, sp ->
+                DownloadRepository.updateProgress(dl, total, sp)
+                updateNotif(item, dl, total)
             },
             isCancelled = { cancelled }
         )
@@ -101,6 +114,7 @@ class DownloadService : Service() {
             DownloadRepository.complete(item, uri.toString(), totalBytes)
             runCatching { TorrentRepository.rem(item.request.hash) }
             updateNotif(item, totalBytes, totalBytes)
+            android.util.Log.d("JecWeb", "download complete: ${item.request.fileName}")
         } else {
             DownloadRepository.fail(item, "cancelled/failed")
         }

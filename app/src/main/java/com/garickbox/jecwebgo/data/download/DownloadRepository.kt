@@ -19,7 +19,7 @@ object DownloadRepository {
 
     fun enqueue(ctx: Context, request: DownloadRequest): String {
         val id = UUID.randomUUID().toString()
-        _queue.value = _queue.value + DownloadItem(id = id, request = request)
+        _queue.value = _queue.value + DownloadItem(id = id, request = request, totalBytes = request.totalBytes)
         DownloadService.start(ctx)
         return id
     }
@@ -27,14 +27,23 @@ object DownloadRepository {
     fun next(): DownloadItem? {
         val n = _queue.value.firstOrNull() ?: return null
         _queue.value = _queue.value.drop(1)
-        val item = n.copy(status = DownloadItem.Status.ACTIVE)
+        val item = n.copy(status = DownloadItem.Status.ACTIVE, totalBytes = n.request.totalBytes)
         _active.value = item
         return item
     }
 
-    fun updateProgress(downloaded: Long, speed: Long) {
+    fun setTotal(total: Long) {
         val cur = _active.value ?: return
-        _active.value = cur.copy(downloadedBytes = downloaded, speedBps = speed)
+        _active.value = cur.copy(totalBytes = total)
+    }
+
+    fun updateProgress(downloaded: Long, total: Long, speed: Long) {
+        val cur = _active.value ?: return
+        _active.value = cur.copy(
+            downloadedBytes = downloaded,
+            totalBytes = if (total > 0) total else cur.totalBytes,
+            speedBps = speed
+        )
     }
 
     fun complete(item: DownloadItem, uri: String, size: Long) {
@@ -53,5 +62,6 @@ object DownloadRepository {
 
     fun fail(item: DownloadItem, error: String) {
         _active.value = null
+        android.util.Log.e("JecWeb", "download fail: ${item.request.fileName} — $error")
     }
 }
