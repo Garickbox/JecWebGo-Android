@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -30,7 +31,7 @@ data class Tab(val route: String, val label: String, val icon: ImageVector)
 val tabs = listOf(
     Tab("home", "Главная", Icons.Filled.Home),
     Tab("search", "Поиск", Icons.Filled.Search),
-    Tab("bookmarks", "Закладки", Icons.Filled.Star),
+    Tab("bookmarks", "Метки", Icons.Filled.Star),
     Tab("history", "История", Icons.Filled.History),
     Tab("magnets", "Магниты", Icons.Filled.Download),
     Tab("settings", "Настройки", Icons.Filled.Settings)
@@ -57,7 +58,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 icon = { Icon(t.icon, t.label) },
-                                label = { Text(t.label) }
+                                label = { Text(t.label, maxLines = 1, softWrap = false, fontSize = 10.sp) }
                             )
                         }
                     }
