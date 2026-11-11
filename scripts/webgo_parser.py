@@ -413,7 +413,6 @@ async def run_enrich_tmdb():
         if imdb or title:
             if any(not m.get('description') or not m.get('actors') for m in group):
                 pending.append((gid,imdb,title))
-    if MAX_ENRICH_PER_RUN > 0: pending = pending[:MAX_ENRICH_PER_RUN]
     total = len(pending)
     if total == 0: print("ℹ️ Всё обогащено TMDB."); return
     print(f"📊 TMDB: {total} (пакеты по {TMDB_BATCH_SIZE})")
