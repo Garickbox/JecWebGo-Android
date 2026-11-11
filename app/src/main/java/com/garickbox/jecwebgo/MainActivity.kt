@@ -1,12 +1,10 @@
 package com.garickbox.jecwebgo
 
-import android.os.Bundle
-import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
-import android.net.Uri
 import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -14,20 +12,21 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.sp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.garickbox.jecwebgo.service.TorrServerService
 import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
-import com.garickbox.jecwebgo.ui.history.HistoryScreen
-import com.garickbox.jecwebgo.ui.settings.SettingsScreen
 import com.garickbox.jecwebgo.ui.download.DownloadScreen
-import com.garickbox.jecwebgo.ui.status.StatusBar
-import com.garickbox.jecwebgo.ui.search.SearchScreen
+import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
+import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
+import com.garickbox.jecwebgo.ui.search.SearchScreen
+import com.garickbox.jecwebgo.ui.settings.SettingsScreen
+import com.garickbox.jecwebgo.ui.status.StatusBar
 import com.garickbox.jecwebgo.ui.theme.JecWebTheme
 
 data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -77,26 +76,29 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }) { pad ->
-                    Column(Modifier.fillMaxSize().padding(pad)) {
-                    StatusBar()
-                    NavHost(nav, "home", Modifier.fillMaxSize()) {
-                        composable("home") { HomeScreen(onOpenSearch = { q ->
-                            pendingSearch = q
-                            nav.navigate("search") { popUpTo("search"); launchSingleTop = true }
-                        }) }
-                        composable("search") { SearchScreen(
-                            pendingQuery = pendingSearch,
-                            onQueryConsumed = { pendingSearch = null }
-                        ) }
-                        composable("bookmarks") { BookmarksScreen() }
-                        composable("history") { HistoryScreen() }
-                        composable("downloads") { DownloadScreen() }
-                        composable("settings") { SettingsScreen() }
-                    }
+                    androidx.compose.foundation.layout.Column(
+                        Modifier.padding(pad).fillMaxSize()
+                    ) {
+                        StatusBar()
+                        NavHost(nav, "home", Modifier.fillMaxSize()) {
+                            composable("home") { HomeScreen(onOpenSearch = { q ->
+                                pendingSearch = q
+                                nav.navigate("search") { popUpTo("search"); launchSingleTop = true }
+                            }) }
+                            composable("search") { SearchScreen(
+                                pendingQuery = pendingSearch,
+                                onQueryConsumed = { pendingSearch = null }
+                            ) }
+                            composable("bookmarks") { BookmarksScreen() }
+                            composable("history") { HistoryScreen() }
+                            composable("downloads") { DownloadScreen() }
+                            composable("settings") { SettingsScreen() }
+                        }
                     }
                 }
             }
         }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -122,6 +124,5 @@ class MainActivity : ComponentActivity() {
                 handoffTitle = data.lastPathSegment?.removeSuffix(".torrent") ?: "Torrent"
             } catch (_: Exception) {}
         }
-    }
     }
 }
