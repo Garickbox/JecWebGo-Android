@@ -1,0 +1,194 @@
+(function() {
+const J = window.JecWeb;
+
+J.resetPlayerFade = function() {
+    const statusEl = document.getElementById('playerTorrentStatus');
+    const dot = document.getElementById('playerStatusDot');
+    if (statusEl) {
+        statusEl.classList.remove('fade-out');
+        if (dot) dot.style.display = 'none';
+    }
+    if (J.playerFadeTimer) clearTimeout(J.playerFadeTimer);
+    J.playerFadeTimer = setTimeout(() => {
+        if (statusEl) statusEl.classList.add('fade-out');
+        if (dot && J.lastPhoneHash) dot.style.display = 'block';
+    }, 4000);
+};
+
+function openWebPlayer(url) {
+    const playerModal = document.getElementById('playerModal');
+    const player = document.getElementById('player');
+    const statusEl = document.getElementById('playerTorrentStatus');
+    const dot = document.getElementById('playerStatusDot');
+
+    player.src = url;
+    playerModal.classList.add('active');
+    player.load();
+    player.play().catch(() => {});
+
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.classList.remove('fade-out');
+        statusEl.innerHTML = `
+            <div class="ps-compact" id="psCompact">
+                <span id="psSpeed">⬇ ? KB/s</span>
+                <span id="psPercent">0%</span>
+                <span id="psPeers">📶 0/0</span>
+                <span id="psSize">💾 0 GB / ?</span>
+                <span id="psSuperblitz" style="display:none;"></span>
+            </div>
+            <div class="ps-progress"><span id="psProgressBar" style="width:0%"></span></div>
+        `;
+    }
+    if (dot) dot.style.display = 'none';
+
+    playerModal.addEventListener('mousemove', J.resetPlayerFade);
+    playerModal.addEventListener('touchmove', J.resetPlayerFade);
+    playerModal.addEventListener('click', J.resetPlayerFade);
+    J.resetPlayerFade();
+
+    function subscribe() {
+        if (J.lastPhoneHash && J.ws && J.ws.readyState === WebSocket.OPEN) {
+            J.ws.send(JSON.stringify({action:'subscribe', hash: J.lastPhoneHash, ip:'127.0.0.1'}));
+        } else {
+            setTimeout(subscribe, 500);
+        }
+    }
+    subscribe();
+}
+
+J.openPlayer = function(url) {
+    if (url && url.startsWith('http')) {
+        var intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=http;package=org.videolan.vlc;end';
+        window.location.href = intentUrl;
+        setTimeout(function() {
+            if (document.hasFocus()) {
+                openWebPlayer(url);
+            }
+        }, 2000);
+    } else {
+        openWebPlayer(url);
+    }
+};
+
+J.updatePlayerUI = function(data) {
+    const speed = document.getElementById('psSpeed');
+    const percent = document.getElementById('psPercent');
+    const peers = document.getElementById('psPeers');
+    const size = document.getElementById('psSize');
+    const sb = document.getElementById('psSuperblitz');
+    if (!speed || !percent || !peers || !size) return;
+
+    const pct = parseFloat(data.percent) || 0;
+    speed.textContent = '⬇ ' + (data.down_speed || '0 KB/s');
+    percent.textContent = pct.toFixed(1) + '%';
+    peers.textContent = '📶 ' + (data.seeds || 0) + '/' + (data.peers || 0);
+    size.textContent = '💾 ' + (data.size_done || '?') + ' / ' + (data.size_total || '?');
+    sb.style.display = 'none';
+
+    const bar = document.getElementById('psProgressBar');
+    if (bar) bar.style.width = pct + '%';
+};
+
+J.updateSuperblitzUI = function(data) {
+    const sb = document.getElementById('psSuperblitz');
+    const bar = document.getElementById('psProgressBar');
+    if (!sb || !bar) return;
+
+    if (data.superblitz_done) {
+        sb.style.display = 'inline';
+        sb.textContent = '✓ Предзагрузка';
+        bar.style.width = '100%';
+        setTimeout(() => { sb.style.display = 'none'; bar.style.width = '0%'; }, 3000);
+    } else if (data.superblitz_progress) {
+        const pct = parseFloat(data.superblitz_progress).toFixed(0);
+        sb.style.display = 'inline';
+        sb.textContent = 'SB: ' + pct + '%';
+        bar.style.width = pct + '%';
+    }
+};
+
+J.closePlayer = function() {
+    const playerModal = document.getElementById('playerModal');
+    const player = document.getElementById('player');
+    const statusEl = document.getElementById('playerTorrentStatus');
+    const dot = document.getElementById('playerStatusDot');
+
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+    playerModal.classList.remove('active');
+
+    if (J.playerFadeTimer) clearTimeout(J.playerFadeTimer);
+    if (statusEl) {
+        statusEl.style.display = 'none';
+        statusEl.innerHTML = '';
+        statusEl.classList.remove('fade-out');
+    }
+    if (dot) dot.style.display = 'none';
+
+    playerModal.removeEventListener('mousemove', J.resetPlayerFade);
+    playerModal.removeEventListener('touchmove', J.resetPlayerFade);
+
+    if (J.lastPhoneHash && J.ws && J.ws.readyState === WebSocket.OPEN) {
+        J.ws.send(JSON.stringify({action:'unsubscribe', hash: J.lastPhoneHash, ip:'127.0.0.1'}));
+    }
+    if (J.lastPhoneHash) stopHash(J.lastPhoneHash);
+
+    if (J.pendingStatus && typeof J.updateStatus === 'function') {
+        J.updateStatus(J.pendingStatus);
+        J.pendingStatus = null;
+    }
+};
+
+const playerModal = document.getElementById('playerModal');
+let touchStartX = 0, touchStartY = 0, closePanelTimer = null;
+
+function showCloseHint() {
+    let hint = document.getElementById('closeHint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'closeHint';
+        hint.className = 'close-hint';
+        hint.innerHTML = '<span>← Смахните, чтобы закрыть →</span>';
+        playerModal.appendChild(hint);
+    }
+    hint.classList.add('visible');
+    clearTimeout(closePanelTimer);
+    closePanelTimer = setTimeout(() => hint.classList.remove('visible'), 2000);
+}
+
+playerModal.addEventListener('touchstart', function(e) {
+    if (e.target !== playerModal) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    showCloseHint();
+});
+
+playerModal.addEventListener('touchmove', function(e) {
+    if (e.target !== playerModal) return;
+    const deltaX = e.touches[0].clientX - touchStartX;
+    const hint = document.getElementById('closeHint');
+    if (hint) {
+        hint.style.transform = `translateX(${deltaX}px)`;
+        hint.style.opacity = Math.max(0, 1 - Math.abs(deltaX) / 200);
+    }
+});
+
+playerModal.addEventListener('touchend', function(e) {
+    if (e.target !== playerModal) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX;
+    const deltaY = e.changedTouches[0].clientY - touchStartY;
+    const hint = document.getElementById('closeHint');
+    if (hint) {
+        hint.style.transform = '';
+        hint.style.opacity = '';
+        hint.classList.remove('visible');
+    }
+    if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        J.closePlayer();
+    }
+});
+
+document.getElementById('closePlayerBtn').addEventListener('click', J.closePlayer);
+})();
