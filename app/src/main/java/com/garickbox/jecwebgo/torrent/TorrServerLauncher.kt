@@ -19,7 +19,7 @@ object TorrServerLauncher {
             pb.environment()["HOME"] = ctx.filesDir.absolutePath
             pb.environment()["TORRSERVER_PORT"] = "8090"
             proc = pb.start()
-            Log.i(TAG, "started pid=${proc?.pid()}")
+            Log.i(TAG, "started")
         } catch (e: Exception) {
             Log.e(TAG, "start fail: ${e.message}")
         }
