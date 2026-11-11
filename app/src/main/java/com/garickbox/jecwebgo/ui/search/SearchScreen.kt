@@ -38,7 +38,7 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
         Spacer(Modifier.height(8.dp))
         when {
             s.loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) { CircularProgressIndicator() }
-            s.error != null -> Text("Ошибка: ${s.error}", color = MaterialTheme.colorScheme.error, Modifier.padding(12.dp))
+            s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(s.items) { item -> SearchCard(item) }
