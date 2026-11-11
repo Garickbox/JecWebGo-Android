@@ -55,6 +55,15 @@ object DataRepository {
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val req = chain.request()
+            val resp = chain.proceed(req)
+            if (req.url.toString().contains("/data/posters/")) {
+                resp.newBuilder()
+                    .header("Cache-Control", "public, max-age=2592000")
+                    .build()
+            } else resp
+        }
         .build()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 

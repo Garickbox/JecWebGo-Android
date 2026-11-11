@@ -101,12 +101,13 @@ async def parse_topic(session,url):
         html = await fetch_page(session,url,retries=2)
         if not html: return details
         soup = BeautifulSoup(html,'html.parser')
-        imdb = soup.find('a',href=re.compile(r'imdb\.com/title/tt(\d+)'))
+        scope = soup.find('table', id='details') or soup.find('div', class_='movie-info') or soup
+        imdb = scope.find('a', href=re.compile(r'imdb\.com/title/tt(\d+)'))
         if imdb:
-            details['imdb_id'] = re.search(r'tt(\d+)',imdb['href']).group(1)
-        kp = soup.find('a',href=re.compile(r'kinopoisk\.ru/film/(\d+)'))
+            details['imdb_id'] = re.search(r'tt(\d+)', imdb['href']).group(1)
+        kp = scope.find('a', href=re.compile(r'kinopoisk\.ru/film/(\d+)'))
         if kp:
-            details['kp_id'] = re.search(r'/film/(\d+)',kp['href']).group(1)
+            details['kp_id'] = re.search(r'/film/(\d+)', kp['href']).group(1)
     except:
         pass
     return details
@@ -166,7 +167,9 @@ async def process_section(session,cat_id,cat_name,existing_map):
                         imdb_id = details.get('imdb_id')
                         kp_id = details.get('kp_id')
                         if not imdb_id and not kp_id: return None
-                        return {"title":t,"size":sz,"seeds":s,"magnet":m,"poster":"","rating":"","genre":"","year":"","url":tu,"category":cat,"leeches":le,"description":"","imdb_id":imdb_id or "","kp_id":kp_id or "","source":"RuTor"}
+                        ym = re.search(r'\((\d{4})\)', t)
+                        rutor_year = ym.group(1) if ym else ""
+                        return {"title":t,"size":sz,"seeds":s,"magnet":m,"poster":"","rating":"","genre":"","year":"","url":tu,"category":cat,"leeches":le,"description":"","imdb_id":imdb_id or "","kp_id":kp_id or "","source":"RuTor","_rutor_year":rutor_year}
                 tasks.append(bound())
             except Exception:
                 pass
@@ -273,7 +276,14 @@ async def run_enrich_kp():
             for kp_id,fields in results.items():
                 if kp_id in need:
                     updated = 0
+                    kp_year = fields.get('year', '')
                     for m in need[kp_id]:
+                        rutor_year = m.get('_rutor_year', m.get('year', ''))
+                        if kp_year and rutor_year:
+                            try:
+                                if abs(int(kp_year) - int(rutor_year)) > 2:
+                                    continue
+                            except: pass
                         for k,v in fields.items():
                             if v and not m.get(k): m[k]=v; updated+=1
                     if updated: enriched += 1
@@ -371,7 +381,14 @@ async def run_enrich_tmdb():
             for gid,fields in results.items():
                 if gid in groups:
                     updated = 0
+                    tmdb_year = fields.get('year', '')
                     for m in groups[gid]:
+                        rutor_year = m.get('_rutor_year', m.get('year', ''))
+                        if tmdb_year and rutor_year:
+                            try:
+                                if abs(int(tmdb_year) - int(rutor_year)) > 2:
+                                    continue
+                            except: pass
                         for k,v in fields.items():
                             if v and not m.get(k): m[k]=v; updated+=1
                     if updated: enriched += 1

@@ -105,7 +105,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
 
 @Composable
 private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
+    Card(Modifier.fillMaxWidth().height(330.dp).clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
                 val url = posterUrl(g.poster)
@@ -128,8 +128,8 @@ private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
                 }
             }
             Column(Modifier.padding(8.dp)) {
-                Text(g.cleanTitle, fontWeight = FontWeight.SemiBold, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
+                Text(g.cleanTitle, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (g.rating > 0.0)
@@ -222,9 +222,31 @@ private fun buildSpec(item: TorrentItem): String {
     val parts = mutableListOf<String>()
     val q = extractQuality(item.title)
     if (q.isNotBlank()) parts.add(q)
+    val v = extractVoice(item.title)
+    if (v.isNotBlank()) parts.add(v)
     if (item.size.isNotBlank()) parts.add(item.size)
     parts.add("🔼 ${item.seeds}")
     return parts.joinToString(" · ")
+}
+
+private fun extractVoice(title: String): String {
+    val t = title.lowercase()
+    return when {
+        t.contains("jaskier") -> "MVO Jaskier"
+        t.contains("moviedalen") -> "Dub MovieDalen"
+        t.contains("селезень") -> "Dub Селезень"
+        t.contains("hdrezka") -> "HDrezka"
+        t.contains("new-team") -> "New-Team"
+        t.contains("lostfilm") -> "LostFilm"
+        t.contains("elektri4") || t.contains("elektri4ka") -> "ELEKTRI4KA"
+        t.contains("domino") -> "DoMiNo"
+        t.contains("exkinoray") -> "ExKinoRay"
+        t.contains(" megapeer") -> "MegaPeer"
+        t.contains(" дуб") -> "Дубляж"
+        t.contains(" mvo") -> "MVO"
+        t.contains(" avo") -> "AVO"
+        else -> ""
+    }
 }
 
 private fun extractQuality(title: String): String {

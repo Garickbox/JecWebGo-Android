@@ -65,9 +65,17 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         return t.ifBlank { raw }
     }
 
+    private fun mediaType(category: String): String = when {
+        category.contains("сериал", true) -> "serial"
+        category.contains("Аниме", true) -> "anime"
+        category.contains("Мультипликация", true) -> "cartoon"
+        category.contains("Научно", true) || category.contains("Телевизор", true) -> "docu"
+        else -> "movie"
+    }
+
     private fun group(items: List<TorrentItem>): List<GroupedTorrent> {
         return items
-            .groupBy { "${cleanTitle(it.title)}|${it.year}" }
+            .groupBy { "${cleanTitle(it.title)}|${it.year}|${mediaType(it.category)}" }
             .map { (_, list) ->
                 val withPoster = list.firstOrNull { it.poster.isNotBlank() } ?: list.first()
                 val withDesc = list.firstOrNull { it.description.isNotBlank() } ?: withPoster
@@ -83,6 +91,6 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     items = list.sortedByDescending { it.seeds }
                 )
             }
-            .sortedByDescending { it.maxSeeds }
+            .sortedByDescending { it.maxSeeds * it.count }
     }
 }
