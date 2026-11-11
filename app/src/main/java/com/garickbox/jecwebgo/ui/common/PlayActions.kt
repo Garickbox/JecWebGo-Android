@@ -39,7 +39,7 @@ object PlayActions {
             Toast.makeText(ctx, "Загрузка торрента… (${p.preloadMB}MB × ${p.threads})", Toast.LENGTH_SHORT).show()
             CoroutineScope(Dispatchers.IO).launch { TorrentRepository.preload(h, p.preloadMB, p.threads) }
             PlayLogStore.add(ctx, PlayLogEntry("phone", title, magnet, h, System.currentTimeMillis()/1000))
-            val ready = TorrentRepository.waitReady(h, 15000L)
+            val ready = TorrentRepository.waitReady(h, timeoutMs = 15000L)
             if (!ready) {
                 Toast.makeText(ctx, "Торрент не готов за 15с", Toast.LENGTH_LONG).show()
                 return@launch
@@ -62,7 +62,7 @@ object PlayActions {
             Toast.makeText(ctx, "Загрузка торрента… (${p.preloadMB}MB × ${p.threads})", Toast.LENGTH_SHORT).show()
             CoroutineScope(Dispatchers.IO).launch { TorrentRepository.preload(hash, p.preloadMB, p.threads) }
             PlayLogStore.add(ctx, PlayLogEntry("phone", title, "", hash, System.currentTimeMillis()/1000))
-            val ready = TorrentRepository.waitReady(hash, 15000L)
+            val ready = TorrentRepository.waitReady(hash, timeoutMs = 15000L)
             if (!ready) {
                 Toast.makeText(ctx, "Торрент не готов за 15с", Toast.LENGTH_LONG).show()
                 return@launch
