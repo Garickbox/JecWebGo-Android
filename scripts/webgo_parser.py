@@ -503,5 +503,4 @@ def main():
     elif args.mode == 'tmdb' and TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
 
 if __name__ == '__main__':
-    main()    total = len(pending)
-    if total == 0: print("ℹ️ Всё обогащено TMDB."); return
+    main()
