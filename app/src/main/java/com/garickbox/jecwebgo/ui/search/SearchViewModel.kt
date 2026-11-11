@@ -11,7 +11,7 @@ data class SearchState(
     val query: String = "", val loading: Boolean = false,
     val items: List<SearchItem> = emptyList(), val error: String? = null
 )
-class SearchViewModel : ViewModel() {
+class SearchViewModel(app: android.app.Application) : androidx.lifecycle.AndroidViewModel(app) {
     private val _state = MutableStateFlow(SearchState())
     val state: StateFlow<SearchState> = _state.asStateFlow()
     fun onQuery(q: String) { _state.value = _state.value.copy(query = q) }
@@ -21,6 +21,7 @@ class SearchViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null, items = emptyList())
             try {
+                com.garickbox.jecwebgo.data.store.HistoryStore.add(getApplication<android.app.Application>(), q, 50)
                 val r = SearchRepository.jacred(q)
                 _state.value = _state.value.copy(loading = false, items = r)
             } catch (e: Exception) {

@@ -16,6 +16,8 @@ import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import com.garickbox.jecwebgo.domain.TorrentRepository
+import com.garickbox.jecwebgo.ui.common.PlayActions
+import com.garickbox.jecwebgo.data.store.BookmarkStore
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
@@ -31,48 +33,18 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
     val s by vm.state.collectAsState()
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val onPlayPhone: (SearchItem) -> Unit = { it ->
+    val onPlayPhone: (SearchItem) -> Unit = { item ->
+        PlayActions.playPhone(ctx, scope, item.magnet, item.title)
+    }
+    val onPlayTV: (SearchItem) -> Unit = { item ->
+        PlayActions.playTV(ctx, scope, item.magnet, item.title)
+    }
+    val onBookmark: (SearchItem) -> Unit = { item ->
         scope.launch {
-            val h = TorrentRepository.add(it.magnet)
-            android.util.Log.d("JecWeb", "play_phone hash=$h title=${it.title}")
-            if (h == null) {
-                Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(ctx, "Загрузка торрента…", Toast.LENGTH_SHORT).show()
-                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                    TorrentRepository.preload(h)
-                }
-                val ready = TorrentRepository.waitReady(h, 15000L)
-                android.util.Log.d("JecWeb", "play_phone ready=$ready")
-                if (!ready) {
-                    Toast.makeText(ctx, "Торрент не готов за 15с", Toast.LENGTH_LONG).show()
-                } else {
-                    val url = TorrentRepository.streamM3U(h)
-                    android.util.Log.d("JecWeb", "play_phone url=$url")
-                    val vlc = Intent(Intent.ACTION_VIEW).apply {
-                        setPackage("org.videolan.vlc")
-                        setDataAndType(Uri.parse(url), "video/x-mpegurl")
-                    }
-                    val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
-                    val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
-                             runCatching { ctx.startActivity(generic) }.isSuccess
-                    if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
-                }
-            }
+            BookmarkStore.add(ctx, item)
+            Toast.makeText(ctx, "В закладки: ${item.title}", Toast.LENGTH_SHORT).show()
         }
     }
-    val onPlayTV: (SearchItem) -> Unit = { it ->
-        scope.launch {
-            val h = TorrentRepository.add(it.magnet)
-            if (h == null) Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
-            else {
-                val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(android.content.ClipData.newPlainText("m3u", TorrentRepository.streamM3U(h)))
-                Toast.makeText(ctx, "M3U скопирован для ТВ", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    val onBookmark: (SearchItem) -> Unit = { Toast.makeText(ctx, "Закладка: ${it.title}", Toast.LENGTH_SHORT).show() }
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
             value = s.query,

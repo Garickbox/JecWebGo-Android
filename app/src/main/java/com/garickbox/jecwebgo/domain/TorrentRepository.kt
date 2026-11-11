@@ -81,6 +81,11 @@ object TorrentRepository {
         jobs.awaitAll()
     }
 
+    fun isAlive(): Boolean = try {
+        val req = Request.Builder().url("$BASE/").head().build()
+        HttpClient.client.newCall(req).execute().use { it.code in 200..499 }
+    } catch (_: Exception) { false }
+
     fun streamM3U(hash: String) = "$BASE/stream?link=$hash&m3u"
     fun streamPlay(hash: String) = "$BASE/stream?link=$hash&index=1&play"
 }

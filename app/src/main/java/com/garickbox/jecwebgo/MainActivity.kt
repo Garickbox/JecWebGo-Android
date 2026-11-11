@@ -3,6 +3,8 @@ package com.garickbox.jecwebgo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,7 +17,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.garickbox.jecwebgo.service.TorrServerService
-import com.garickbox.jecwebgo.ui.placeholders.*
+import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
+import com.garickbox.jecwebgo.ui.history.HistoryScreen
+import com.garickbox.jecwebgo.ui.settings.SettingsScreen
+import com.garickbox.jecwebgo.ui.placeholders.MagnetsScreen
+import com.garickbox.jecwebgo.ui.status.StatusBar
 import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.theme.JecWebTheme
 
@@ -53,12 +59,15 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }) { pad ->
-                    NavHost(nav, "search", Modifier.padding(pad)) {
+                    Column(Modifier.fillMaxSize().padding(pad)) {
+                    StatusBar()
+                    NavHost(nav, "search", Modifier.fillMaxSize()) {
                         composable("search") { SearchScreen() }
                         composable("bookmarks") { BookmarksScreen() }
                         composable("history") { HistoryScreen() }
                         composable("magnets") { MagnetsScreen() }
                         composable("settings") { SettingsScreen() }
+                    }
                     }
                 }
             }
