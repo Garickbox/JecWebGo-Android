@@ -8,8 +8,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import android.widget.Toast
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +24,7 @@ import com.garickbox.jecwebgo.domain.model.SearchItem
 @Composable
 fun SearchScreen(vm: SearchViewModel = viewModel()) {
     val s by vm.state.collectAsState()
+    val ctx = LocalContext.current
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
             value = s.query,
@@ -41,13 +45,13 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
             s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.items) { item -> SearchCard(item) }
+                items(s.items) { item -> SearchCard(item) { Toast.makeText(ctx, "Закладка: ${item.title}", Toast.LENGTH_SHORT).show() } }
             }
         }
     }
 }
 @Composable
-fun SearchCard(item: SearchItem) {
+fun SearchCard(item: SearchItem, onBookmark: (SearchItem) -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(12.dp)) {
             Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
@@ -67,6 +71,7 @@ fun SearchCard(item: SearchItem) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Button(onClick = {}, modifier = Modifier.weight(1f)) { Text("▶ Телефон") }
                 Button(onClick = {}, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺 ТВ") }
+                OutlinedButton(onClick = { onBookmark(item) }, modifier = Modifier.weight(1f)) { Text("🔖") }
             }
         }
     }
