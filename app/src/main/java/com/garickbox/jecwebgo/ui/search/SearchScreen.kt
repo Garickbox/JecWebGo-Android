@@ -38,16 +38,26 @@ fun SearchScreen(vm: SearchViewModel = viewModel()) {
             if (h == null) {
                 Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
             } else {
-                val url = TorrentRepository.streamPlay(h)
-                android.util.Log.d("JecWeb", "play_phone url=$url")
-                val vlc = Intent(Intent.ACTION_VIEW).apply {
-                    setPackage("org.videolan.vlc")
-                    setDataAndType(Uri.parse(url), "video/*")
+                Toast.makeText(ctx, "Загрузка торрента…", Toast.LENGTH_SHORT).show()
+                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    TorrentRepository.preload(h)
                 }
-                val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
-                val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
-                         runCatching { ctx.startActivity(generic) }.isSuccess
-                if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
+                val ready = TorrentRepository.waitReady(h, 15000L)
+                android.util.Log.d("JecWeb", "play_phone ready=$ready")
+                if (!ready) {
+                    Toast.makeText(ctx, "Торрент не готов за 15с", Toast.LENGTH_LONG).show()
+                } else {
+                    val url = TorrentRepository.streamM3U(h)
+                    android.util.Log.d("JecWeb", "play_phone url=$url")
+                    val vlc = Intent(Intent.ACTION_VIEW).apply {
+                        setPackage("org.videolan.vlc")
+                        setDataAndType(Uri.parse(url), "video/x-mpegurl")
+                    }
+                    val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
+                    val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
+                             runCatching { ctx.startActivity(generic) }.isSuccess
+                    if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
