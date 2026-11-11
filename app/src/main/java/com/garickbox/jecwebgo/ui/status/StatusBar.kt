@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun StatusBar() {
@@ -23,11 +25,15 @@ fun StatusBar() {
 
     LaunchedEffect(Unit) {
         while (true) {
-            tsAlive = TorrentRepository.isAlive()
-            jacAlive = runCatching {
-                com.garickbox.jecwebgo.data.network.HttpClient
-                    .get("https://jac.red/api/v1.0/torrents?search=a").isNotBlank()
-            }.getOrDefault(false)
+            tsAlive = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                TorrentRepository.isAlive()
+            }
+            jacAlive = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    com.garickbox.jecwebgo.data.network.HttpClient
+                        .get("https://jac.red/api/v1.0/torrents?search=a").isNotBlank()
+                }.getOrDefault(false)
+            }
             delay(30_000)
         }
     }
