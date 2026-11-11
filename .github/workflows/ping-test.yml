@@ -1,0 +1,25 @@
+name: ping-test
+on:
+  push:
+    paths: ['.ping']
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reachability from GH runner
+        run: |
+          UA="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"
+          check() {
+            local name="$1" url="$2" hdr="$3"
+            if [ -n "$hdr" ]; then
+              code=$(curl -s -o /dev/null -m 20 -w "%{http_code}" -A "$UA" -H "$hdr" "$url" || echo "000")
+            else
+              code=$(curl -s -o /dev/null -m 20 -w "%{http_code}" -A "$UA" "$url" || echo "000")
+            fi
+            echo "$name : $code"
+          }
+          check "rutor.info" "http://rutor.info/browse/0/1/0/2" ""
+          check "jac.red" "https://jac.red/api/v1.0/torrents?search=a" "Accept: application/json"
+          check "kp" "https://kinopoiskapiunofficial.tech/api/v2.2/films/301" ""
+          check "tmdb" "https://api.themoviedb.org/3/configuration" ""
+          check "deepseek" "https://api.deepseek.com/v1/models" ""
