@@ -24,33 +24,20 @@ data class HomeState(
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
-
-    fun load() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
-            val items = DataRepository.load(getApplication())
-            _state.value = _state.value.copy(
-                items = items,
-                loading = false,
-                error = if (items.isEmpty()) "База пуста. Обновите данные." else null
-            )
-            updateDate()
-        }
-    }
-
-    fun refresh() {
-        viewModelScope.launch {
-            _state.value = _state.value.copy(refreshing = true, error = null)
-            val items = DataRepository.refresh(getApplication())
-            _state.value = _state.value.copy(
-                items = items,
-                refreshing = false,
-                error = if (items.isEmpty()) "Не удалось загрузить базу" else null
-            )
-            updateDate()
-        }
-    }
-
+    fun load() { viewModelScope.launch {
+        _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
+        val items = DataRepository.load(getApplication())
+        _state.value = _state.value.copy(items = items, loading = false,
+            error = if (items.isEmpty()) "База пуста" else null)
+        updateDate()
+    } }
+    fun refresh() { viewModelScope.launch {
+        _state.value = _state.value.copy(refreshing = true, error = null)
+        val items = DataRepository.refresh(getApplication())
+        _state.value = _state.value.copy(items = items, refreshing = false,
+            error = if (items.isEmpty()) "Не удалось загрузить" else null)
+        updateDate()
+    } }
     private fun updateDate() {
         val age = DataRepository.cacheAge(getApplication())
         val fmt = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())

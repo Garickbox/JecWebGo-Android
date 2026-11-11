@@ -178,10 +178,7 @@ async def process_section(session,cat_id,cat_name,existing_map):
                     existing_map[info_hash(item['magnet'])] = len(db)+len(new_items)-1
                     print(f"      ✅ {item['title'][:60]} ({item['seeds']} сидов)")
         await asyncio.sleep(0.1)
-    db = [r for r in db if not r.get('_delete',False)]
-    db.extend(new_items)
-    save_db(db)
-    return len(new_items)
+    return new_items
 
 async def run_parser():
     print("📡 Парсинг rutor.info...")
@@ -195,11 +192,18 @@ async def run_parser():
             except Exception as e:
                 print(f"   ❌ {cname}: {e}"); return 0
         results = await asyncio.gather(*[worker(cid,cname) for cid,cname in SECTIONS.items()])
-        total_new = sum(results)
-    if total_new:
-        print(f"🎉 Добавлено {total_new}. Всего: {len(load_db())}")
-    else:
-        print("ℹ️ Новых нет. Сиды обновлены, мёртвые удалены.")
+    all_new = []
+    for r in results:
+        if isinstance(r, list): all_new.extend(r)
+    db2 = load_db()
+    exist = {info_hash(it['magnet']): i for i,it in enumerate(db2) if it.get('magnet')}
+    for item in all_new:
+        h = info_hash(item['magnet'])
+        if h and h not in exist:
+            db2.append(item); exist[h] = len(db2)-1
+    save_db(db2)
+    if all_new: print(f"🎉 Добавлено {len(all_new)}. Всего: {len(db2)}")
+    else: print("ℹ️ Новых нет. Сиды обновлены, мёртвые удалены.")
 
 async def fetch_kp_batch(session,kp_ids):
     sem = asyncio.Semaphore(KP_BATCH_SIZE)

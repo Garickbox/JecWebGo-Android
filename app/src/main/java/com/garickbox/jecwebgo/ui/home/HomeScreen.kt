@@ -22,35 +22,33 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.garickbox.jecwebgo.data.network.TorrentItem
 
+private fun cleanTitle(raw: String): String {
+    var t = raw.trim()
+    if (t.contains(" / ")) t = t.substringBefore(" / ").trim()
+    val p = t.indexOf(" ("); if (p > 0) t = t.substring(0, p).trim()
+    val b = t.indexOf(" ["); if (b > 0) t = t.substring(0, b).trim()
+    return t.ifBlank { raw }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    onOpenSearch: (String) -> Unit,
-    vm: HomeViewModel = viewModel()
-) {
+fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) {
     val s by vm.state.collectAsState()
     LaunchedEffect(Unit) { if (s.items.isEmpty() && !s.loading) vm.load() }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Главная", fontWeight = FontWeight.SemiBold)
-                        if (s.lastUpdate.isNotEmpty() && s.lastUpdate != "—")
-                            Text("Обновлено: ${s.lastUpdate}", fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { vm.refresh() }, enabled = !s.refreshing) {
-                        if (s.refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Refresh, "refresh")
-                    }
-                }
-            )
-        }
-    ) { pad ->
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Column {
+                Text("Главная", fontWeight = FontWeight.SemiBold)
+                if (s.lastUpdate.isNotEmpty() && s.lastUpdate != "—")
+                    Text("Обновлено: ${s.lastUpdate}", fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } },
+            actions = { IconButton(onClick = { vm.refresh() }, enabled = !s.refreshing) {
+                if (s.refreshing) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                else Icon(Icons.Filled.Refresh, "refresh")
+            } }
+        )
+    }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad)) {
             when {
                 s.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
@@ -61,13 +59,11 @@ fun HomeScreen(
                         Button(onClick = { vm.refresh() }) { Text("Загрузить") }
                     }
                 }
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                else -> LazyVerticalGrid(columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize().padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(s.items) { item -> HomeCard(item) { onOpenSearch(item.title) } }
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(s.items) { item -> HomeCard(item) { onOpenSearch(cleanTitle(item.title)) } }
                 }
             }
         }
@@ -80,17 +76,12 @@ private fun HomeCard(item: TorrentItem, onClick: () -> Unit) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
                 if (item.poster.isNotBlank()) {
-                    AsyncImage(
-                        model = item.poster,
-                        contentDescription = item.title,
+                    AsyncImage(model = item.poster, contentDescription = item.title,
                         modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                        contentScale = ContentScale.Crop)
                 } else {
                     Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        Alignment.Center) {
-                        Text("🎬", fontSize = 32.sp)
-                    }
+                        Alignment.Center) { Text("🎬", fontSize = 32.sp) }
                 }
             }
             Column(Modifier.padding(8.dp)) {
@@ -104,10 +95,8 @@ private fun HomeCard(item: TorrentItem, onClick: () -> Unit) {
                     if (item.year.isNotBlank())
                         Text(item.year, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (item.seeds > 0) {
-                    Text("🔼 ${item.seeds}", fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                if (item.seeds > 0)
+                    Text("🔼 ${item.seeds}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
