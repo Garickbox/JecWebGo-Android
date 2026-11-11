@@ -112,7 +112,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
 }
 
 @Composable private fun HistoryCard(item: DownloadedItem, fmt: SimpleDateFormat, onOpen: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable(onOpen)) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("✅", fontSize = 18.sp)
             Spacer(Modifier.width(8.dp))

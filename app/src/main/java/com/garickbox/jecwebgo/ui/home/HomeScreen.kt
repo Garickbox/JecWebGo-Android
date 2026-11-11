@@ -217,7 +217,7 @@ private fun DetailsDialog(
                         magnet = item.magnet
                     ))
                 }
-                androidx.widget.Toast.makeText(ctx, "В очередь: ${picked.size}", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(ctx, "В очередь: ${picked.size}", android.widget.Toast.LENGTH_SHORT).show()
                 pickerFor = null
                 onClose()
             }
