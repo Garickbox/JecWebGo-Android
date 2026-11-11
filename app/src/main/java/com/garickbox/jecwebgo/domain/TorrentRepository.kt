@@ -128,9 +128,12 @@ object TorrentRepository {
     }
 
     suspend fun preload(hash: String, totalMB: Int = 50, threads: Int = 6) = withContext(Dispatchers.IO) {
-        val url = "$BASE/stream?link=$hash&index=1&play"
-        val chunk = (totalMB * 1024 * 1024) / threads
-        val jobs = (0 until threads).map { i ->
+        // без &play — фоновый прогрев, не конкурирует с VLC за приоритет
+        val url = "$BASE/stream?link=$hash&index=1"
+        val safeThreads = threads.coerceIn(1, 4)
+        val safeMB = totalMB.coerceIn(10, 30)
+        val chunk = (safeMB * 1024 * 1024) / safeThreads
+        val jobs = (0 until safeThreads).map { i ->
             async(Dispatchers.IO) {
                 try {
                     val s = i.toLong() * chunk
