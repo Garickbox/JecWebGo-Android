@@ -383,6 +383,45 @@ async def run_enrich_tmdb():
     save_db(movies)
     print(f"🎉 TMDB: {enriched} за {time.time()-start:.1f}s")
 
+async def download_posters_step():
+    print("🖼️ Скачивание постеров...")
+    start = time.time()
+    movies = load_db()
+    if not movies:
+        print("ℹ️ База пуста"); return
+    os.makedirs("posters", exist_ok=True)
+    need = [m for m in movies if m.get('poster') and not m['poster'].startswith('posters/')]
+    print(f"📊 Постеров к скачиванию: {len(need)}")
+    sem = asyncio.Semaphore(30)
+    downloaded = 0
+    async def dl(session, m):
+        nonlocal downloaded
+        poster = m.get('poster', '')
+        h = info_hash(m.get('magnet', ''))
+        if not h: return
+        fname = f"posters/{h}.jpg"
+        if os.path.exists(fname) and os.path.getsize(fname) > 1000:
+            m['poster'] = fname; return
+        async with sem:
+            try:
+                async with session.get(poster, timeout=20) as r:
+                    if r.status == 200:
+                        data = await r.read()
+                        if len(data) > 1000:
+                            with open(fname, 'wb') as fh:
+                                fh.write(data)
+                            m['poster'] = fname
+                            downloaded += 1
+            except: pass
+    async with aiohttp.ClientSession() as session:
+        B = 200
+        for i in range(0, len(need), B):
+            batch = need[i:i+B]
+            await asyncio.gather(*[dl(session, m) for m in batch])
+            print(f"   📦 {i+len(batch)}/{len(need)}")
+    save_db(movies)
+    print(f"🎉 Постеров скачано: {downloaded} за {time.time()-start:.1f}s")
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--mode',choices=['parse','kp','tmdb','all','fast'],default='all')
@@ -393,9 +432,11 @@ def main():
         asyncio.run(run_parser())
         if KP_TOKEN: asyncio.run(run_enrich_kp())
         if TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
+        asyncio.run(download_posters_step())
     elif args.mode == 'parse': asyncio.run(run_parser())
     elif args.mode == 'kp' and KP_TOKEN: asyncio.run(run_enrich_kp())
     elif args.mode == 'tmdb' and TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
+        asyncio.run(download_posters_step())
 
 if __name__ == '__main__':
     main()

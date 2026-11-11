@@ -4,3 +4,5 @@ enrich_state_kp.json
 enrich_state_tmdb.json
 __pycache__/
 *.pyc
+
+posters/

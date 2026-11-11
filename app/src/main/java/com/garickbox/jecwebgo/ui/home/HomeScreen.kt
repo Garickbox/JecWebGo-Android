@@ -38,8 +38,12 @@ private fun cleanTitle(raw: String): String {
     return t.ifBlank { raw }
 }
 
-private fun proxyUrl(poster: String): String =
-    if (poster.isBlank()) "" else "$CF/img?url=" + URLEncoder.encode(poster, "UTF-8")
+private fun proxyUrl(poster: String): String {
+    if (poster.isBlank()) return ""
+    if (poster.startsWith("posters/"))
+        return "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/" + poster
+    return "$CF/img?url=" + URLEncoder.encode(poster, "UTF-8")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
