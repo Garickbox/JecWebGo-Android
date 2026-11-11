@@ -40,6 +40,7 @@ import com.garickbox.jecwebgo.data.download.DownloadRequest
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.util.MagnetUtil
+import kotlinx.coroutines.launch
 import com.garickbox.jecwebgo.util.TitleUtil
 import java.net.URLEncoder
 
