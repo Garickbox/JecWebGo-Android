@@ -2,15 +2,11 @@ package com.garickbox.jecwebgo.domain
 
 import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-
-data class SuperblitzParams(val preloadMB: Int, val threads: Int)
 
 data class TorrentFile(val id: Int, val path: String, val length: Long)
 
@@ -34,9 +30,7 @@ object TorrentRepository {
     suspend fun addTorrentBase64(b64: String): String? = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject {
-                put("action", "add")
-                put("torrent", b64)
-                put("save_to_db", true)
+                put("action", "add"); put("torrent", b64); put("save_to_db", true)
             }.toString()
             json.parseToJsonElement(post(b)).jsonObject["hash"]?.jsonPrimitive?.contentOrNull
         } catch (e: Exception) { null }
@@ -47,31 +41,6 @@ object TorrentRepository {
             val b = buildJsonObject { put("action","list") }.toString()
             json.parseToJsonElement(post(b)).jsonArray
         } catch (e: Exception) { JsonArray(emptyList()) }
-    }
-
-    suspend fun firstHash(): String? = withContext(Dispatchers.IO) {
-        try {
-            val arr = list()
-            for (el in arr) {
-                val obj = el.jsonObject
-                val h = obj["hash"]?.jsonPrimitive?.contentOrNull
-                if (h != null) return@withContext h
-            }
-            null
-        } catch (_: Exception) { null }
-    }
-
-    suspend fun pickBestHash(): String? = withContext(Dispatchers.IO) {
-        try {
-            val arr = list()
-            arr.mapNotNull { it.jsonObject }
-               .filter { o ->
-                   val stat = o["stat"]?.jsonPrimitive?.intOrNull ?: 0
-                   stat == 3 || stat == 5
-               }
-               .maxByOrNull { it["file_size"]?.jsonPrimitive?.longOrNull ?: 0L }
-               ?.get("hash")?.jsonPrimitive?.contentOrNull
-        } catch (_: Exception) { null }
     }
 
     suspend fun get(hash: String): JsonObject? = withContext(Dispatchers.IO) {
@@ -113,69 +82,15 @@ object TorrentRepository {
         HttpClient.client.newCall(req).execute().use { it.code in 200..499 }
     } catch (_: Exception) { false }
 
-    fun paramsForLevel(level: Int): SuperblitzParams = when (level) {
-        1 -> SuperblitzParams(30, 3)
-        2 -> SuperblitzParams(40, 4)
-        3 -> SuperblitzParams(50, 6)
-        4 -> SuperblitzParams(80, 8)
-        5 -> SuperblitzParams(150, 10)
-        else -> SuperblitzParams(50, 6)
-    }
-
-    suspend fun measureSpeed(hash: String): Int = withContext(Dispatchers.IO) {
+    suspend fun firstHash(): String? = withContext(Dispatchers.IO) {
         try {
-            val totalMB = 100
-            val threads = 20
-            val totalBytes = totalMB.toLong() * 1024 * 1024
-            val url = "$BASE/stream?link=$hash&index=1&play"
-            val headReq = Request.Builder().url(url).head().build()
-            val fileSize = HttpClient.client.newCall(headReq).execute().use { r ->
-                if (!r.isSuccessful) return@withContext 0
-                r.header("Content-Length")?.toLongOrNull() ?: 0L
+            val arr = list()
+            for (el in arr) {
+                val h = el.jsonObject["hash"]?.jsonPrimitive?.contentOrNull
+                if (h != null) return@withContext h
             }
-            if (fileSize < totalBytes) return@withContext 0
-            val chunk = totalBytes / threads
-            val t0 = System.currentTimeMillis()
-            (0 until threads).map { i ->
-                async(Dispatchers.IO) {
-                    try {
-                        val s = i.toLong() * chunk
-                        val e = s + chunk - 1
-                        val r = Request.Builder().url(url).header("Range", "bytes=$s-$e").build()
-                        HttpClient.client.newCall(r).execute().use { it.body?.bytes() }
-                    } catch (_: Exception) {}
-                }
-            }.awaitAll()
-            val elapsed = (System.currentTimeMillis() - t0) / 1000.0
-            if (elapsed <= 0.1) return@withContext 1
-            val mbps = totalBytes * 8 / elapsed / 1e6
-            when {
-                mbps >= 80 -> 5
-                mbps >= 40 -> 4
-                mbps >= 15 -> 3
-                mbps >= 5 -> 2
-                else -> 1
-            }
-        } catch (_: Exception) { 0 }
-    }
-
-    suspend fun preload(hash: String, totalMB: Int = 50, threads: Int = 6) = withContext(Dispatchers.IO) {
-        // без &play — фоновый прогрев, не конкурирует с VLC за приоритет
-        val url = "$BASE/stream?link=$hash&index=1"
-        val safeThreads = threads.coerceIn(1, 4)
-        val safeMB = totalMB.coerceIn(10, 30)
-        val chunk = (safeMB * 1024 * 1024) / safeThreads
-        val jobs = (0 until safeThreads).map { i ->
-            async(Dispatchers.IO) {
-                try {
-                    val s = i.toLong() * chunk
-                    val e = s + chunk - 1
-                    val r = Request.Builder().url(url).header("Range", "bytes=$s-$e").build()
-                    HttpClient.client.newCall(r).execute().use { it.body?.bytes() }
-                } catch (_: Exception) {}
-            }
-        }
-        jobs.awaitAll()
+            null
+        } catch (_: Exception) { null }
     }
 
     suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 30000L): Boolean = withContext(Dispatchers.IO) {
