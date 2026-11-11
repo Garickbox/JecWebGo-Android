@@ -1,5 +1,8 @@
 package com.garickbox.jecwebgo.domain
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+
 import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,7 +68,7 @@ object TorrentRepository {
         val url = "$BASE/stream?link=$hash&index=1&play"
         val chunk = (totalMB * 1024 * 1024) / threads
         val jobs = (0 until threads).map { i ->
-            kotlinx.coroutines.async(Dispatchers.IO) {
+            async(Dispatchers.IO) {
                 try {
                     val s = i.toLong() * chunk
                     val e = s + chunk - 1
@@ -75,7 +78,7 @@ object TorrentRepository {
                 } catch (_: Exception) {}
             }
         }
-        jobs.forEach { it.await() }
+        jobs.awaitAll()
     }
 
     fun streamM3U(hash: String) = "$BASE/stream?link=$hash&m3u"
