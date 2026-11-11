@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.garickbox.jecwebgo.data.model.GroupedTorrent
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import com.garickbox.jecwebgo.ui.common.PlayActions
@@ -130,15 +131,19 @@ private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
                 val url = posterUrl(g.poster)
-                if (url.isNotBlank()) {
-                    AsyncImage(model = url, contentDescription = g.cleanTitle,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        contentScale = ContentScale.Crop)
-                } else {
-                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)), Alignment.Center) {
-                        Text("🎬", fontSize = 32.sp)
-                    }
+                val ph = @Composable {
+                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
+                        Alignment.Center) { Text("🎬", fontSize = 32.sp) }
                 }
+                if (url.isNotBlank()) {
+                    SubcomposeAsyncImage(
+                        model = url, contentDescription = g.cleanTitle,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
+                        contentScale = ContentScale.Crop,
+                        loading = { ph() },
+                        error = { ph() }
+                    )
+                } else { ph() }
                 if (g.count > 1) {
                     Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
                         .clip(RoundedCornerShape(6.dp))
