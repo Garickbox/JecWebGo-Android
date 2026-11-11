@@ -7,8 +7,8 @@ object HttpClient {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
-    fun get(url: String, ua: String = "Mozilla/5.0"): String {
-        val req = Request.Builder().url(url).header("User-Agent", ua).build()
+    fun get(url: String, ua: String = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36"): String {
+        val req = Request.Builder().url(url).header("User-Agent", ua).header("Accept", "application/json").header("Accept-Language", "ru-RU,ru;q=0.9").build()
         return client.newCall(req).execute().use { it.body?.string().orEmpty() }
     }
 }
