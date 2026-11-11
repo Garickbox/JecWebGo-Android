@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo.domain
 
 import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -102,7 +103,7 @@ object TorrentRepository {
         val url = "$BASE/stream?link=$hash&index=1"
         val chunkBytes = (totalMB.coerceIn(10, 200) * 1024L * 1024L) / threads
         val jobs = (0 until threads).map { i ->
-            kotlinx.coroutines.async(Dispatchers.IO) {
+            async(Dispatchers.IO) {
                 try {
                     val s = i.toLong() * chunkBytes
                     val e = s + chunkBytes - 1
