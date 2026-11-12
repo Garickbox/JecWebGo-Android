@@ -25,12 +25,7 @@ fun SettingsScreen() {
             color = MaterialTheme.colorScheme.primary)
 
 
-        OutlinedTextField(
-            value = s.search_provider, onValueChange = { s = s.copy(search_provider = it) },
-            label = { Text("Провайдер (jacred / knaben)") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
-
+        
         HorizontalDivider()
 
         Row(verticalAlignment = Alignment.CenterVertically) {
