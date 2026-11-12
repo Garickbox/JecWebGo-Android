@@ -24,8 +24,13 @@ object TorrentRepository {
     suspend fun add(magnet: String): String? = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject { put("action","add"); put("link",magnet); put("save_to_db", true) }.toString()
-            json.parseToJsonElement(post(b)).jsonObject["hash"]?.jsonPrimitive?.contentOrNull
-        } catch (e: Exception) { null }
+            val resp = post(b)
+            android.util.Log.d("JecWeb", "add resp: ${resp.take(300)}")
+            json.parseToJsonElement(resp).jsonObject["hash"]?.jsonPrimitive?.contentOrNull
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "add fail: ${e.message}")
+            null
+        }
     }
 
     suspend fun addTorrentBase64(b64: String): String? = withContext(Dispatchers.IO) {
@@ -115,16 +120,18 @@ object TorrentRepository {
         jobs.forEach { it.await() }
     }
 
-    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 30000L): Boolean = withContext(Dispatchers.IO) {
+    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 60000L): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         val url = "$BASE/stream?link=$hash&index=$index&play"
         while (System.currentTimeMillis() < deadline) {
             try {
-                val req = Request.Builder().url(url).head().build()
+                // GET Range 0-1 — считается чтением, TorrServer НЕ закрывает торрент по DisconnectTimeout
+                val req = Request.Builder().url(url).header("Range", "bytes=0-1").get().build()
                 val (code, len) = HttpClient.client.newCall(req).execute().use {
-                    Pair(it.code, it.header("Content-Length")?.toLongOrNull() ?: 0L)
+                    Pair(it.code, it.header("Content-Range")?.substringAfter("/")?.toLongOrNull()
+                        ?: it.header("Content-Length")?.toLongOrNull() ?: 0L)
                 }
-                if (code in 200..299 && len > 0) return@withContext true
+                if (code in 200..299) return@withContext true
             } catch (_: Exception) {}
             Thread.sleep(2000)
         }

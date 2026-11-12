@@ -1,6 +1,5 @@
 package com.garickbox.jecwebgo.ui.handoff
 
-import android.util.Base64
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -19,6 +18,7 @@ import com.garickbox.jecwebgo.domain.TorrentFile
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.ui.home.FilePickerDialog
+import com.garickbox.jecwebgo.util.BencodeTorrent
 import com.garickbox.jecwebgo.util.TitleUtil
 import kotlinx.coroutines.launch
 
@@ -39,9 +39,35 @@ fun HandoffDialog(
     var working by remember { mutableStateOf(false) }
     var errText by remember { mutableStateOf<String?>(null) }
 
+    // .torrent → magnet (SHA1 info_hash), без base64
+    val effectiveMagnet = remember(magnet, torrentBytes) {
+        if (magnet != null) magnet
+        else torrentBytes?.let { BencodeTorrent.toMagnet(it)?.magnet }
+    }
+    val effectiveTitle = remember(title, torrentBytes) {
+        if (torrentBytes != null) BencodeTorrent.toMagnet(torrentBytes)?.name?.takeIf { it.isNotBlank() } ?: title
+        else title
+    }
+
+    if (effectiveMagnet == null && torrentBytes != null) {
+        // .torrent невалидный
+        Dialog(onDismissRequest = onDismiss) {
+            Card(Modifier.fillMaxWidth().padding(12.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Магнит / Торрент", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Не удалось прочитать .torrent файл", color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Закрыть") }
+                }
+            }
+        }
+        return
+    }
+
     pickerHash?.let { hash ->
         FilePickerDialog(
-            title = title,
+            title = effectiveTitle,
             files = files,
             loading = loading,
             onDismiss = onDismiss,
@@ -51,8 +77,8 @@ fun HandoffDialog(
                         hash = hash,
                         fileIndex = f.id,
                         fileName = f.path.substringAfterLast("/"),
-                        title = TitleUtil.cleanTitle(title),
-                        magnet = magnet ?: "",
+                        title = TitleUtil.cleanTitle(effectiveTitle),
+                        magnet = effectiveMagnet ?: "",
                         totalBytes = f.length
                     ))
                 }
@@ -68,11 +94,12 @@ fun HandoffDialog(
             Column(Modifier.padding(16.dp)) {
                 Text("Магнит / Торрент", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.height(6.dp))
-                Text(title, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                Text(effectiveTitle, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    if (magnet != null) "magnet-ссылка" else "torrent (${torrentBytes?.size ?: 0} b)",
+                    if (magnet != null) "magnet-ссылка"
+                    else "torrent → ${effectiveMagnet?.take(30) ?: "?"}...",
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.primary
                 )
                 errText?.let {
@@ -82,18 +109,17 @@ fun HandoffDialog(
                 Spacer(Modifier.height(12.dp))
 
                 if (working) {
-                    Box(Modifier.fillMaxWidth().height(60.dp), Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    Box(Modifier.fillMaxWidth().height(60.dp), Alignment.Center) { CircularProgressIndicator() }
                 } else {
                     Button(
                         onClick = {
                             scope.launch {
                                 working = true; errText = null
-                                val h = addToTs(magnet, torrentBytes)
+                                val h = effectiveMagnet?.let { TorrentRepository.add(it) }
                                 working = false
-                                if (h == null) errText = "TorrServer недоступен"
-                                else { PlayActions.playHash(ctx, scope, h, title); onDismiss() }
+                                if (h == null) {
+                                    errText = "Не удалось добавить: нет пиров / магнет мёртв"
+                                } else { PlayActions.playHash(ctx, scope, h, effectiveTitle); onDismiss() }
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -103,13 +129,25 @@ fun HandoffDialog(
                         onClick = {
                             scope.launch {
                                 working = true; errText = null
-                                val h = addToTs(magnet, torrentBytes)
-                                if (h == null) { working = false; errText = "TorrServer недоступен"; return@launch }
+                                val h = effectiveMagnet?.let { TorrentRepository.add(it) }
+                                if (h == null) {
+                                    working = false
+                                    errText = "Не удалось добавить: нет пиров / магнет мёртв"
+                                    return@launch
+                                }
+                                TorrentRepository.waitReady(h, 1, 60000L)
                                 loading = true
-                                files = TorrentRepository.getFiles(h)
+                                var got: List<TorrentFile> = emptyList()
+                                val deadline = System.currentTimeMillis() + 20000L
+                                while (System.currentTimeMillis() < deadline && got.isEmpty()) {
+                                    got = TorrentRepository.getFiles(h)
+                                    if (got.isEmpty()) kotlinx.coroutines.delay(1000)
+                                }
+                                files = got
                                 loading = false
                                 working = false
                                 pickerHash = h
+                                if (got.isEmpty()) errText = "Нет файлов (нет пиров)"
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -120,13 +158,5 @@ fun HandoffDialog(
                 }
             }
         }
-    }
-}
-
-private suspend fun addToTs(magnet: String?, torrentBytes: ByteArray?): String? {
-    return if (magnet != null) TorrentRepository.add(magnet)
-    else {
-        val b64 = Base64.encodeToString(torrentBytes ?: return null, Base64.NO_WRAP)
-        TorrentRepository.addTorrentBase64(b64)
     }
 }
