@@ -4,9 +4,10 @@ import com.garickbox.jecwebgo.domain.model.AiAction
 import com.garickbox.jecwebgo.domain.model.ChatMessage
 import com.garickbox.jecwebgo.domain.model.ChatRequest
 import com.garickbox.jecwebgo.domain.model.ChatResponse
+import com.garickbox.jecwebgo.domain.model.AiMovie
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request

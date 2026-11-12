@@ -99,27 +99,34 @@ class AiViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, movies = emptyList(), chips = emptyList())
             try {
-                val seen = loadSeenIds(ctx)
-                val accumulated = mutableListOf<AiMovie>()
-                var page = (1..3).random()
-                for (attempt in 0 until 3) {
-                    val y = year ?: (LocalDate.now().year - 1..LocalDate.now().year).random()
-                    val batch = AiRepository.discoverMovies(y, page, genreId)
-                        .filter { it.id !in seen && accumulated.none { a -> a.id == it.id } }
-                    accumulated += batch
+                val seen: Set<Int> = loadSeenIds(ctx)
+                val accumulated: MutableList<AiMovie> = mutableListOf()
+                var page: Int = (1..3).random()
+                for (attempt: Int in 0 until 3) {
+                    val currentYear: Int = LocalDate.now().year
+                    val targetYear: Int = year ?: currentYear
+                    val batch: List<AiMovie> = AiRepository.discoverMovies(targetYear, page, genreId)
+                        .filter { movie: AiMovie ->
+                            movie.id !in seen && accumulated.none { a: AiMovie -> a.id == movie.id }
+                        }
+                    accumulated.addAll(batch)
                     if (accumulated.size >= 10) break
-                    page++
+                    page += 1
                 }
-                val final = accumulated.take(10)
+                val final: List<AiMovie> = accumulated.take(10)
                 if (final.isEmpty()) {
-                    // пул исчерпан — сбросить seen и попробовать снова
                     clearSeenIds(ctx)
-                    val y = year ?: LocalDate.now().year
-                    val fresh = AiRepository.discoverMovies(y, 1, genreId).take(10)
+                    val currentYear: Int = LocalDate.now().year
+                    val targetYear: Int = year ?: currentYear
+                    val fresh: List<AiMovie> = AiRepository.discoverMovies(targetYear, 1, genreId).take(10)
                     _state.value = _state.value.copy(loading = false, movies = fresh)
-                    if (fresh.isNotEmpty()) saveSeenIds(ctx, fresh.map { it.id })
+                    if (fresh.isNotEmpty()) {
+                        val ids: List<Int> = fresh.map { movie: AiMovie -> movie.id }
+                        saveSeenIds(ctx, ids)
+                    }
                 } else {
-                    saveSeenIds(ctx, final.map { it.id })
+                    val ids: List<Int> = final.map { movie: AiMovie -> movie.id }
+                    saveSeenIds(ctx, ids)
                     _state.value = _state.value.copy(loading = false, movies = final)
                 }
             } catch (e: Exception) {
