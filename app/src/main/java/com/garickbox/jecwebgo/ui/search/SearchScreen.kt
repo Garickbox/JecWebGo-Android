@@ -49,9 +49,6 @@ fun SearchScreen(
     val onPlayPhone: (SearchItem) -> Unit = { item ->
         PlayActions.playPhone(ctx, scope, item.magnet, item.title)
     }
-    val onPlayTV: (SearchItem) -> Unit = { item ->
-        PlayActions.playTV(ctx, scope, item.magnet, item.title)
-    }
     val onBookmark: (SearchItem) -> Unit = { item ->
         scope.launch {
             BookmarkStore.add(ctx, item)
@@ -79,7 +76,7 @@ fun SearchScreen(
             s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.items) { item -> SearchCard(item, onPlayPhone, onPlayTV, onBookmark) }
+                items(s.items) { item -> SearchCard(item, onPlayPhone, onBookmark) }
             }
         }
     }
@@ -94,7 +91,7 @@ fun SearchScreen(
     }
 }
 @Composable
-fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onPlayTV: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
+fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(12.dp)) {
             Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
@@ -116,7 +113,6 @@ fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onPlayTV: (S
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(onClick = { onPlayPhone(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 16.sp, maxLines = 1) }
-                Button(onClick = { onPlayTV(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺", fontSize = 16.sp, maxLines = 1) }
                 OutlinedButton(onClick = { onBookmark(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("🔖", fontSize = 16.sp, maxLines = 1) }
             }
         }

@@ -63,15 +63,12 @@ fun HistoryScreen() {
             itemsIndexed(playlog) { idx, p ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
-                        Text((if (p.type == "tv") "📺 " else "▶ ") + p.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                        Text("▶ " + p.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
                         Text(fmt.format(Date(p.time * 1000)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Button(onClick = { PlayActions.playPhone(ctx, scope, p.magnet, p.title) },
                                 modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 15.sp) }
-                            Button(onClick = { PlayActions.playTV(ctx, scope, p.magnet, p.title) },
-                                modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺", fontSize = 15.sp) }
                             OutlinedButton(onClick = { scope.launch { PlayLogStore.removeAt(ctx, playlog.size - 1 - idx); reload() } },
                                 modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("✕", fontSize = 15.sp) }
                         }

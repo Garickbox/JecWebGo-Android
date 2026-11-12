@@ -46,9 +46,6 @@ fun BookmarksScreen() {
                         Button(onClick = {
                             PlayActions.playPhone(ctx, scope, b.magnet, b.title)
                         }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 16.sp) }
-                        Button(onClick = {
-                            PlayActions.playTV(ctx, scope, b.magnet, b.title)
-                        }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("📺", fontSize = 16.sp) }
                         OutlinedButton(onClick = {
                             scope.launch {
                                 BookmarkStore.removeAt(ctx, idx)
