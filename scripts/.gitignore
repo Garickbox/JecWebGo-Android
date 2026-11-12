@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 
 posters/
+tmdb_movies.json
+posters_tmdb/

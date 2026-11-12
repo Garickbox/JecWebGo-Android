@@ -1,0 +1,39 @@
+name: tmdb_data
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install aiohttp Pillow
+      - name: Generate TMDB data
+        working-directory: scripts
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python tmdb_enrich.py
+      - name: Publish to data branch
+        run: |
+          set -e
+          cd /tmp
+          rm -rf data-out && mkdir data-out && cd data-out
+          git init -q
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch -q origin data || true
+          git checkout -q -B data origin/data 2>/dev/null || git checkout -q --orphan data
+          rm -rf posters_tmdb tmdb_movies.json
+          cp $GITHUB_WORKSPACE/scripts/tmdb_movies.json .
+          cp -r $GITHUB_WORKSPACE/scripts/posters_tmdb .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "tmdb: $(date -u +%F)" || echo "no changes"
+          git push -f origin data
