@@ -60,15 +60,36 @@ object TorrentRepository {
     suspend fun getFiles(hash: String): List<TorrentFile> = withContext(Dispatchers.IO) {
         try {
             val obj = get(hash) ?: return@withContext emptyList()
-            val stats = obj["file_stats"]?.jsonArray ?: return@withContext emptyList()
-            stats.mapNotNull { el ->
-                val o = el.jsonObject
-                val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
-                val path = o["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val len = o["length"]?.jsonPrimitive?.longOrNull ?: 0L
-                if (len > 0) TorrentFile(id, path, len) else null
+            // ФОРМАТ 1 (YouROK): obj["file_stats"] = [{id,path,length}]
+            obj["file_stats"]?.jsonArray?.let { stats ->
+                val list = stats.mapNotNull { el ->
+                    val o = el.jsonObject
+                    val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+                    val path = o["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    val len = o["length"]?.jsonPrimitive?.longOrNull ?: 0L
+                    if (len > 0) TorrentFile(id, path, len) else null
+                }
+                if (list.isNotEmpty()) return@withContext list
             }
-        } catch (e: Exception) { emptyList() }
+            // ФОРМАТ 2 (MatriX.150): obj["data"] = "{\"TorrServer\":{\"Files\":[...]}}" (JSON-строка!)
+            obj["data"]?.jsonPrimitive?.contentOrNull?.let { dataStr ->
+                if (dataStr.isNotBlank()) {
+                    val inner = json.parseToJsonElement(dataStr).jsonObject
+                    val files = inner["TorrServer"]?.jsonObject?.get("Files")?.jsonArray ?: return@withContext emptyList()
+                    return@withContext files.mapNotNull { el ->
+                        val o = el.jsonObject
+                        val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+                        val path = o["path"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                        val len = o["length"]?.jsonPrimitive?.longOrNull ?: 0L
+                        if (len > 0) TorrentFile(id, path, len) else null
+                    }
+                }
+            }
+            emptyList()
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "getFiles err: ${e.message}")
+            emptyList()
+        }
     }
 
     suspend fun stop(hash: String): Unit = withContext(Dispatchers.IO) {

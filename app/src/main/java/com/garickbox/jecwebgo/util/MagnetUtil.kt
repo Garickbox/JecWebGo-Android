@@ -23,7 +23,7 @@ object MagnetUtil {
         "udp://tracker2.dler.org:80/announce",
         "http://tracker.dler.com:6969/announce",
         "http://tracker.renfei.net:8080/announce",
-        "udp://tracker.peerfect.org:6969/announce",
+        "udp://tracker.peerfect.org:6969/announce"
     )
 
     fun hashOf(magnet: String): String {
@@ -36,7 +36,7 @@ object MagnetUtil {
         var out = magnet
         for (t in TRACKERS) {
             if (!out.contains(t)) {
-                out += if (out.contains('?')) "&tr=\$t" else "?tr=\$t"
+                out += if (out.contains('?')) "&tr=" + t else "?tr=" + t
             }
         }
         return out
