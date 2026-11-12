@@ -23,7 +23,8 @@ object TorrentRepository {
 
     suspend fun add(magnet: String): String? = withContext(Dispatchers.IO) {
         try {
-            val b = buildJsonObject { put("action","add"); put("link",magnet); put("save_to_db", true) }.toString()
+            val enriched = com.garickbox.jecwebgo.util.MagnetUtil.enrich(magnet)
+            val b = buildJsonObject { put("action","add"); put("link",enriched); put("save_to_db", true) }.toString()
             val resp = post(b)
             android.util.Log.d("JecWeb", "add resp: ${resp.take(300)}")
             json.parseToJsonElement(resp).jsonObject["hash"]?.jsonPrimitive?.contentOrNull
@@ -120,7 +121,7 @@ object TorrentRepository {
         jobs.forEach { it.await() }
     }
 
-    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 60000L): Boolean = withContext(Dispatchers.IO) {
+    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 120000L): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         val url = "$BASE/stream?link=$hash&index=$index&play"
         while (System.currentTimeMillis() < deadline) {

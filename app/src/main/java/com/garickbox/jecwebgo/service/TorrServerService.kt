@@ -40,7 +40,16 @@ class TorrServerService : Service() {
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true).build())
         TorrServerLauncher.start(this)
-        scope.launch { applySettings() }
+        val prefs = getSharedPreferences("torrsettings", android.content.Context.MODE_PRIVATE)
+        val alreadyApplied = prefs.getBoolean("settings_v1_done", false)
+        if (!alreadyApplied) {
+            scope.launch {
+                applySettings()
+                prefs.edit().putBoolean("settings_v1_done", true).apply()
+            }
+        } else {
+            android.util.Log.i(TAG, "settings already applied, skip (torrents preserved)")
+        }
     }
 
     /** Retry POST /settings до 15 сек — пока TorrServer не поднимется */
