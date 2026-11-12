@@ -42,4 +42,4 @@ jobs:
           git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push -f origin data
 
-# touch: 2026-11-12 08:13 UTC (перерегистрация cron)
+# touch: 2026-11-12 08:18 UTC (cron re-register)
