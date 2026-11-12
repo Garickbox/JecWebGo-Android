@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.ui.ai.AiSheet
+import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
