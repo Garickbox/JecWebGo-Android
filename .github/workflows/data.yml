@@ -1,7 +1,8 @@
 name: data
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 3 * * *'      # 03:00 UTC = 06:00 MSK
+    - cron: '0 15 * * *'     # 15:00 UTC = 18:00 MSK (резерв)
   workflow_dispatch:
 jobs:
   build:
@@ -40,3 +41,5 @@ jobs:
           git commit -q -m "data: $(date -u +%F_%H:%M)"
           git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push -f origin data
+
+# touch: 2026-11-12 08:13 UTC (перерегистрация cron)
