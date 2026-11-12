@@ -67,10 +67,16 @@ def clean_title(raw_title):
     title = raw_title.strip()
     if ' / ' in title: title = title.split(' / ')[0].strip()
     title = re.sub(r'[\[\(]\d{4}[\]\)]','',title).strip()
+    title = re.sub(r'_\d{4}_', ' ', title).strip()
+    title = re.sub(r'\.\d{4}\.', ' ', title).strip()
+    title = re.sub(r'_\d{4}$', '', title).strip()
+    title = re.sub(r'\.\d{4}$', '', title).strip()
     if '[' in title: title = title.split('[')[0].strip()
     if ' (S' in title: title = title.split(' (S')[0].strip()
-    title = re.sub(r'\b(WEBRip|WEB-DL|HDTV|BDRip|BluRay|1080p|720p|2160p|4K|HDR|SDR|от\s+[^\s]+)\b.*','',title,flags=re.IGNORECASE).strip()
-    return re.sub(r'\s+',' ',title).strip()
+    title = re.sub(r'\b(WEBRip|WEB-DL|HDTV|BDRip|BluRay|1080p|720p|2160p|4K|HDR|SDR|AVC|HEVC|DUB|MVO|от\s+[^\s]+)\b.*','',title,flags=re.IGNORECASE).strip()
+    title = re.sub(r'\s+',' ',title).strip()
+    title = title.replace('_',' ').strip()
+    return title
 
 def load_state(state_file):
     if os.path.exists(state_file):
@@ -251,20 +257,38 @@ async def fetch_kp_batch(session,kp_ids):
     save_cache(cache)
     return {k:d for k,d in results if d}
 
-async def kp_search_title(session, title):
-    """KP search-by-keyword — возвращает kp_id или None"""
-    clean = clean_title(title)
-    if not clean or len(clean) < 2: return None
-    try:
-        q = clean.replace(' ', '+')
-        async with session.get(f"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword={q}&page=1",headers=HEADERS_KP,timeout=10) as r:
-            if r.status != 200: return None
-            d = await r.json()
-            films = d.get('films', [])
-            if not films: return None
-            f0 = films[0]
-            return str(f0.get('filmId')) if f0.get('filmId') else None
-    except: return None
+async def kp_search_title(session, title, rutor_year=""):
+    """Multi-candidate KP search: рус → англ → original. С проверкой года ±2."""
+    candidates = []
+    rus = clean_title(title)
+    if rus and len(rus) >= 2: candidates.append(rus)
+    if ' / ' in title:
+        eng_raw = title.split(' / ', 1)[1].strip()
+        eng = eng_raw.split('[')[0].split('(')[0].strip()
+        eng = re.sub(r'[._]\d{4}[._].*', '', eng).strip()
+        eng = re.sub(r'\b(WEB|BDRip|WEBRip|WEB-DL|HDRip|HDTV|BluRay|1080p|720p|2160p|4K|UHD|HEVC|AVC|DUB)\b.*', '', eng, flags=re.IGNORECASE).strip()
+        eng = eng.replace('_',' ').replace('.',' ').strip()
+        if eng and len(eng) >= 2 and eng.lower() != rus.lower(): candidates.append(eng)
+    if not candidates: return None
+    for clean in candidates:
+        try:
+            q = clean.replace(' ', '+')
+            async with session.get(f"https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword={q}&page=1",headers=HEADERS_KP,timeout=10) as r:
+                if r.status != 200: continue
+                d = await r.json()
+                films = d.get('films', [])
+                if not films: continue
+                for f0 in films[:3]:
+                    fid = f0.get('filmId')
+                    fyear = str(f0.get('year', ''))
+                    if not fid: continue
+                    if rutor_year and fyear and rutor_year.isdigit():
+                        try:
+                            if abs(int(fyear) - int(rutor_year)) > 2: continue
+                        except: pass
+                    return str(fid)
+        except: continue
+    return None
 
 async def run_enrich_kp():
     print("🔄 KP обогащение...")
@@ -351,7 +375,8 @@ async def fetch_tmdb_batch(session,items):
                         eng = title.split(' / ', 1)[1].strip()
                         import re as _re
                         eng = _re.sub(r'\s*[\[\]\(\{\}].*$', '', eng).strip()
-                        eng = _re.sub(r'\s+(WEB|BDRip|WEBRip|WEB-DL|HDRip|HDTV|BluRay|1080p|720p|2160p|4K|UHD|HEVC|AVC|от\s+.*|\|.*)$', '', eng, flags=_re.IGNORECASE).strip()
+                        eng = _re.sub(r'\s+(WEB|BDRip|WEBRip|WEB-DL|HDRip|HDTV|BluRay|1080p|720p|2160p|4K|UHD|HEVC|AVC|DUB|от\s+.*|\|.*)$', '', eng, flags=_re.IGNORECASE).strip()
+                        eng = _re.sub(r'[._]\d{4}[._].*', '', eng).strip().replace('_',' ').replace('.',' ')
                         if eng and eng.lower() != clean.lower(): candidates.append(eng)
                     if clean: candidates.append(clean)
                     langs = ['ru-RU', 'en-US']
