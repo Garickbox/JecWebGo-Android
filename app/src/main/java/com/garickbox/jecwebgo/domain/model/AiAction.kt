@@ -22,7 +22,7 @@ data class ChatResponse(val choices: List<Choice> = emptyList()) {
 }
 
 @Serializable
-data class AiMovie(val title: String = "", val rating: String = "")
+data class AiMovie(val title: String = "", val rating: String = "", val id: Int = 0)
 
 @Serializable
 data class AiAction(
@@ -32,5 +32,7 @@ data class AiAction(
     val movies: List<AiMovie> = emptyList(),
     val chips: List<String> = emptyList(),
     val question: String = "",
-    val text: String = ""
+    val text: String = "",
+    val year: Int? = null,
+    val genre: String? = null
 )

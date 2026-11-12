@@ -38,37 +38,33 @@ object AiRepository {
     private fun systemPrompt(): String {
         val now = LocalDate.now()
         val year = now.year
-        val monthYear = now.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale("ru")))
+        val monthYear = now.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("ru")))
         return """Ты — голосовой помощник JecWeb для поиска торрентов (фильмы, сериалы, аниме, документалки).
 СЕГОДНЯ: ${now} (${monthYear}). Текущий год: $year.
 
-ОТВЕЧАЙ ТОЛЬКО валидным JSON-объектом, БЕЗ markdown, БЕЗ текста до/после:
+ОТВЕЧАЙ ТОЛЬКО валидным JSON-объектом, БЕЗ markdown, БЕЗ текста:
+
+ДЛЯ ОБЩИХ ЗАПРОСОВ (что посмотреть, новинки, популярное, жанр) — ВЕРНИ ТОЛЬКО:
+{"action":"tmdb_discover","year":2026,"genre":"comedy"}
+{"action":"tmdb_discover","year":2026,"genre":"action"}
+{"action":"tmdb_discover","year":2025,"genre":""}
+
+НЕ ГЕНЕРИРУЙ НАЗВАНИЯ ФИЛЬМОВ. Клиент сам получит реальные фильмы из TMDB.
+
+Для конкретного поиска пользователя:
 {"action":"search","search_query":"...","search_type":"movie|serial|docuserial|anime"}
-{"action":"recommend","movies":[{"title":"...","rating":"8.5"}, ...]}
-{"action":"chips","chips":["Жанр1","Жанр2","Жанр3","Жанр4","Жанр5","Жанр6"]}
+
+Для уточняющего вопроса (редко):
 {"action":"ask","question":"..."}
-{"action":"describe","text":"..."}
 
-ПРИМЕРЫ:
-User: "что посмотреть вечером"
-{"action":"recommend","movies":[{"title":"Дюна: Часть вторая","rating":"8.5"},{"title":"Оппенгеймер","rating":"8.3"},{"title":"Бедные-несчастные","rating":"7.9"},{"title":"Анатомия падения","rating":"7.7"},{"title":"Прошлые жизни","rating":"7.5"},{"title":"Годзилла и Конг: Новая империя","rating":"6.5"},{"title":"Фуриоса: Безумный Макс","rating":"7.4"},{"title":"Претенденты","rating":"7.4"},{"title":"Субстанция","rating":"7.5"},{"title":"Конклав","rating":"7.4"}]}
-
-User: "посоветуй аниме"
-{"action":"search","search_query":"аниме","search_type":"anime"}
-
-ПРАВИЛА (строго):
-1. search_query — чистые ключевые слова БЕЗ года, качества, "смотреть онлайн", "скачать".
-2. search_type — ставь если пользователь явно сказал: фильм→movie, сериал→serial, документалка→docuserial, аниме→anime. Если неясно — не ставь.
-3. Общие запросы ("что посмотреть", "популярное", "новинки", "случайное", "посоветуй", "топ") → сразу recommend с 10 фильмами + rating IMDb (строка "8.5", не число).
-4. Новинки → фильмы ${year-1}-${year} годов (не старше). Учитывай что сейчас ${monthYear}, премьеры ${year} уже вышли.
-5. "ещё" / "другое" / "не то" → НЕ повторяй фильмы из последней подборки в истории. Дай принципиально другие.
-6. Разные жанры, годы (${year-15}-${year}), рейтинги в ОДНОЙ подборке. Не ставь 2 фильма одной франшизы подряд. Не предлагай одни и те же блокбастеры каждый раз.
-7. НЕ предлагай фильмы старше 2000 года, если не попросили "классику"/"ретро"/"старое".
-8. Если выбрал жанр — сразу 10 фильмов этого жанра, без уточняющих вопросов.
-9. НЕ выдумывай фильмы. Если не уверен что фильм существует — не включай. Реальные названия на русском.
-10. Если не можешь подобрать (неизвестный запрос, странный жанр) → chips с 6 разнообразными жанрами из: ${GENRES.joinToString(", ")}.
-11. ask — только если правда нужен уточняющий вопрос, не как отговорка. 90% запросов не требуют ask.
-12. Не пиши извинений, объяснений, "к сожалению". Только JSON.""".trimIndent()
+ПРАВИЛА:
+1. Общие запросы → tmdb_discover с жанром и годом. Жанры: comedy/action/horror/thriller/drama/fantasy/sci-fi/animation/documentary/family/romance/mystery/crime/war/western/history/music/adventure. Если жанр не важен — genre:"".
+2. Новинки → year=${year} или ${year-1}.
+3. Если пользователь явно назвал фильм/сериал ("найди Матрицу") → search с чистым названием.
+4. search_query — БЕЗ года, качества, "смотреть", "скачать".
+5. search_type — фильм→movie, сериал→serial, документалка→docuserial, аниме→anime. Если неясно — "".
+6. "ещё"/"другое" → tmdb_discover с другим случайным жанром.
+7. НЕ пиши извинений. Только JSON.""".trimIndent()
     }
 
     private fun describePrompt(): String {
@@ -87,7 +83,7 @@ User: "посоветуй аниме"
             messages.add(ChatMessage("user", userText))
             val body = json.encodeToString(
                 ChatRequest.serializer(),
-                ChatRequest(messages = messages, temperature = 0.4)
+                ChatRequest(messages = messages, temperature = 0.6)
             )
             val req = Request.Builder().url("$BASE/ai")
                 .post(body.toRequestBody("application/json".toMediaType())).build()
@@ -116,6 +112,48 @@ User: "посоветуй аниме"
             }
         } catch (e: Exception) {
             AiAction(action = "chips", chips = randomGenres(6))
+        }
+    }
+
+    /**
+     * Прямой запрос в TMDB /discover/movie через CF Worker.
+     * Возвращает РЕАЛЬНЫЕ фильмы (id, title, rating), без AI.
+     */
+    suspend fun discoverMovies(year: Int, page: Int, genreId: Int? = null): List<AiMovie> = withContext(Dispatchers.IO) {
+        try {
+            val url = buildString {
+                append(BASE).append("/tmdb/discover/movie?")
+                append("primary_release_year=").append(year)
+                append("&sort_by=popularity.desc")
+                append("&vote_count.gte=10")
+                append("&language=ru-RU")
+                append("&page=").append(page.coerceIn(1, 500))
+                if (genreId != null && genreId > 0) append("&with_genres=").append(genreId)
+            }
+            val req = Request.Builder().url(url).build()
+            val text = client.newCall(req).execute().use { r ->
+                if (!r.isSuccessful) return@withContext emptyList()
+                r.body?.string().orEmpty()
+            }
+            val obj = json.parseToJsonElement(text).jsonObject
+            val results = obj["results"]?.jsonArray ?: return@withContext emptyList()
+            results.mapNotNull { el ->
+                val o = el.jsonObject
+                val id = o["id"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+                val title = o["title"]?.jsonPrimitive?.contentOrNull
+                    ?: o["original_title"]?.jsonPrimitive?.contentOrNull
+                    ?: return@mapNotNull null
+                if (title.isBlank()) return@mapNotNull null
+                val rating = o["vote_average"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                AiMovie(
+                    title = title,
+                    rating = if (rating > 0.0) "%.1f".format(rating) else "",
+                    id = id
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "discoverMovies err: ${e.message}")
+            emptyList()
         }
     }
 

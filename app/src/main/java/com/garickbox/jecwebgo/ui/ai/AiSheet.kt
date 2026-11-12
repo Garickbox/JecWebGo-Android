@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -25,6 +26,7 @@ fun AiSheet(
 ) {
     val s by vm.state.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val ctx = LocalContext.current
     var input by remember { mutableStateOf("") }
 
     ModalBottomSheet(
@@ -76,10 +78,10 @@ fun AiSheet(
             if (s.movies.isEmpty() && s.chips.isEmpty() && !s.loading) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AssistChip(onClick = { vm.quickAction("random") }, label = { Text("🎲 Случайный") })
-                    AssistChip(onClick = { vm.quickAction("popular") }, label = { Text("🔥 Популярное") })
-                    AssistChip(onClick = { vm.quickAction("new") }, label = { Text("🆕 Новинки") })
-                    AssistChip(onClick = { vm.quickAction("genre") }, label = { Text("🎭 Жанр") })
+                    AssistChip(onClick = { vm.quickAction("random", ctx) }, label = { Text("🎲 Случайный") })
+                    AssistChip(onClick = { vm.quickAction("popular", ctx) }, label = { Text("🔥 Популярное") })
+                    AssistChip(onClick = { vm.quickAction("new", ctx) }, label = { Text("🆕 Новинки") })
+                    AssistChip(onClick = { vm.quickAction("genre", ctx) }, label = { Text("🎭 Жанр") })
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -116,7 +118,7 @@ fun AiSheet(
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.chips.forEach { chip ->
                         AssistChip(
-                            onClick = { vm.send("предложи 10 фильмов в жанре \"$chip\"") },
+                            onClick = { vm.recommendFresh(ctx, null, AiViewModel.tmdbGenreId(chip)) },
                             label = { Text(chip) }
                         )
                     }
@@ -138,7 +140,7 @@ fun AiSheet(
                     singleLine = true
                 )
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = { if (input.isNotBlank()) { vm.send(input); input = "" } }) {
+                Button(onClick = { if (input.isNotBlank()) { vm.send(input, ctx); input = "" } }) {
                     Text("▶")
                 }
             }
