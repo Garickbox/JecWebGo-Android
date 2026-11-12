@@ -61,7 +61,10 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             }
             if (history.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})") }
-                items(history) { h -> HistoryCard(h, fmt, onOpen = { vm.open(ctx, h.uri) }) }
+                items(history) { h -> HistoryCard(h, fmt,
+                    onOpen = { vm.open(ctx, h.uri) },
+                    onDelete = { vm.delete(ctx, h) }
+                ) }
             }
             if (active == null && queue.isEmpty() && history.isEmpty()) {
                 item {
@@ -150,17 +153,22 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     }
 }
 
-@Composable private fun HistoryCard(item: DownloadedItem, fmt: SimpleDateFormat, onOpen: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+@Composable private fun HistoryCard(item: DownloadedItem, fmt: SimpleDateFormat, onOpen: () -> Unit, onDelete: () -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("✅", fontSize = 18.sp)
             Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).clickable(onClick = onOpen)) {
                 Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(formatSize(item.sizeBytes) + " · " + fmt.format(Date(item.completedAt)),
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("▶", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+            TextButton(onClick = onOpen, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("▶", fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
+            }
+            TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                Text("✕", fontSize = 16.sp)
+            }
         }
     }
 }

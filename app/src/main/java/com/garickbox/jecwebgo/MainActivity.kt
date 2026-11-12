@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         TorrServerService.start(this)
+        com.garickbox.jecwebgo.data.download.DownloadRepository.init(this)
         handleIntent(intent)
         setContent {
             JecWebTheme {

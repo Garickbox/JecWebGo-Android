@@ -118,7 +118,7 @@ class DownloadService : Service() {
             isPaused = { DownloadRepository.paused }
         )
         if (ok) {
-            DownloadRepository.complete(item, uri.toString(), totalBytes)
+            DownloadRepository.complete(this, item, uri.toString(), totalBytes)
             runCatching { TorrentRepository.rem(item.request.hash) }
             updateNotif(item, totalBytes, totalBytes)
             android.util.Log.d("JecWeb", "download complete: ${item.request.fileName}")

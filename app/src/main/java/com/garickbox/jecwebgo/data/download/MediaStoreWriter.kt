@@ -27,9 +27,23 @@ object MediaStoreWriter {
     }
 
     fun createFile(ctx: Context, displayName: String): Uri? {
+        // Не даём Android добавить .mp4 к имени с .avi/.mkv
+        // MediaStore сам не добавляет суффикс если MIME соответствует расширению
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, displayName)
-            put(MediaStore.Downloads.MIME_TYPE, "video/mp4")
+            val ext = displayName.substringAfterLast(".", "").lowercase()
+            val mime = when (ext) {
+                "mp4", "m4v" -> "video/mp4"
+                "mkv" -> "video/x-matroska"
+                "avi" -> "video/x-msvideo"
+                "mov" -> "video/quicktime"
+                "wmv" -> "video/x-ms-wmv"
+                "webm" -> "video/webm"
+                "flv" -> "video/x-flv"
+                "ts", "m2ts" -> "video/mp2t"
+                else -> "video/mp4"
+            }
+            put(MediaStore.Downloads.MIME_TYPE, mime)
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/JecWeb")
             put(MediaStore.Downloads.IS_PENDING, 1)
         }

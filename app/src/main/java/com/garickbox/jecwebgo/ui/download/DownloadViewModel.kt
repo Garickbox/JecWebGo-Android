@@ -13,6 +13,11 @@ class DownloadViewModel : ViewModel() {
     val queue: StateFlow<List<DownloadItem>> = DownloadRepository.queue
     val history: StateFlow<List<DownloadedItem>> = DownloadRepository.history
 
+    fun delete(ctx: Context, item: com.garickbox.jecwebgo.data.download.DownloadedItem) {
+        runCatching { ctx.contentResolver.delete(android.net.Uri.parse(item.uri), null, null) }
+        DownloadRepository.removeHistory(ctx, item.id)
+    }
+
     fun open(ctx: Context, uri: String) {
         runCatching {
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {

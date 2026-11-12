@@ -5,6 +5,7 @@ import com.garickbox.jecwebgo.service.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 object DownloadRepository {
@@ -19,6 +20,10 @@ object DownloadRepository {
 
     @Volatile var paused: Boolean = false
     @Volatile var cancelled: Boolean = false
+
+    fun init(ctx: Context) {
+        _history.value = com.garickbox.jecwebgo.data.store.DownloadHistoryStore.load(ctx)
+    }
 
     fun enqueue(ctx: Context, request: DownloadRequest): String {
         val id = UUID.randomUUID().toString()
@@ -70,20 +75,25 @@ object DownloadRepository {
         paused = false
     }
 
-    fun complete(item: DownloadItem, uri: String, size: Long) {
+    fun complete(ctx: Context, item: DownloadItem, uri: String, size: Long) {
         _active.value = null
         paused = false
         cancelled = false
-        _history.value = listOf(
-            DownloadedItem(
-                id = item.id,
-                title = item.request.title,
-                fileName = item.request.fileName,
-                uri = uri,
-                sizeBytes = size,
-                completedAt = System.currentTimeMillis()
-            )
-        ) + _history.value
+        val newItem = DownloadedItem(
+            id = item.id, title = item.request.title, fileName = item.request.fileName,
+            uri = uri, sizeBytes = size, completedAt = System.currentTimeMillis()
+        )
+        _history.value = listOf(newItem) + _history.value
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.garickbox.jecwebgo.data.store.DownloadHistoryStore.save(ctx, _history.value)
+        }
+    }
+
+    fun removeHistory(ctx: Context, id: String) {
+        _history.value = _history.value.filter { it.id != id }
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.garickbox.jecwebgo.data.store.DownloadHistoryStore.save(ctx, _history.value)
+        }
     }
 
     fun fail(item: DownloadItem, error: String) {
