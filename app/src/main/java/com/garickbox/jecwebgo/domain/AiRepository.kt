@@ -149,11 +149,25 @@ object AiRepository {
                 AiMovie(
                     title = title,
                     rating = if (rating > 0.0) "%.1f".format(rating) else "",
-                    id = id
+                    id = id,
+                    posterPath = o["poster_path"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    year = (o["release_date"]?.jsonPrimitive?.contentOrNull ?: "").take(4)
                 )
             }
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "discoverMovies err: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /** Фильмы одного жанра из TMDB — 2 года (текущий + прошлый), топ по популярности. */
+    suspend fun discoverGenre(genreId: Int, page: Int = 1): List<AiMovie> = withContext(Dispatchers.IO) {
+        try {
+            val year = LocalDate.now().year
+            val y1 = discoverMovies(year, page, genreId)
+            val y2 = discoverMovies(year - 1, page, genreId)
+            (y1 + y2).distinctBy { it.id }.take(30)
+        } catch (e: Exception) {
             emptyList()
         }
     }

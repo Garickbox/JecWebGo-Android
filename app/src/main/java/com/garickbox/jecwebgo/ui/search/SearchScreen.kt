@@ -42,6 +42,7 @@ fun SearchScreen(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var showAi by remember { mutableStateOf(false) }
+    var selectedGenre by remember { mutableStateOf<TmdbGenre?>(null) }
     var downloadFor by remember { mutableStateOf<SearchItem?>(null) }
     val onPlayPhone: (SearchItem) -> Unit = { item ->
         PlayActions.playPhone(ctx, scope, item.magnet, item.title)
@@ -82,6 +83,7 @@ fun SearchScreen(
             s.loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) { CircularProgressIndicator() }
             s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
+            s.query.isBlank() && s.items.isEmpty() -> GenreGrid(onGenreClick = { g -> selectedGenre = g })
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(s.items) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
             }
@@ -95,6 +97,13 @@ fun SearchScreen(
             onDismiss = { showAi = false },
             onSearch = { q, _ -> vm.onQuery(q); vm.search(); showAi = false }
         )
+        selectedGenre?.let { g ->
+            GenreMoviesSheet(
+                genre = g,
+                onDismiss = { selectedGenre = null },
+                onSearch = { title -> vm.onQuery(title); vm.search() }
+            )
+        }
     }
 }
 
