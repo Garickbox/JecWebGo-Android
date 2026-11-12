@@ -1,5 +1,8 @@
 package com.garickbox.jecwebgo.data.download
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class DownloadRequest(
     val hash: String,
     val fileIndex: Int,

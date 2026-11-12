@@ -1,5 +1,4 @@
 package com.garickbox.jecwebgo.ui.search
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,14 +10,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import android.widget.Toast
 import androidx.compose.runtime.*
-import android.util.Log
-import android.content.ClipboardManager
-import android.content.Intent
-import android.net.Uri
-import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.ui.ai.AiSheet
+import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
@@ -29,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.domain.model.SearchItem
+
 @Composable
 fun SearchScreen(
     pendingQuery: String? = null,
@@ -46,15 +42,26 @@ fun SearchScreen(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var showAi by remember { mutableStateOf(false) }
+    var downloadFor by remember { mutableStateOf<SearchItem?>(null) }
     val onPlayPhone: (SearchItem) -> Unit = { item ->
         PlayActions.playPhone(ctx, scope, item.magnet, item.title)
     }
+    val onDownload: (SearchItem) -> Unit = { item -> downloadFor = item }
     val onBookmark: (SearchItem) -> Unit = { item ->
         scope.launch {
             BookmarkStore.add(ctx, item)
             Toast.makeText(ctx, "В закладки: ${item.title}", Toast.LENGTH_SHORT).show()
         }
     }
+
+    downloadFor?.let { item ->
+        DownloadFromMagnetFlow(
+            magnet = item.magnet,
+            title = item.title,
+            onDismiss = { downloadFor = null }
+        )
+    }
+
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
@@ -76,7 +83,7 @@ fun SearchScreen(
             s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.items) { item -> SearchCard(item, onPlayPhone, onBookmark) }
+                items(s.items) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
             }
         }
     }
@@ -90,8 +97,9 @@ fun SearchScreen(
         )
     }
 }
+
 @Composable
-fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
+fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onDownload: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(12.dp)) {
             Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
@@ -113,6 +121,8 @@ fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onBookmark: 
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(onClick = { onPlayPhone(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 16.sp, maxLines = 1) }
+                Button(onClick = { onDownload(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("⬇", fontSize = 16.sp, maxLines = 1) }
                 OutlinedButton(onClick = { onBookmark(item) }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("🔖", fontSize = 16.sp, maxLines = 1) }
             }
         }

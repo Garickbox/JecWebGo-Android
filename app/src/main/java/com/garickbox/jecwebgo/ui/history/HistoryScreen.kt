@@ -1,5 +1,6 @@
 package com.garickbox.jecwebgo.ui.history
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -12,10 +13,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.data.store.HistoryEntry
 import com.garickbox.jecwebgo.data.store.HistoryStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
 import com.garickbox.jecwebgo.data.store.PlayLogStore
+import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import com.garickbox.jecwebgo.ui.common.PlayActions
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -28,6 +31,8 @@ fun HistoryScreen() {
     var searches by remember { mutableStateOf<List<HistoryEntry>>(emptyList()) }
     var playlog by remember { mutableStateOf<List<PlayLogEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var downloadMagnet by remember { mutableStateOf<String?>(null) }
+    var downloadTitle by remember { mutableStateOf("") }
 
     suspend fun reload() {
         loading = true
@@ -36,6 +41,10 @@ fun HistoryScreen() {
         loading = false
     }
     LaunchedEffect(Unit) { reload() }
+
+    downloadMagnet?.let { m ->
+        DownloadFromMagnetFlow(m, downloadTitle, onDismiss = { downloadMagnet = null })
+    }
 
     if (loading) { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }; return }
 
@@ -69,6 +78,17 @@ fun HistoryScreen() {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Button(onClick = { PlayActions.playPhone(ctx, scope, p.magnet, p.title) },
                                 modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 15.sp) }
+                            Button(onClick = {
+                                downloadMagnet = p.magnet
+                                downloadTitle = p.title
+                            }, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("⬇", fontSize = 15.sp) }
+                            OutlinedButton(onClick = {
+                                scope.launch {
+                                    BookmarkStore.addRaw(ctx, p.title, p.magnet)
+                                    Toast.makeText(ctx, "В закладки: ${p.title}", Toast.LENGTH_SHORT).show()
+                                }
+                            }, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("🔖", fontSize = 15.sp) }
                             OutlinedButton(onClick = { scope.launch { PlayLogStore.removeAt(ctx, playlog.size - 1 - idx); reload() } },
                                 modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("✕", fontSize = 15.sp) }
                         }

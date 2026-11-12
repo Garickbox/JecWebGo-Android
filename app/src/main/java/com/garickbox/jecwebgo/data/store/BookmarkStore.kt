@@ -23,6 +23,13 @@ object BookmarkStore {
         } catch (e: Exception) { emptyList() }
     }
 
+    suspend fun addRaw(ctx: Context, title: String, magnet: String) = withContext(Dispatchers.IO) {
+        val cur = list(ctx).filter { it.magnet != magnet }.toMutableList()
+        cur.add(Bookmark(title, magnet, System.currentTimeMillis() / 1000))
+        file(ctx).writeText(json.encodeToString<List<Bookmark>>(cur))
+        Unit
+    }
+
     suspend fun add(ctx: Context, item: SearchItem) = withContext(Dispatchers.IO) {
         val cur = list(ctx).filter { it.magnet != item.magnet }.toMutableList()
         cur.add(Bookmark(item.title, item.magnet, System.currentTimeMillis() / 1000))

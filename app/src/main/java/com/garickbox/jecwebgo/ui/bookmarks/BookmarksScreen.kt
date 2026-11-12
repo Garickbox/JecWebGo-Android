@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.garickbox.jecwebgo.data.store.Bookmark
 import com.garickbox.jecwebgo.data.store.BookmarkStore
+import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import com.garickbox.jecwebgo.ui.common.PlayActions
 
 @Composable
@@ -22,6 +23,8 @@ fun BookmarksScreen() {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<Bookmark>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var downloadMagnet by remember { mutableStateOf<String?>(null) }
+    var downloadTitle by remember { mutableStateOf("") }
 
     suspend fun reload() {
         loading = true
@@ -29,6 +32,10 @@ fun BookmarksScreen() {
         loading = false
     }
     LaunchedEffect(Unit) { reload() }
+
+    downloadMagnet?.let { m ->
+        DownloadFromMagnetFlow(m, downloadTitle, onDismiss = { downloadMagnet = null })
+    }
 
     if (loading) { Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }; return }
     if (items.isEmpty()) {
@@ -46,6 +53,11 @@ fun BookmarksScreen() {
                         Button(onClick = {
                             PlayActions.playPhone(ctx, scope, b.magnet, b.title)
                         }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp)) { Text("▶", fontSize = 16.sp) }
+                        Button(onClick = {
+                            downloadMagnet = b.magnet
+                            downloadTitle = b.title
+                        }, modifier = Modifier.weight(1f).height(40.dp), contentPadding = PaddingValues(0.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) { Text("⬇", fontSize = 16.sp) }
                         OutlinedButton(onClick = {
                             scope.launch {
                                 BookmarkStore.removeAt(ctx, idx)

@@ -23,7 +23,12 @@ object PlayLogStore {
     }
 
     suspend fun add(ctx: Context, entry: PlayLogEntry, limit: Int = 100) = withContext(Dispatchers.IO) {
-        val cur = list(ctx).toMutableList()
+        // Дедуп как в Go: удалить старую запись с тем же magnet (или hash если magnet пуст)
+        val cur = list(ctx).filter { old ->
+            val sameMagnet = entry.magnet.isNotBlank() && old.magnet == entry.magnet
+            val sameHash = entry.magnet.isBlank() && entry.hash.isNotBlank() && old.hash == entry.hash
+            !sameMagnet && !sameHash
+        }.toMutableList()
         cur.add(entry)
         if (cur.size > limit) cur.subList(0, cur.size - limit).clear()
         file(ctx).writeText(json.encodeToString<List<PlayLogEntry>>(cur))
