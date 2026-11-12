@@ -69,8 +69,15 @@ fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onSearch(movie.title); onDismiss() },
-                            modifier = Modifier.weight(1f)) { Text("🔍 Искать в базе") }
-                        OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Закрыть") }
+                            modifier = Modifier.weight(1f).height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                            Text("🔍 Искать", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                        }
+                        OutlinedButton(onClick = onDismiss,
+                            modifier = Modifier.weight(1f).height(40.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                            Text("Закрыть", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                        }
                     }
                 }
             }

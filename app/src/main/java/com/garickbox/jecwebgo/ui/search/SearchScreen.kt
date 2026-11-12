@@ -30,6 +30,7 @@ import com.garickbox.jecwebgo.domain.model.SearchItem
 fun SearchScreen(
     pendingQuery: String? = null,
     onQueryConsumed: () -> Unit = {},
+    resetKey: Int = 0,
     vm: SearchViewModel = viewModel()
 ) {
     val s by vm.state.collectAsState()
@@ -39,6 +40,10 @@ fun SearchScreen(
             vm.search()
             onQueryConsumed()
         }
+    }
+
+    LaunchedEffect(resetKey) {
+        if (resetKey > 0) vm.reset()
     }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()

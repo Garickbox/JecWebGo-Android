@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
                     onDismiss = { handoffMagnet = null; handoffTorrent = null; handoffTitle = "" }
                 )
                 val nav = rememberNavController()
+                var searchResetKey by remember { mutableStateOf(0) }
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
                             NavigationBarItem(
                                 selected = current == t.route,
                                 onClick = {
+                                    if (t.route == "search") searchResetKey++
                                     if (current != t.route) nav.navigate(t.route) {
                                         popUpTo("home"); launchSingleTop = true
                                     }
@@ -88,7 +90,8 @@ class MainActivity : ComponentActivity() {
                             }) }
                             composable("search") { SearchScreen(
                                 pendingQuery = pendingSearch,
-                                onQueryConsumed = { pendingSearch = null }
+                                onQueryConsumed = { pendingSearch = null },
+                                resetKey = searchResetKey
                             ) }
                             composable("bookmarks") { BookmarksScreen() }
                             composable("history") { HistoryScreen() }

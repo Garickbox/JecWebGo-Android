@@ -14,6 +14,8 @@ data class SearchState(
 class SearchViewModel(app: android.app.Application) : androidx.lifecycle.AndroidViewModel(app) {
     private val _state = MutableStateFlow(SearchState())
     val state: StateFlow<SearchState> = _state.asStateFlow()
+    fun reset() { _state.value = SearchState() }
+
     fun onQuery(q: String) { _state.value = _state.value.copy(query = q) }
     fun search() {
         val q = _state.value.query.trim()
