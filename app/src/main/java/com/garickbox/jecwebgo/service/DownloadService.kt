@@ -30,7 +30,6 @@ class DownloadService : Service() {
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    @Volatile private var cancelled = false
     @Volatile private var running = false
     private var idleTicks = 0
 
@@ -49,7 +48,7 @@ class DownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
-        cancelled = true
+        DownloadRepository.cancelled = true
         scope.cancel()
         super.onDestroy()
     }
@@ -74,7 +73,7 @@ class DownloadService : Service() {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private suspend fun process(item: DownloadItem) {
-        cancelled = false
+        DownloadRepository.cancelled = false
         android.util.Log.d("JecWeb", "download start: ${item.request.fileName} idx=${item.request.fileIndex}")
 
         // 1. Ждём готовности стрима (правильный index)
@@ -115,7 +114,8 @@ class DownloadService : Service() {
                 DownloadRepository.updateProgress(dl, total, sp)
                 updateNotif(item, dl, total)
             },
-            isCancelled = { cancelled }
+            isCancelled = { DownloadRepository.cancelled },
+            isPaused = { DownloadRepository.paused }
         )
         if (ok) {
             DownloadRepository.complete(item, uri.toString(), totalBytes)

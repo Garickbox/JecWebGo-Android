@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garickbox.jecwebgo.data.network.HttpClient
-import com.garickbox.jecwebgo.data.store.SettingsStore
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -25,7 +24,6 @@ fun StatusBar() {
     val ctx = LocalContext.current
     var tsAlive by remember { mutableStateOf<Boolean?>(null) }
     var jacAlive by remember { mutableStateOf<Boolean?>(null) }
-    var tvAlive by remember { mutableStateOf<Boolean?>(null) }
     var posterAlive by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(Unit) {
@@ -35,10 +33,6 @@ fun StatusBar() {
                 runCatching {
                     HttpClient.get("https://jac.red/api/v1.0/torrents?search=a").isNotBlank()
                 }.getOrDefault(false)
-            }
-            tvAlive = withContext(Dispatchers.IO) {
-                val s = SettingsStore.load(ctx)
-                if (s.tv_ip.isBlank()) null else TorrentRepository.isAliveAt(s.tv_ip.trim())
             }
             posterAlive = withContext(Dispatchers.IO) {
                 runCatching {
@@ -56,7 +50,6 @@ fun StatusBar() {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Dot("TorrServer", tsAlive)
-        Dot("ТВ", tvAlive)
         Dot("JacRed", jacAlive)
         Dot("Постеры", posterAlive)
     }

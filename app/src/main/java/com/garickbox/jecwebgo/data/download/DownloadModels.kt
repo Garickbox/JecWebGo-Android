@@ -18,7 +18,7 @@ data class DownloadItem(
     val status: Status = Status.QUEUED,
     val error: String? = null
 ) {
-    enum class Status { QUEUED, ACTIVE, COMPLETED, FAILED, CANCELLED }
+    enum class Status { QUEUED, ACTIVE, PAUSED, COMPLETED, FAILED, CANCELLED }
     val progress: Float
         get() = if (totalBytes <= 0L) 0f else (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
 }

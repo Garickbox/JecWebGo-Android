@@ -125,9 +125,6 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
             onPlay = { item ->
                 PlayActions.playPhone(ctx, scope, item.magnet, item.title)
             },
-            onTV = { item ->
-                PlayActions.playTV(ctx, scope, item.magnet, item.title)
-            },
             onSearch = { onOpenSearch(g.cleanTitle); selected = null }
         )
     }
@@ -193,7 +190,6 @@ private fun DetailsDialog(
     g: GroupedTorrent,
     onClose: () -> Unit,
     onPlay: (TorrentItem) -> Unit,
-    onTV: (TorrentItem) -> Unit,
     onSearch: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -278,11 +274,6 @@ private fun DetailsDialog(
                                 Text("▶", fontSize = 14.sp)
                             }
                             Spacer(Modifier.width(4.dp))
-                            Button(onClick = { onTV(item); onClose() },
-                                modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
-                                Text("📺", fontSize = 14.sp)
-                            }
                             Spacer(Modifier.width(4.dp))
                             Button(onClick = {
                                 pickerFor = item

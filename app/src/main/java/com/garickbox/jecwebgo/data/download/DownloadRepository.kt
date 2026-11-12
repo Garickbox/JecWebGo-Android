@@ -17,6 +17,9 @@ object DownloadRepository {
     private val _history = MutableStateFlow<List<DownloadedItem>>(emptyList())
     val history: StateFlow<List<DownloadedItem>> = _history.asStateFlow()
 
+    @Volatile var paused: Boolean = false
+    @Volatile var cancelled: Boolean = false
+
     fun enqueue(ctx: Context, request: DownloadRequest): String {
         val id = UUID.randomUUID().toString()
         _queue.value = _queue.value + DownloadItem(id = id, request = request, totalBytes = request.totalBytes)
@@ -27,6 +30,8 @@ object DownloadRepository {
     fun next(): DownloadItem? {
         val n = _queue.value.firstOrNull() ?: return null
         _queue.value = _queue.value.drop(1)
+        paused = false
+        cancelled = false
         val item = n.copy(status = DownloadItem.Status.ACTIVE, totalBytes = n.request.totalBytes)
         _active.value = item
         return item
@@ -46,8 +51,29 @@ object DownloadRepository {
         )
     }
 
+    fun pause() {
+        val cur = _active.value ?: return
+        paused = true
+        _active.value = cur.copy(status = DownloadItem.Status.PAUSED, speedBps = 0L)
+    }
+
+    fun resume() {
+        val cur = _active.value ?: return
+        paused = false
+        cancelled = false
+        _active.value = cur.copy(status = DownloadItem.Status.ACTIVE)
+    }
+
+    fun cancel() {
+        if (_active.value == null) return
+        cancelled = true
+        paused = false
+    }
+
     fun complete(item: DownloadItem, uri: String, size: Long) {
         _active.value = null
+        paused = false
+        cancelled = false
         _history.value = listOf(
             DownloadedItem(
                 id = item.id,
@@ -62,6 +88,8 @@ object DownloadRepository {
 
     fun fail(item: DownloadItem, error: String) {
         _active.value = null
+        paused = false
+        cancelled = false
         android.util.Log.e("JecWeb", "download fail: ${item.request.fileName} — $error")
     }
 }

@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.data.download.DownloadItem
+import com.garickbox.jecwebgo.data.download.DownloadRepository
 import com.garickbox.jecwebgo.data.download.DownloadedItem
+import com.garickbox.jecwebgo.ui.common.PlayActions
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,6 +30,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     val queue by vm.queue.collectAsState()
     val history by vm.history.collectAsState()
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -44,7 +47,13 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (active != null) {
                 item { SectionTitle("Сейчас качается") }
-                item { ActiveCard(active!!) }
+                item { ActiveCard(
+                    item = active!!,
+                    onPause = { DownloadRepository.pause() },
+                    onResume = { DownloadRepository.resume() },
+                    onCancel = { DownloadRepository.cancel() },
+                    onWatch = { active?.let { PlayActions.playHash(ctx, scope, it.request.hash, it.request.title) } }
+                ) }
             }
             if (queue.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queue.size})") }
@@ -75,7 +84,13 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
 }
 
-@Composable private fun ActiveCard(item: DownloadItem) {
+@Composable private fun ActiveCard(
+    item: DownloadItem,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onCancel: () -> Unit,
+    onWatch: () -> Unit
+) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text(item.request.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -90,8 +105,32 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                 Spacer(Modifier.weight(1f))
                 Text(formatSize(item.downloadedBytes) + " / " + formatSize(item.totalBytes), fontSize = 11.sp)
                 Spacer(Modifier.width(8.dp))
-                Text(formatSpeed(item.speedBps), fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                if (item.status == DownloadItem.Status.PAUSED)
+                    Text("⏸", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
+                else
+                    Text(formatSpeed(item.speedBps), fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (item.status == DownloadItem.Status.PAUSED) {
+                    Button(onClick = onResume, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) {
+                        Text("▶ Дальше", fontSize = 11.sp)
+                    }
+                } else {
+                    OutlinedButton(onClick = onPause, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) {
+                        Text("⏸ Пауза", fontSize = 11.sp)
+                    }
+                }
+                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) {
+                    Text("⏹ Стоп", fontSize = 11.sp)
+                }
+                if (item.downloadedBytes > 5L * 1024 * 1024) {
+                    Button(onClick = onWatch, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
+                        Text("▶ Смотреть", fontSize = 11.sp)
+                    }
+                }
             }
         }
     }

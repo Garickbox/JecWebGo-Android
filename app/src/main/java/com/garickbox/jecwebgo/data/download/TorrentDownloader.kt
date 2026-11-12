@@ -27,7 +27,8 @@ object TorrentDownloader {
         targetUri: Uri,
         totalBytes: Long,
         onProgress: (downloaded: Long, total: Long, speedBps: Long) -> Unit,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        isPaused: () -> Boolean = { false }
     ): Boolean = withContext(Dispatchers.IO) {
         val handle = MediaStoreWriter.openChannel(ctx, targetUri) ?: return@withContext false
         val channel = handle.channel
@@ -40,6 +41,7 @@ object TorrentDownloader {
             android.util.Log.d("JecWeb", "download: total=$totalBytes chunk=$CHUNK_SIZE buf=$IO_BUFFER")
 
             while (downloaded < totalBytes && !isCancelled()) {
+                if (isPaused()) { delay(500); continue }
                 val start = downloaded
                 val end = min(start + CHUNK_SIZE - 1, totalBytes - 1)
                 val expected = (end - start + 1)

@@ -24,11 +24,6 @@ fun SettingsScreen() {
         Text("Настройки", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)
 
-        OutlinedTextField(
-            value = s.tv_ip, onValueChange = { s = s.copy(tv_ip = it) },
-            label = { Text("IP телевизора (TorrServer :8090)") },
-            modifier = Modifier.fillMaxWidth(), singleLine = true
-        )
 
         OutlinedTextField(
             value = s.search_provider, onValueChange = { s = s.copy(search_provider = it) },

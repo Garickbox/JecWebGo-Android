@@ -1,13 +1,11 @@
 package com.garickbox.jecwebgo.ui.common
 
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import com.garickbox.jecwebgo.data.store.PlayLogStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
-import com.garickbox.jecwebgo.data.store.SettingsStore
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -56,27 +54,5 @@ object PlayActions {
         if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
     }
 
-    fun playTV(ctx: Context, scope: CoroutineScope, magnet: String, title: String) {
-        scope.launch {
-            val s = SettingsStore.load(ctx)
-            val tvIp = s.tv_ip.trim()
-            if (tvIp.isBlank()) {
-                Toast.makeText(ctx, "TV IP не задан (Настройки)", Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            if (!TorrentRepository.isAliveAt(tvIp)) {
-                Toast.makeText(ctx, "TorrServer на $tvIp:8090 недоступен", Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            val h = TorrentRepository.add(magnet)
-            if (h == null) {
-                Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            cm.setPrimaryClip(android.content.ClipData.newPlainText("m3u", TorrentRepository.streamM3U(h, tvIp)))
-            Toast.makeText(ctx, "M3U для ТВ: $tvIp", Toast.LENGTH_LONG).show()
-            PlayLogStore.add(ctx, PlayLogEntry("tv", title, magnet, h, System.currentTimeMillis()/1000))
-        }
-    }
+
 }
