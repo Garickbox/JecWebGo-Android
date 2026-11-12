@@ -58,6 +58,18 @@ object MediaStoreWriter {
         return ChannelHandle(fos.channel, fos, pfd)
     }
 
+    fun getFileSize(ctx: Context, uri: Uri): Long {
+        return try {
+            ctx.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
+        } catch (_: Exception) { 0L }
+    }
+
+    fun exists(ctx: Context, uri: Uri): Boolean {
+        return try {
+            ctx.contentResolver.openFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (_: Exception) { false }
+    }
+
     fun finalizeFile(ctx: Context, uri: Uri) {
         val values = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
         runCatching { ctx.contentResolver.update(uri, values, null, null) }

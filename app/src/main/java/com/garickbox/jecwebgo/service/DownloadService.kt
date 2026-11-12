@@ -97,19 +97,55 @@ class DownloadService : Service() {
         if (totalBytes <= 0) { DownloadRepository.fail(item, "size 0"); return }
         DownloadRepository.setTotal(totalBytes)
 
-        // 3. Создать файл
-        val safeName = sanitize(item.request.fileName)
-        val uri = MediaStoreWriter.createFile(this, safeName)
-        if (uri == null) { DownloadRepository.fail(item, "create fail"); return }
+        // 3. Файл: resume существующего или создать новый
+        val targetUri: android.net.Uri
+        val startOffset: Long
+        val existingStr = item.existingUri?.takeIf { it.isNotBlank() }
+        if (existingStr != null) {
+            val exUri = android.net.Uri.parse(existingStr)
+            if (MediaStoreWriter.exists(this, exUri)) {
+                val size = MediaStoreWriter.getFileSize(this, exUri)
+                if (size in 1..(totalBytes - 1)) {
+                    targetUri = exUri
+                    startOffset = size
+                    android.util.Log.d("JecWeb", "RESUME from $startOffset/$totalBytes")
+                } else {
+                    // файл битый или полный — удалить и создать заново
+                    MediaStoreWriter.delete(this, exUri)
+                    val safeName = sanitize(item.request.fileName)
+                    targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+                        DownloadRepository.fail(item, "create fail"); return
+                    }
+                    startOffset = 0L
+                }
+            } else {
+                val safeName = sanitize(item.request.fileName)
+                targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+                    DownloadRepository.fail(item, "create fail"); return
+                }
+                startOffset = 0L
+            }
+        } else {
+            val safeName = sanitize(item.request.fileName)
+            targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+                DownloadRepository.fail(item, "create fail"); return
+            }
+            startOffset = 0L
+        }
+
+        // Сохранить uri активной загрузки (для resume после kill)
+        DownloadRepository.setActiveUri(targetUri.toString())
+        DownloadRepository.setTotal(totalBytes)
 
         // 4. Скачать
-        updateNotif(item, 0L, totalBytes)
+        updateNotif(item, startOffset, totalBytes)
         val ok = TorrentDownloader.download(
             ctx = this,
             hash = item.request.hash,
             fileIndex = item.request.fileIndex,
-            targetUri = uri,
+            targetUri = targetUri,
             totalBytes = totalBytes,
+            startOffset = startOffset,
             onProgress = { dl, total, sp ->
                 DownloadRepository.updateProgress(dl, total, sp)
                 updateNotif(item, dl, total)

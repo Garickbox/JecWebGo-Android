@@ -34,7 +34,8 @@ object DownloadRepository {
             android.util.Log.d("JecWeb", "restoring ${persisted.size} interrupted downloads")
             _queue.value = persisted.map { p ->
                 DownloadItem(id = p.id, request = p.request, totalBytes = p.request.totalBytes,
-                    status = DownloadItem.Status.QUEUED)
+                    status = DownloadItem.Status.QUEUED,
+                    existingUri = p.uri.takeIf { it.isNotBlank() })
             }
             DownloadService.start(ctx)
         }
@@ -43,7 +44,7 @@ object DownloadRepository {
     private fun persist() {
         val ctx = appCtx ?: return
         val items = (listOfNotNull(_active.value) + _queue.value).map {
-            PersistedDownload(it.id, it.request)
+            PersistedDownload(it.id, it.request, it.existingUri ?: "")
         }
         DownloadStateStore.save(ctx, items)
     }
@@ -65,6 +66,12 @@ object DownloadRepository {
         _active.value = item
         persist()
         return item
+    }
+
+    fun setActiveUri(uri: String) {
+        val cur = _active.value ?: return
+        _active.value = cur.copy(existingUri = uri)
+        persist()
     }
 
     fun setTotal(total: Long) {

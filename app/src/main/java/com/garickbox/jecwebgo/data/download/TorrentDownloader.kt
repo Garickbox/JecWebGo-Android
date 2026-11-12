@@ -26,6 +26,7 @@ object TorrentDownloader {
         fileIndex: Int,
         targetUri: Uri,
         totalBytes: Long,
+        startOffset: Long = 0L,
         onProgress: (downloaded: Long, total: Long, speedBps: Long) -> Unit,
         isCancelled: () -> Boolean,
         isPaused: () -> Boolean = { false }
@@ -33,12 +34,18 @@ object TorrentDownloader {
         val handle = MediaStoreWriter.openChannel(ctx, targetUri) ?: return@withContext false
         val channel = handle.channel
         val url = "http://127.0.0.1:8090/stream?link=$hash&index=$fileIndex&play"
-        var downloaded = 0L
+        var downloaded = startOffset
         var lastReport = System.currentTimeMillis()
-        var lastBytes = 0L
+        var lastBytes = startOffset
 
         try {
-            android.util.Log.d("JecWeb", "download: total=$totalBytes chunk=$CHUNK_SIZE buf=$IO_BUFFER")
+            android.util.Log.d("JecWeb", "download: total=$totalBytes start=$startOffset chunk=$CHUNK_SIZE")
+            onProgress(startOffset, totalBytes, 0L)
+            if (startOffset >= totalBytes) {
+                handle.close()
+                MediaStoreWriter.finalizeFile(ctx, targetUri)
+                return@withContext true
+            }
 
             while (downloaded < totalBytes && !isCancelled()) {
                 if (isPaused()) { delay(500); continue }

@@ -19,7 +19,8 @@ data class DownloadItem(
     val downloadedBytes: Long = 0L,
     val speedBps: Long = 0L,
     val status: Status = Status.QUEUED,
-    val error: String? = null
+    val error: String? = null,
+    val existingUri: String? = null
 ) {
     enum class Status { QUEUED, ACTIVE, PAUSED, COMPLETED, FAILED, CANCELLED }
     val progress: Float
