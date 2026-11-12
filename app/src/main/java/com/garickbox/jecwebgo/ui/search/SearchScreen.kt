@@ -107,7 +107,7 @@ fun SearchScreen(
             GenreMoviesSheet(
                 genre = g,
                 onDismiss = { selectedGenre = null },
-                onSearch = { title -> vm.onQuery(title); vm.search() }
+                onSearch = { title -> vm.onQuery(title); vm.search(); selectedGenre = null }
             )
         }
     }
