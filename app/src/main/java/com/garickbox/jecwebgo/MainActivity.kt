@@ -33,6 +33,8 @@ import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
 import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
 import com.garickbox.jecwebgo.ui.more.MoreScreen
+import com.garickbox.jecwebgo.ui.player.PendingPlayer
+import com.garickbox.jecwebgo.ui.player.PlayerScreen
 import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.settings.SettingsScreen
 import com.garickbox.jecwebgo.ui.status.StatusBar
@@ -68,12 +70,16 @@ class MainActivity : ComponentActivity() {
                 )
                 val nav = rememberNavController()
                 var searchResetKey by remember { mutableStateOf(0) }
+                val playerRequest by PendingPlayer.data.collectAsState()
+                LaunchedEffect(playerRequest) {
+                    if (playerRequest != null) nav.navigate("player") { launchSingleTop = true }
+                }
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"
                 val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(bottomBar = {
-                    NavigationBar {
+                    if (current != "player") NavigationBar {
                         tabs.forEach { t ->
                             NavigationBarItem(
                                 selected = selectedTab == t.route,
@@ -89,6 +95,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                    }
                     }
                 }) { pad ->
                     Column(Modifier.padding(pad).fillMaxSize()) {
@@ -109,6 +116,17 @@ class MainActivity : ComponentActivity() {
                             composable("bookmarks") { BookmarksScreen() }
                             composable("settings") { SettingsScreen() }
                             composable("about") { AboutScreen() }
+                            composable("player") {
+                                val pr = playerRequest
+                                if (pr != null) {
+                                    PlayerScreen(url = pr.url, title = pr.title, onBack = {
+                                        PendingPlayer.consume()
+                                        nav.popBackStack()
+                                    })
+                                } else {
+                                    LaunchedEffect(Unit) { nav.popBackStack() }
+                                }
+                            }
                         }
                     }
                 }

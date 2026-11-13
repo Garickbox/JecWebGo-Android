@@ -78,16 +78,8 @@ object PlayActions {
 
     private suspend fun openVlc(ctx: Context, hash: String, index: Int, title: String, magnet: String) {
         PlayLogStore.add(ctx, PlayLogEntry("phone", title, magnet, hash, System.currentTimeMillis()/1000))
-        // &t=<timestamp> — уникальный URL каждый раз, VLC не восстанавливает позицию
         val base = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
         val url = "$base&t=${System.currentTimeMillis()}"
-        val vlc = Intent(Intent.ACTION_VIEW).apply {
-            setPackage("org.videolan.vlc")
-            setDataAndType(Uri.parse(url), "video/mp4")
-        }
-        val generic = Intent(Intent.ACTION_VIEW, Uri.parse(url)).setType("video/*")
-        val ok = runCatching { ctx.startActivity(vlc) }.isSuccess ||
-                 runCatching { ctx.startActivity(generic) }.isSuccess
-        if (!ok) Toast.makeText(ctx, "Нет видеоплеера", Toast.LENGTH_SHORT).show()
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.open(url, title)
     }
 }

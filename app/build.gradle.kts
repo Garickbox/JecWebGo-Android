@@ -11,6 +11,9 @@ android {
         minSdk = 26; targetSdk = 34
         versionCode = ((System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt())
         versionName = "0.2-mvp"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
     signingConfigs {
         getByName("debug") {
@@ -34,6 +37,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("org.videolan.android:libvlc-all:3.6.5")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.navigation:navigation-compose:2.8.2")
