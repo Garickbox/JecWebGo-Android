@@ -61,6 +61,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import android.media.AudioManager
 import android.os.PowerManager
+import android.app.admin.DevicePolicyManager
+import com.garickbox.jecwebgo.admin.AdminReceiver
 import kotlin.math.abs
 import com.garickbox.jecwebgo.data.store.PlayLogStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
@@ -138,6 +140,7 @@ private fun PlayerScreenImpl(
     val useTextureView = hwMode == "auto"
 
     val activity = remember(context) { context.findActivity() }
+    val dpm = remember(context) { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
     DisposableEffect(activity) {
         activity?.let {
             val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
@@ -404,6 +407,14 @@ private fun PlayerScreenImpl(
         delay(500L)
         val act = activity ?: context.findActivity()
         android.util.Log.d("JecWeb", "sleep timer: activity=$act")
+        if (AdminReceiver.isActive(context)) {
+            try {
+                dpm.lockNow()
+                android.util.Log.d("JecWeb", "sleep timer: lockNow OK")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "sleep timer: lockNow fail: ${e.message}")
+            }
+        }
         try {
             act?.finishAndRemoveTask()
             android.util.Log.d("JecWeb", "sleep timer: finishAndRemoveTask OK")
@@ -643,6 +654,16 @@ private fun PlayerScreenImpl(
                                         @Suppress("DEPRECATION") v.vibrate(30)
                                     }
                                 } catch (_: Exception) {}
+                                if (AdminReceiver.isActive(context)) {
+                                    try {
+                                        activity?.startLockTask()
+                                        android.util.Log.d("JecWeb", "startLockTask OK")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("JecWeb", "startLockTask fail: ${e.message}")
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Полная блокировка требует разрешения (MainActivity диалог)", Toast.LENGTH_LONG).show()
+                                }
                                 android.util.Log.d("JecWeb", "UI lock ON")
                             }
                         }
@@ -877,6 +898,12 @@ private fun PlayerScreenImpl(
                                         @Suppress("DEPRECATION") v.vibrate(30)
                                     }
                                 } catch (_: Exception) {}
+                                try {
+                                    activity?.stopLockTask()
+                                    android.util.Log.d("JecWeb", "stopLockTask OK")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("JecWeb", "stopLockTask fail: ${e.message}")
+                                }
                                 android.util.Log.d("JecWeb", "UI lock OFF")
                             }
                         )

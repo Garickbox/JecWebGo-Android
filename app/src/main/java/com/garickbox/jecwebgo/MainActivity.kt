@@ -102,6 +102,36 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                if (needAdminRequest) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { needAdminRequest = false },
+                        title = { androidx.compose.material3.Text("🔐 Управление экраном") },
+                        text = { androidx.compose.material3.Text(
+                            "Разрешите JecWeb Go управление экраном для:\n" +
+                            "• Полной блокировки касаний (System Lock)\n" +
+                            "• Мгновенного гашения экрана по таймеру сна\n\n" +
+                            "Разрешение запрашивается один раз. Отозвать можно в Настройки → Безопасность → Администрирование."
+                        ) },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                needAdminRequest = false
+                                try {
+                                    val i = android.content.Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                                    i.putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                                        com.garickbox.jecwebgo.admin.AdminReceiver.componentName(this@MainActivity))
+                                    i.putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                                        "System Lock + блокировка экрана по таймеру")
+                                    startActivity(i)
+                                } catch (_: Exception) {}
+                            }) { androidx.compose.material3.Text("Активировать") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { needAdminRequest = false }) {
+                                androidx.compose.material3.Text("Позже")
+                            }
+                        }
+                    )
+                }
                 val nav = rememberNavController()
                 var searchResetKey by remember { mutableStateOf(0) }
                 val playerRequest by PendingPlayer.data.collectAsState()
@@ -199,6 +229,8 @@ class MainActivity : ComponentActivity() {
 
     private var needBatteryOptRequest by mutableStateOf(false)
 
+    private var needAdminRequest by mutableStateOf(false)
+
     private fun requestRuntimePermissions() {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -210,6 +242,9 @@ class MainActivity : ComponentActivity() {
                 needBatteryOptRequest = true
             }
         } catch (_: Exception) {}
+        if (!com.garickbox.jecwebgo.admin.AdminReceiver.isActive(this)) {
+            needAdminRequest = true
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
