@@ -41,7 +41,11 @@ class TorrServerService : Service() {
             .setOngoing(true).build())
         TorrServerLauncher.start(this)
         val prefs = getSharedPreferences("torrsettings", android.content.Context.MODE_PRIVATE)
-        val alreadyApplied = prefs.getBoolean("settings_v1_done", false)
+        val configDb = java.io.File(filesDir, "config.db")
+        val configAge = if (configDb.exists()) System.currentTimeMillis() - configDb.lastModified() else Long.MAX_VALUE
+        val forceReapply = configAge > 24L * 60 * 60 * 1000
+        val alreadyApplied = prefs.getBoolean("settings_v1_done", false) && !forceReapply
+        android.util.Log.i(TAG, "settings check: configAge=${configAge}ms forceReapply=$forceReapply alreadyApplied=$alreadyApplied")
         if (!alreadyApplied) {
             scope.launch {
                 applySettings()
@@ -69,7 +73,7 @@ class TorrServerService : Service() {
                 put("TorrentsSavePath", realPath)
                 put("RemoveCacheOnDrop", true)
                 put("ConnectionsLimit", 50)
-                put("TorrentDisconnectTimeout", 300)
+                put("TorrentDisconnectTimeout", 1800)
             })
         }.toString()
 
@@ -78,6 +82,7 @@ class TorrServerService : Service() {
             try {
                 val resp = HttpClient.postJson(url, body)
                 android.util.Log.i(TAG, "settings applied (attempt $attempt): ${resp.take(80)}")
+                android.util.Log.i(TAG, "settings: CacheSize=2GB DisconnectTimeout=1800 UseDisk=true Path=$realPath")
                 return
             } catch (e: Exception) {
                 android.util.Log.w(TAG, "settings attempt $attempt fail: ${e.message}")

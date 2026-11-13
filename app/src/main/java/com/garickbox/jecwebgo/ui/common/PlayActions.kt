@@ -24,9 +24,17 @@ object PlayActions {
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
                 return@launch
             }
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Ожидание потока...")
+            val t0 = System.currentTimeMillis()
+            val ready = TorrentRepository.waitReady(result.hash, result.firstVideoIndex, 45000L)
+            val elapsed = System.currentTimeMillis() - t0
+            android.util.Log.d("JecWeb", "playPhone waitReady=$ready after ${elapsed}ms file=${result.firstVideoName}")
+            if (!ready) {
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer не отдал поток за 45с")
+                return@launch
+            }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем...")
-            kotlinx.coroutines.delay(2000L)
-            openVlc(ctx, result.hash, result.firstVideoIndex, title, magnet)
+            openVlc(ctx, result.hash, result.firstVideoIndex, title, magnet, result.firstVideoName)
         }
     }
 
@@ -43,7 +51,7 @@ object PlayActions {
                 Toast.makeText(ctx, "Торрент не готов за 30с", Toast.LENGTH_LONG).show()
                 return@launch
             }
-            openVlc(ctx, hash, video.id, title, "")
+            openVlc(ctx, hash, video.id, title, "", video.path.substringAfterLast("/"))
         }
     }
 
@@ -72,11 +80,12 @@ object PlayActions {
         return null
     }
 
-    private suspend fun openVlc(ctx: Context, hash: String, index: Int, title: String, magnet: String) {
+    private suspend fun openVlc(ctx: Context, hash: String, index: Int, title: String, magnet: String, fileName: String = "") {
         PlayLogStore.add(ctx, PlayLogEntry("phone", title, magnet, hash, System.currentTimeMillis()/1000))
         val base = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
         val url = "$base&t=${System.currentTimeMillis()}"
         val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title)
-        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index)
+        android.util.Log.d("JecWeb", "openVlc file=$fileName hash=$hash idx=$index")
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index, fileName)
     }
 }

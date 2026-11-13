@@ -57,6 +57,7 @@ fun PlayerScreen(
     title: String,
     hash: String = "",
     currentIndex: Int = 1,
+    fileName: String = "",
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -85,6 +86,7 @@ fun PlayerScreen(
             mainTitle = cleanMainTitle,
             hash = hash,
             currentIndex = currentIndex,
+            fileName = fileName,
             hwMode = effectiveMode,
             onBack = onBack,
             onError = { fallback() }
@@ -99,6 +101,7 @@ private fun PlayerScreenImpl(
     mainTitle: String,
     hash: String,
     currentIndex: Int,
+    fileName: String,
     hwMode: String,
     onBack: () -> Unit,
     onError: () -> Unit
@@ -172,13 +175,13 @@ private fun PlayerScreenImpl(
         }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
-                MediaPlayer.Event.Playing -> isPlaying = true
+                MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing") }
                 MediaPlayer.Event.Paused -> isPlaying = false
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> onBack()
                 MediaPlayer.Event.TimeChanged -> position = event.timeChanged
                 MediaPlayer.Event.LengthChanged -> duration = event.lengthChanged
-                MediaPlayer.Event.EncounteredError -> onError()
+                MediaPlayer.Event.EncounteredError -> { android.util.Log.e("JecWeb", "VLC EncounteredError"); onError() }
             }
         }
         mediaPlayer.setEventListener(listener)
@@ -230,7 +233,8 @@ private fun PlayerScreenImpl(
                 "auto" -> setHWDecoderEnabled(true, false)
                 "sw" -> setHWDecoderEnabled(false, false)
             }
-            val isAvi = currentUrl.contains(".avi", ignoreCase = true)
+            val isAvi = fileName.endsWith(".avi", ignoreCase = true)
+            android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
             if (isAvi) {
                 addOption(":network-caching=20000")
                 addOption(":demux=avformat")
