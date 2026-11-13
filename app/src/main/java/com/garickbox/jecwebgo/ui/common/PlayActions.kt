@@ -25,6 +25,7 @@ object PlayActions {
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем...")
+            kotlinx.coroutines.delay(2000L)
             openVlc(ctx, result.hash, result.firstVideoIndex, title, magnet)
         }
     }
