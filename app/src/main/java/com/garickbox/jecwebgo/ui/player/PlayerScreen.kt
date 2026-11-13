@@ -888,8 +888,8 @@ private fun PlayerScreenImpl(
                         "🔒",
                         fontSize = 24.sp,
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 80.dp, end = 16.dp)
+                            .align(Alignment.TopStart)
+                            .padding(top = 80.dp, start = 16.dp)
                     )
                 }
                 if (lockIconPulse) {
