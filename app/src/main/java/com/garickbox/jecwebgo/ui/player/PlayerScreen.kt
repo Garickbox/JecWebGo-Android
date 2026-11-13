@@ -228,14 +228,20 @@ private fun PlayerScreenImpl(
         isPlaying = false
         position = 0L
         duration = 0L
+        val isAvi = fileName.endsWith(".avi", ignoreCase = true)
+        android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
-            when (hwMode) {
-                "full" -> setHWDecoderEnabled(true, true)
-                "auto" -> setHWDecoderEnabled(true, false)
-                "sw" -> setHWDecoderEnabled(false, false)
+            // AVI (DivX/XviD) не поддерживается MediaCodec — принудительно SW
+            if (isAvi) {
+                setHWDecoderEnabled(false, false)
+                addOption(":avcodec-hw=disabled")
+            } else {
+                when (hwMode) {
+                    "full" -> setHWDecoderEnabled(true, true)
+                    "auto" -> setHWDecoderEnabled(true, false)
+                    "sw" -> setHWDecoderEnabled(false, false)
+                }
             }
-            val isAvi = fileName.endsWith(".avi", ignoreCase = true)
-            android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
             if (isAvi) {
                 addOption(":network-caching=20000")
                 addOption(":demux=avformat")
@@ -249,8 +255,9 @@ private fun PlayerScreenImpl(
             addOption(":clock-synchro=0")
         }
         mediaPlayer.media = media
-        mediaPlayer.play()
         media.release()
+        val playOk = mediaPlayer.play()
+        android.util.Log.d("JecWeb", "VLC play() ok=$playOk isAvi=$isAvi hw=$hwMode")
     }
 
     LaunchedEffect(controlsVisible) {

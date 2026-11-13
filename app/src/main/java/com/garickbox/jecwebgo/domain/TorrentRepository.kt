@@ -243,7 +243,15 @@ object TorrentRepository {
                 val req = Request.Builder().url(url).header("Range", "bytes=0-1").get().build()
                 val (code, bytesRead) = HttpClient.client.newCall(req).execute().use {
                     val body = it.body
-                    val n = if (body != null) body.bytes().size else 0
+                    val n = if (body != null) {
+                        try {
+                            val buf = ByteArray(2)
+                            val stream = body.byteStream()
+                            val got = stream.read(buf)
+                            runCatching { stream.close() }
+                            if (got > 0) got else 0
+                        } catch (e: Exception) { 0 }
+                    } else 0
                     Pair(it.code, n)
                 }
                 if (code in 200..299 && bytesRead >= 2) return@withContext true
