@@ -17,28 +17,15 @@ object PlayActions {
     fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String, poster: String = "", description: String = "") {
         scope.launch {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster, description)
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Подключение к TorrServer...")
-            val h = TorrentRepository.add(magnet)
-            android.util.Log.d("JecWeb", "play_phone hash=$h title=$title")
-            if (h == null) {
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
+            val result = TorrentRepository.addWithFile(magnet)
+            android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash} idx=${result?.firstVideoIndex}")
+            if (result == null) {
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
                 return@launch
             }
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем метаданные торрента...")
-            val video = findVideoFile(h) { status -> com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status) }
-            if (video == null) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Видеофайл не найден в торренте")
-                return@launch
-            }
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров...")
-            val ready = TorrentRepository.waitReadyReal(h, video.id, 30000L) { status ->
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status)
-            }
-            if (!ready) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Нет пиров (или мало сидов). Попробуйте другой фильм или скачайте")
-                return@launch
-            }
-            openVlc(ctx, h, video.id, title, magnet)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем...")
+            openVlc(ctx, result.hash, result.firstVideoIndex, title, magnet)
         }
     }
 

@@ -36,6 +36,64 @@ object TorrentRepository {
         }
     }
 
+    data class AddResult(
+        val hash: String,
+        val firstVideoIndex: Int,
+        val firstVideoName: String
+    )
+
+    private val VIDEO_EXT_SET = setOf("mp4","mkv","avi","mov","wmv","webm","flv","m4v","ts","m2ts")
+
+    /**
+     * Добавляет торрент и СРАЗУ возвращает hash + первый video (из data.TorrServer.Files).
+     * Не ждёт findVideoFile/getFiles — данные уже в add resp.
+     */
+    suspend fun addWithFile(magnet: String): AddResult? = withContext(Dispatchers.IO) {
+        try {
+            val enriched = com.garickbox.jecwebgo.util.MagnetUtil.enrich(magnet)
+            val b = buildJsonObject { put("action","add"); put("link",enriched); put("save_to_db", true) }.toString()
+            val resp = post(b)
+            android.util.Log.d("JecWeb", "addWithFile resp: ${resp.take(400)}")
+            val root = json.parseToJsonElement(resp).jsonObject
+            val hash = root["hash"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
+            // data — вложенная JSON-строка
+            val dataStr = root["data"]?.jsonPrimitive?.contentOrNull
+            var firstIdx = 1
+            var firstName = ""
+            var found = false
+            if (!dataStr.isNullOrBlank()) {
+                try {
+                    val inner = json.parseToJsonElement(dataStr).jsonObject
+                    val files = inner["TorrServer"]?.jsonObject?.get("Files")?.jsonArray
+                    if (files != null) {
+                        for (el in files) {
+                            val o = el.jsonObject
+                            val id = o["id"]?.jsonPrimitive?.intOrNull ?: continue
+                            val path = o["path"]?.jsonPrimitive?.contentOrNull ?: continue
+                            val len = o["length"]?.jsonPrimitive?.longOrNull ?: 0L
+                            val ext = path.substringAfterLast(".", "").lowercase()
+                            if (ext in VIDEO_EXT_SET && len > 0) {
+                                firstIdx = id
+                                firstName = path.substringAfterLast("/")
+                                found = true
+                                break
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("JecWeb", "addWithFile data parse: ${e.message}")
+                }
+            }
+            if (!found) {
+                android.util.Log.w("JecWeb", "addWithFile: no video found, fallback index=1")
+            }
+            AddResult(hash, firstIdx, firstName)
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "addWithFile fail: ${e.message}")
+            null
+        }
+    }
+
     suspend fun addTorrentBase64(b64: String): String? = withContext(Dispatchers.IO) {
         try {
             val b = buildJsonObject {
