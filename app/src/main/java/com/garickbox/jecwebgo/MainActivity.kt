@@ -1,29 +1,38 @@
 package com.garickbox.jecwebgo
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.garickbox.jecwebgo.service.TorrServerService
+import com.garickbox.jecwebgo.ui.about.AboutScreen
 import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
 import com.garickbox.jecwebgo.ui.download.DownloadScreen
 import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
 import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
+import com.garickbox.jecwebgo.ui.more.MoreScreen
 import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.settings.SettingsScreen
 import com.garickbox.jecwebgo.ui.status.StatusBar
@@ -33,11 +42,11 @@ data class Tab(val route: String, val label: String, val icon: ImageVector)
 val tabs = listOf(
     Tab("home", "Главная", Icons.Filled.Home),
     Tab("search", "Поиск", Icons.Filled.Search),
-    Tab("bookmarks", "Метки", Icons.Filled.Star),
-    Tab("history", "История", Icons.Filled.History),
     Tab("downloads", "Загрузки", Icons.Filled.Download),
-    Tab("settings", "Настройки", Icons.Filled.Settings)
+    Tab("more", "Ещё", Icons.Filled.MoreHoriz)
 )
+
+private val moreRoutes = setOf("more", "history", "bookmarks", "settings", "about")
 
 class MainActivity : ComponentActivity() {
     private var handoffMagnet by mutableStateOf<String?>(null)
@@ -61,27 +70,28 @@ class MainActivity : ComponentActivity() {
                 var searchResetKey by remember { mutableStateOf(0) }
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"
+                val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(bottomBar = {
                     NavigationBar {
                         tabs.forEach { t ->
                             NavigationBarItem(
-                                selected = current == t.route,
+                                selected = selectedTab == t.route,
                                 onClick = {
                                     if (t.route == "search") searchResetKey++
                                     if (current != t.route) nav.navigate(t.route) {
-                                        popUpTo("home"); launchSingleTop = true
+                                        popUpTo("home")
+                                        launchSingleTop = true
                                     }
                                 },
-                                icon = { Icon(t.icon, t.label) },
-                                label = { Text(t.label, maxLines = 1, softWrap = false, fontSize = 10.sp) }
+                                icon = {
+                                    Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(26.dp))
+                                }
                             )
                         }
                     }
                 }) { pad ->
-                    androidx.compose.foundation.layout.Column(
-                        Modifier.padding(pad).fillMaxSize()
-                    ) {
+                    Column(Modifier.padding(pad).fillMaxSize()) {
                         StatusBar()
                         NavHost(nav, "home", Modifier.fillMaxSize()) {
                             composable("home") { HomeScreen(onOpenSearch = { q ->
@@ -93,10 +103,12 @@ class MainActivity : ComponentActivity() {
                                 onQueryConsumed = { pendingSearch = null },
                                 resetKey = searchResetKey
                             ) }
-                            composable("bookmarks") { BookmarksScreen() }
-                            composable("history") { HistoryScreen() }
                             composable("downloads") { DownloadScreen() }
+                            composable("more") { MoreScreen(nav) }
+                            composable("history") { HistoryScreen() }
+                            composable("bookmarks") { BookmarksScreen() }
                             composable("settings") { SettingsScreen() }
+                            composable("about") { AboutScreen() }
                         }
                     }
                 }
