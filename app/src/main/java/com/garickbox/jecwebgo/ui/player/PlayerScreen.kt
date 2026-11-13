@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -172,6 +173,10 @@ private fun PlayerScreenImpl(
     var loadingSeries by remember { mutableStateOf(false) }
     var firstFrameReady by remember { mutableStateOf(false) }
     var bufferingPct by remember { mutableIntStateOf(0) }
+    var playbackRate by remember { mutableFloatStateOf(1.0f) }
+    var speedSheet by remember { mutableStateOf(false) }
+    var optionsSheet by remember { mutableStateOf(false) }
+    var subFilesLoading by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -185,7 +190,14 @@ private fun PlayerScreenImpl(
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
                 MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing") }
-                MediaPlayer.Event.Paused -> isPlaying = false
+                MediaPlayer.Event.Paused -> {
+                    isPlaying = false
+                    if (playbackRate != 1.0f) {
+                        mediaPlayer.rate = 1.0f
+                        playbackRate = 1.0f
+                        android.util.Log.d("JecWeb", "VLC rate reset to 1.0 after pause")
+                    }
+                }
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> onBack()
                 MediaPlayer.Event.TimeChanged -> {
@@ -252,6 +264,7 @@ private fun PlayerScreenImpl(
         duration = 0L
         firstFrameReady = false
         bufferingPct = 0
+        playbackRate = 1.0f
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
@@ -355,6 +368,13 @@ private fun PlayerScreenImpl(
                 Text(currentTitle, color = Color.White, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(start = 4.dp))
+                TextButton(onClick = { speedSheet = true },
+                    contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text("${playbackRate}x", color = Color.White, fontSize = 13.sp)
+                }
+                IconButton(onClick = { optionsSheet = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Опции", tint = Color.White)
+                }
             }
 
             IconButton(
@@ -473,6 +493,123 @@ private fun PlayerScreenImpl(
                             onClick = { mediaPlayer.spuTrack = id; subSheet = false })
                         Text(name, modifier = Modifier.padding(start = 8.dp))
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        if (hash.isBlank()) {
+                            Toast.makeText(context, "Нет hash — субтитры недоступны", Toast.LENGTH_SHORT).show()
+                            return@OutlinedButton
+                        }
+                        subFilesLoading = true
+                        scope.launch {
+                            val files = TorrentRepository.getFiles(hash)
+                            val subs = files.filter {
+                                val ext = it.path.substringAfterLast(".", "").lowercase()
+                                ext in setOf("srt", "ass", "ssa", "sub", "vtt")
+                            }
+                            if (subs.isEmpty()) {
+                                Toast.makeText(context, "Субтитров нет в торренте", Toast.LENGTH_SHORT).show()
+                            } else {
+                                val f = subs.first()
+                                val subUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}"
+                                mediaPlayer.addSlave(Media.Slave.Type.Subtitle, Uri.parse(subUrl), true)
+                                Toast.makeText(context, "Загружено: ${f.path.substringAfterLast("/")}", Toast.LENGTH_SHORT).show()
+                                android.util.Log.d("JecWeb", "VLC subtitle slave: $subUrl")
+                            }
+                            subFilesLoading = false
+                            subSheet = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    if (subFilesLoading) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("📁 Загрузить .srt из торрента")
+                    }
+                }
+            }
+        }
+    }
+
+    if (speedSheet) {
+        ModalBottomSheet(onDismissRequest = { speedSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Скорость", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                listOf(0.5f, 1.0f, 2.0f).forEach { rate ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            mediaPlayer.rate = rate
+                            playbackRate = rate
+                            speedSheet = false
+                            android.util.Log.d("JecWeb", "VLC rate=$rate")
+                        }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = playbackRate == rate,
+                            onClick = { mediaPlayer.rate = rate; playbackRate = rate; speedSheet = false })
+                        Text("${rate}x", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    if (optionsSheet) {
+        ModalBottomSheet(onDismissRequest = { optionsSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Опции", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text("Соотношение сторон", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(4.dp))
+                listOf(
+                    null to "Auto",
+                    "16:9" to "16:9",
+                    "4:3" to "4:3",
+                    "1:1" to "1:1",
+                    "21:9" to "21:9"
+                ).forEach { (ar, name) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            mediaPlayer.aspectRatio = ar
+                            optionsSheet = false
+                            android.util.Log.d("JecWeb", "VLC aspect=$ar")
+                        }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = mediaPlayer.aspectRatio == ar,
+                            onClick = { mediaPlayer.aspectRatio = ar; optionsSheet = false })
+                        Text(name, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Button(
+                    onClick = {
+                        val dir = java.io.File(
+                            android.os.Environment.getExternalStoragePublicDirectory(
+                                android.os.Environment.DIRECTORY_PICTURES), "JecWeb")
+                        dir.mkdirs()
+                        val f = java.io.File(dir, "snap_${System.currentTimeMillis()}.jpg")
+                        val ok = mediaPlayer.takeSnapshot(f, 0, 0)
+                        if (ok) Toast.makeText(context, "Снимок: ${f.name}", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, "Ошибка снимка", Toast.LENGTH_SHORT).show()
+                        optionsSheet = false
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("📷 Снимок кадра") }
+                if (!isPlaying) {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            mediaPlayer.nextFrame()
+                            optionsSheet = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("▶ Кадр вперёд") }
                 }
             }
         }
