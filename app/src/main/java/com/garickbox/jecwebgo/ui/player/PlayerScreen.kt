@@ -506,14 +506,6 @@ private fun PlayerScreenImpl(
                         onTap = { controlsVisible = !controlsVisible },
                         onDoubleTap = {
                             if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
-                        },
-                        onLongPress = {
-                            val saved = mediaPlayer.rate
-                            mediaPlayer.rate = 2.0f
-                            android.util.Log.d("JecWeb", "long-press 2x")
-                            tryAwaitRelease()
-                            mediaPlayer.rate = saved
-                            android.util.Log.d("JecWeb", "long-press release $saved")
                         }
                     )
                 }
