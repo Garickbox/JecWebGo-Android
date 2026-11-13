@@ -60,6 +60,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import android.media.AudioManager
+import android.os.PowerManager
 import kotlin.math.abs
 import com.garickbox.jecwebgo.data.store.PlayLogStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
@@ -209,6 +210,11 @@ private fun PlayerScreenImpl(
     var dragStartBrightness by remember { mutableFloatStateOf(0.5f) }
     var dragStartX by remember { mutableFloatStateOf(0f) }
     var dragStartY by remember { mutableFloatStateOf(0f) }
+    var sleepTimerEndMs by remember { mutableLongStateOf(0L) }
+    var sleepTimerMinutes by remember { mutableIntStateOf(0) }
+    var stopAtFileEnd by remember { mutableStateOf(false) }
+    var sleepSheet by remember { mutableStateOf(false) }
+    var sleepTimerRemaining by remember { mutableLongStateOf(0L) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -232,7 +238,12 @@ private fun PlayerScreenImpl(
                 }
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> {
-                    android.util.Log.d("JecWeb", "EndReached seriesList=${seriesList.size} curIdx=$currentIdx")
+                    android.util.Log.d("JecWeb", "EndReached seriesList=${seriesList.size} curIdx=$currentIdx stopAtFileEnd=$stopAtFileEnd")
+                    if (stopAtFileEnd) {
+                        android.util.Log.d("JecWeb", "EndReached: sleep timer stopAtFileEnd -> pause")
+                        runCatching { mediaPlayer.pause() }
+                        return@EventListener
+                    }
                     if (seriesList.size > 1) {
                         val idx = seriesList.indexOfFirst { it.id == currentIdx }
                         val next = seriesList.getOrNull(idx + 1)
@@ -325,6 +336,31 @@ private fun PlayerScreenImpl(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
+    var wakeLock by remember { mutableStateOf<PowerManager.WakeLock?>(null) }
+
+    fun startSleepTimer(minutes: Int, toEnd: Boolean) {
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
+        if (!toEnd && minutes <= 0) {
+            sleepTimerEndMs = 0L
+            sleepTimerMinutes = 0
+            stopAtFileEnd = false
+            android.util.Log.d("JecWeb", "sleep timer off")
+            return
+        }
+        val ms = if (toEnd) (duration - position).coerceAtLeast(0L) else minutes * 60_000L
+        if (ms <= 0) return
+        sleepTimerEndMs = System.currentTimeMillis() + ms
+        sleepTimerMinutes = if (toEnd) -1 else minutes
+        stopAtFileEnd = toEnd
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JecWeb:SleepTimer").apply {
+            setReferenceCounted(false)
+            acquire(ms + 120_000L)
+        }
+        android.util.Log.d("JecWeb", "sleep timer: toEnd=$toEnd minutes=$minutes ms=$ms")
+    }
+
     fun gotoSeries(targetIdx: Int) {
         val f = seriesList.getOrNull(targetIdx) ?: return
         val fName = f.path.substringAfterLast("/")
@@ -343,6 +379,36 @@ private fun PlayerScreenImpl(
     fun nextSeries() {
         val idx = seriesList.indexOfFirst { it.id == currentIdx }
         if (idx >= 0 && idx + 1 < seriesList.size) gotoSeries(idx + 1) else Toast.makeText(context, "Последняя серия", Toast.LENGTH_SHORT).show()
+    }
+
+    LaunchedEffect(sleepTimerEndMs) {
+        if (sleepTimerEndMs <= 0L) {
+            sleepTimerRemaining = 0L
+            return@LaunchedEffect
+        }
+        while (true) {
+            val rem = sleepTimerEndMs - System.currentTimeMillis()
+            sleepTimerRemaining = rem.coerceAtLeast(0L)
+            if (rem <= 0L) break
+            delay(1000L)
+        }
+        // Сработал
+        android.util.Log.d("JecWeb", "sleep timer FIRED")
+        runCatching { mediaPlayer.pause() }
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
+        sleepTimerEndMs = 0L
+        sleepTimerMinutes = 0
+        stopAtFileEnd = false
+        Toast.makeText(context, "🌙 Таймер сна: пауза", Toast.LENGTH_LONG).show()
+        delay(400L)
+        runCatching { activity?.finishAndRemoveTask() }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            wakeLock?.let { if (it.isHeld) it.release() }
+        }
     }
 
     LaunchedEffect(currentUrl, reloadKey) {
@@ -662,6 +728,17 @@ private fun PlayerScreenImpl(
                 ) {
                     Text("${playbackRate}x", color = Color.White, fontSize = 13.sp)
                 }
+                TextButton(
+                    onClick = { sleepSheet = true },
+                    contentPadding = PaddingValues(horizontal = 6.dp)
+                ) {
+                    val txt = if (sleepTimerEndMs > 0L) {
+                        val m = (sleepTimerRemaining / 60000).toInt()
+                        val s = ((sleepTimerRemaining / 1000) % 60).toInt()
+                        "🌙 %d:%02d".format(m, s)
+                    } else "🌙"
+                    Text(txt, color = Color.White, fontSize = 13.sp)
+                }
                 val aspectLabelsTop = listOf("Auto", "16:9", "4:3", "1:1", "21:9")
                 TextButton(
                     onClick = {
@@ -729,11 +806,15 @@ private fun PlayerScreenImpl(
                     IconButton(onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) }) {
                         Icon(Icons.Filled.Replay10, contentDescription = "-10с", tint = Color.White)
                     }
-                    IconButton(onClick = { if (audioTracks.isNotEmpty()) audioSheet = true else Toast.makeText(context, "Нет аудиодорожек", Toast.LENGTH_SHORT).show() }) {
-                        Icon(Icons.Filled.Audiotrack, contentDescription = "Аудио", tint = Color.White)
+                    if (audioTracks.size > 1) {
+                        IconButton(onClick = { audioSheet = true }) {
+                            Icon(Icons.Filled.Audiotrack, contentDescription = "Аудио", tint = Color.White)
+                        }
                     }
-                    IconButton(onClick = { subSheet = true }) {
-                        Icon(Icons.Filled.Subtitles, contentDescription = "Субтитры", tint = Color.White)
+                    if (subTracks.isNotEmpty()) {
+                        IconButton(onClick = { subSheet = true }) {
+                            Icon(Icons.Filled.Subtitles, contentDescription = "Субтитры", tint = Color.White)
+                        }
                     }
                     IconButton(onClick = { openSeriesSheet() }) {
                         Icon(Icons.Filled.VideoLibrary, contentDescription = "Серии", tint = Color.White)
@@ -806,6 +887,42 @@ private fun PlayerScreenImpl(
                     RadioButton(selected = mediaPlayer.spuTrack == id,
                         onClick = { mediaPlayer.spuTrack = id; userSelectedSubs = true; subSheet = false })
                     Text(name, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+
+    if (sleepSheet) {
+        PlayerSheet(title = "🌙 Таймер сна", onDismiss = { sleepSheet = false }) {
+            val opts = mutableListOf(
+                Triple("Выключен", 0, false),
+                Triple("30 минут", 30, false),
+                Triple("45 минут", 45, false),
+                Triple("1 час", 60, false)
+            )
+            if (duration > position && duration > 0L) {
+                opts.add(Triple("До конца файла (${formatTime(duration - position)})", -1, true))
+            }
+            opts.forEach { (label, minutes, toEnd) ->
+                val selected = if (toEnd) {
+                    stopAtFileEnd
+                } else if (minutes == 0) {
+                    sleepTimerEndMs <= 0L
+                } else {
+                    sleepTimerMinutes == minutes
+                }
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        startSleepTimer(minutes, toEnd)
+                        sleepSheet = false
+                    }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = selected, onClick = {
+                        startSleepTimer(minutes, toEnd)
+                        sleepSheet = false
+                    })
+                    Text(label, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
