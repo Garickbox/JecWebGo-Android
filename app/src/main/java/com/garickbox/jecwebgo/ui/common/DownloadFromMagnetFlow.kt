@@ -88,7 +88,8 @@ fun DownloadFromMagnetFlow(
                         fileName = f.path.substringAfterLast("/"),
                         title = TitleUtil.cleanTitle(title),
                         magnet = magnet,
-                        totalBytes = f.length
+                        totalBytes = f.length,
+                        relPath = f.path
                     ))
                 }
                 Toast.makeText(ctx, "В очередь: ${picked.size}", Toast.LENGTH_SHORT).show()

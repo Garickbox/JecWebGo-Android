@@ -41,7 +41,7 @@ class DownloadService : Service() {
                 NotificationChannel(CH, "Загрузки", NotificationManager.IMPORTANCE_LOW)
             )
         }
-        startForeground(NOTIF_ID, buildNotif("Ожидание...", 0L, 0L))
+        startForeground(NOTIF_ID, buildNotif("JecWeb", "Ожидание...", 0L, 0L))
         scope.launch { loop() }
     }
 
@@ -113,21 +113,24 @@ class DownloadService : Service() {
                     // файл битый или полный — удалить и создать заново
                     MediaStoreWriter.delete(this, exUri)
                     val safeName = sanitize(item.request.fileName)
-                    targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+                    val safeRel = sanitizeRelPath(item.request.relPath.substringBeforeLast("/", ""))
+                    targetUri = MediaStoreWriter.createFile(this, safeName, safeRel) ?: run {
                         DownloadRepository.fail(item, "create fail"); return
                     }
                     startOffset = 0L
                 }
             } else {
                 val safeName = sanitize(item.request.fileName)
-                targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+                val safeRel = sanitizeRelPath(item.request.relPath.substringBeforeLast("/", ""))
+                targetUri = MediaStoreWriter.createFile(this, safeName, safeRel) ?: run {
                     DownloadRepository.fail(item, "create fail"); return
                 }
                 startOffset = 0L
             }
         } else {
             val safeName = sanitize(item.request.fileName)
-            targetUri = MediaStoreWriter.createFile(this, safeName) ?: run {
+            val safeRel = sanitizeRelPath(item.request.relPath.substringBeforeLast("/", ""))
+            targetUri = MediaStoreWriter.createFile(this, safeName, safeRel) ?: run {
                 DownloadRepository.fail(item, "create fail"); return
             }
             startOffset = 0L
@@ -163,6 +166,15 @@ class DownloadService : Service() {
         }
     }
 
+    private fun sanitizeRelPath(relPath: String): String {
+        if (relPath.isBlank()) return ""
+        return relPath.split("/")
+            .filter { it.isNotBlank() && it != "." && it != ".." }
+            .joinToString("/") { seg ->
+                seg.replace(Regex("""[\\:*?"<>|]"""), "_").take(120)
+            }
+    }
+
     private fun getFileSize(hash: String, index: Int): Long {
         return try {
             val url = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
@@ -177,20 +189,39 @@ class DownloadService : Service() {
         return name.replace(Regex("""[\\/:*?"<>|]"""), "_").take(180)
     }
 
-    private fun buildNotif(text: String, progress: Long, total: Long): Notification {
+    private fun openAppIntent(): android.app.PendingIntent {
+        val i = Intent(this, com.garickbox.jecwebgo.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_tab", "downloads")
+        }
+        return android.app.PendingIntent.getActivity(
+            this, 0, i,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= 23) android.app.PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+    }
+
+    private fun buildNotif(title: String, text: String, progress: Long, total: Long): Notification {
         val b = NotificationCompat.Builder(this, CH)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("JecWeb загрузка")
+            .setContentTitle(title)
             .setContentText(text)
+            .setContentIntent(openAppIntent())
+            .setAutoCancel(false)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
         if (total > 0) b.setProgress(100, ((progress * 100) / total).toInt(), false)
         return b.build()
     }
 
     private fun updateNotif(item: DownloadItem, progress: Long, total: Long) {
         val pct = if (total > 0) (progress * 100 / total).toInt() else 0
+        val mbDone = progress / 1048576
+        val mbTotal = total / 1048576
         val spd = if (item.speedBps > 0) " · %.1f MB/s".format(item.speedBps / 1e6) else ""
+        val title = item.request.title.ifBlank { "JecWeb загрузка" }
+        val text = "$pct% · $mbDone / $mbTotal MB$spd"
         val nm = getSystemService(NotificationManager::class.java)
-        nm.notify(NOTIF_ID, buildNotif("$pct%$spd", progress, total))
+        nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
     }
 }

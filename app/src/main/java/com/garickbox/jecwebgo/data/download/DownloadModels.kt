@@ -9,7 +9,8 @@ data class DownloadRequest(
     val fileName: String,
     val title: String,
     val magnet: String,
-    val totalBytes: Long = 0L
+    val totalBytes: Long = 0L,
+    val relPath: String = ""
 )
 
 data class DownloadItem(

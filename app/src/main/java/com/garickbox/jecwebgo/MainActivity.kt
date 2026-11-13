@@ -136,6 +136,12 @@ class MainActivity : ComponentActivity() {
                 val nav = rememberNavController()
                 var searchResetKey by remember { mutableStateOf(0) }
                 val playerRequest by PendingPlayer.data.collectAsState()
+                LaunchedEffect(pendingTabFromIntent) {
+                    pendingTabFromIntent?.let { t ->
+                        nav.navigate(t) { launchSingleTop = true; popUpTo("home") { inclusive = false } }
+                        pendingTabFromIntent = null
+                    }
+                }
                 LaunchedEffect(playerRequest) {
                     if (playerRequest != null) nav.navigate("player") { launchSingleTop = true }
                 }
@@ -229,6 +235,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private var needBatteryOptRequest by mutableStateOf(false)
+    private var pendingTabFromIntent by mutableStateOf<String?>(null)
 
     private var needAdminRequest by mutableStateOf(false)
 
@@ -293,6 +300,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
+        val openTab = intent?.getStringExtra("open_tab")
+        if (openTab != null) {
+            pendingTabFromIntent = openTab
+            intent.removeExtra("open_tab")
+        }
         val data = intent?.data ?: return
         val scheme = data.scheme ?: return
         if (scheme == "magnet") {
