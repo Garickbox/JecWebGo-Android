@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     val history by vm.history.collectAsState()
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
     val scope = rememberCoroutineScope()
+    var deleteDialogFor by remember { mutableStateOf<DownloadedItem?>(null) }
 
     Scaffold(
         topBar = {
@@ -57,13 +59,20 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             }
             if (queue.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queue.size})") }
-                items(queue) { q -> QueueCard(q) }
+                itemsIndexed(queue) { idx, q -> QueueCard(
+                    item = q,
+                    index = idx,
+                    totalCount = queue.size,
+                    onMoveUp = { DownloadRepository.moveInQueue(idx, idx - 1) },
+                    onMoveDown = { DownloadRepository.moveInQueue(idx, idx + 1) },
+                    onRemove = { DownloadRepository.removeFromQueue(q.id) }
+                ) }
             }
             if (history.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})") }
                 items(history) { h -> HistoryCard(h, fmt,
-                    onOpen = { vm.open(ctx, h.uri) },
-                    onDelete = { vm.delete(ctx, h) }
+                    onOpen = { vm.open(ctx, h) },
+                    onDelete = { deleteDialogFor = h }
                 ) }
             }
             if (active == null && queue.isEmpty() && history.isEmpty()) {
@@ -81,6 +90,38 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             }
         }
     }
+    deleteDialogFor?.let { h ->
+        DeleteHistoryDialog(
+            item = h,
+            onDismiss = { deleteDialogFor = null },
+            onRemoveFromList = { vm.removeFromList(ctx, h); deleteDialogFor = null },
+            onDeleteFile = { vm.delete(ctx, h); deleteDialogFor = null }
+        )
+    }
+}
+
+@Composable private fun DeleteHistoryDialog(
+    item: DownloadedItem,
+    onDismiss: () -> Unit,
+    onRemoveFromList: () -> Unit,
+    onDeleteFile: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Удалить?") },
+        text = { Text(item.title + "\n\nФайл: " + item.fileName) },
+        confirmButton = {
+            TextButton(onClick = onDeleteFile) {
+                Text("Удалить и файл", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onRemoveFromList) { Text("Только из списка") }
+                TextButton(onClick = onDismiss) { Text("Отмена") }
+            }
+        }
+    )
 }
 
 @Composable private fun SectionTitle(text: String) {
@@ -139,7 +180,14 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     }
 }
 
-@Composable private fun QueueCard(item: DownloadItem) {
+@Composable private fun QueueCard(
+    item: DownloadItem,
+    index: Int,
+    totalCount: Int,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit
+) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("⏳", fontSize = 18.sp)
@@ -149,6 +197,20 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                 Text(item.request.fileName, fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            TextButton(
+                onClick = onMoveUp,
+                enabled = index > 0,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) { Text("↑", fontSize = 16.sp) }
+            TextButton(
+                onClick = onMoveDown,
+                enabled = index < totalCount - 1,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) { Text("↓", fontSize = 16.sp) }
+            TextButton(
+                onClick = onRemove,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) { Text("✕", fontSize = 16.sp) }
         }
     }
 }

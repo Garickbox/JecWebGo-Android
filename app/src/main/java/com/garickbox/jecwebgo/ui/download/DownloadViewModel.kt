@@ -13,18 +13,23 @@ class DownloadViewModel : ViewModel() {
     val queue: StateFlow<List<DownloadItem>> = DownloadRepository.queue
     val history: StateFlow<List<DownloadedItem>> = DownloadRepository.history
 
-    fun delete(ctx: Context, item: com.garickbox.jecwebgo.data.download.DownloadedItem) {
+    fun delete(ctx: Context, item: DownloadedItem) {
         runCatching { ctx.contentResolver.delete(android.net.Uri.parse(item.uri), null, null) }
         DownloadRepository.removeHistory(ctx, item.id)
     }
 
-    fun open(ctx: Context, uri: String) {
-        runCatching {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                setDataAndType(android.net.Uri.parse(uri), "video/mp4")
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            ctx.startActivity(intent)
-        }
+    fun removeFromList(ctx: Context, item: DownloadedItem) {
+        DownloadRepository.removeHistory(ctx, item.id)
+    }
+
+    fun open(ctx: Context, item: DownloadedItem) {
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(
+            url = item.uri,
+            title = item.title,
+            hash = "",
+            currentIndex = 1,
+            fileName = item.fileName
+        )
+        android.util.Log.d("JecWeb", "local play: ${item.uri} file=${item.fileName}")
     }
 }

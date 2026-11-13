@@ -57,6 +57,20 @@ object DownloadRepository {
         return id
     }
 
+    fun moveInQueue(from: Int, to: Int) {
+        val q = _queue.value.toMutableList()
+        if (from !in q.indices || to !in q.indices || from == to) return
+        val item = q.removeAt(from)
+        q.add(to, item)
+        _queue.value = q
+        persist()
+    }
+
+    fun removeFromQueue(id: String) {
+        _queue.value = _queue.value.filter { it.id != id }
+        persist()
+    }
+
     fun next(): DownloadItem? {
         val n = _queue.value.firstOrNull() ?: return null
         _queue.value = _queue.value.drop(1)
