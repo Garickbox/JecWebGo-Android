@@ -26,7 +26,7 @@ class JecWebApp : Application(), ImageLoaderFactory {
                     .maxSizePercent(0.25)
                     .build()
             }
-            .eventListener(object : EventListener() {
+            .eventListener(object : EventListener {
                 override fun onSuccess(request: ImageRequest, result: SuccessResult) {
                     Log.d("JecWeb:poster", "OK ${request.data}")
                 }
