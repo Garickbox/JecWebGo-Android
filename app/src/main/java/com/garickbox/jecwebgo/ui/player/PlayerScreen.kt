@@ -164,7 +164,7 @@ private fun PlayerScreenImpl(
         }
     }
 
-    BackHandler { onBack() }
+    BackHandler { TouchBlockerService.stop(context); onBack() }
 
     val vlcView = remember {
         VLCVideoLayout(context).apply {
@@ -434,6 +434,7 @@ private fun PlayerScreenImpl(
         runCatching { mediaPlayer.pause() }
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
+        TouchBlockerService.stop(context)
         Toast.makeText(context, "🌙 Таймер сна: пауза", Toast.LENGTH_LONG).show()
         delay(500L)
         val act = activity ?: context.findActivity()
@@ -922,7 +923,7 @@ private fun PlayerScreenImpl(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
-                                lockIconPulse = !lockIconPulse
+                                lockIconPulse = true
                             },
                             onLongPress = {
                                 uiLocked = false
@@ -989,7 +990,7 @@ private fun PlayerScreenImpl(
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             )
         }
-        if (firstFrameReady && sleepTimerEndMs > 0L && sleepTimerRemaining > 60000L && !controlsVisible) {
+        if (firstFrameReady && sleepTimerEndMs > 0L && sleepTimerRemaining > 60000L && (controlsVisible || lockIconPulse)) {
             val mm = (sleepTimerRemaining / 60000L).toInt()
             val ss = ((sleepTimerRemaining / 1000L) % 60L).toInt()
             Text(
@@ -999,7 +1000,7 @@ private fun PlayerScreenImpl(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 80.dp, end = 16.dp)
+                    .padding(top = 120.dp, end = 16.dp)
                     .background(Color.Black.copy(alpha = 0.4f))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             )
