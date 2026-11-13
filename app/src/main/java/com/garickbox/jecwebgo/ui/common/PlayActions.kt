@@ -25,13 +25,13 @@ object PlayActions {
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем метаданные торрента...")
-            val video = findVideoFile(h)
+            val video = findVideoFile(h) { status -> com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status) }
             if (video == null) {
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Видеофайл не найден в торренте")
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров...")
-            val ready = TorrentRepository.waitReadyReal(h, video.id, 90000L) { status ->
+            val ready = TorrentRepository.waitReadyReal(h, video.id, 30000L) { status ->
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status)
             }
             if (!ready) {
@@ -63,9 +63,12 @@ object PlayActions {
      * Ищет первый видеофайл в торренте (не .srt/.sub/.ass/.nfo/.txt).
      * Ждёт до 20 сек пока TorrServer получит file_stats.
      */
-    private suspend fun findVideoFile(hash: String): TorrentFile? {
-        val deadline = System.currentTimeMillis() + 20000L
+    private suspend fun findVideoFile(hash: String, onProgress: (String) -> Unit = {}): TorrentFile? {
+        val deadline = System.currentTimeMillis() + 60000L
+        val startTime = System.currentTimeMillis()
         while (System.currentTimeMillis() < deadline) {
+            val elapsed = (System.currentTimeMillis() - startTime) / 1000
+            onProgress("Ожидание метаданных... ${elapsed}с")
             val files = TorrentRepository.getFiles(hash)
             if (files.isNotEmpty()) {
                 val video = files.firstOrNull { f ->
