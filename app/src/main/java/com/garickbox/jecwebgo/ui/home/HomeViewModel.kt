@@ -57,7 +57,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 val instant = java.time.Instant.parse(meta.generated_at)
                 val local = instant.atZone(java.time.ZoneId.systemDefault())
                 val text = java.time.format.DateTimeFormatter.ofPattern("dd.MM HH:mm").format(local)
-                _state.value = _state.value.copy(lastUpdate = "$text · ${meta.count} фильмов")
+                _state.value = _state.value.copy(lastUpdate = text)
                 return
             } catch (_: Exception) {}
         }
