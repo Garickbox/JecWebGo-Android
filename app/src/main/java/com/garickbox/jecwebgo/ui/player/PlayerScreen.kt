@@ -176,7 +176,6 @@ private fun PlayerScreenImpl(
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
     var speedSheet by remember { mutableStateOf(false) }
     var optionsSheet by remember { mutableStateOf(false) }
-    var subFilesLoading by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -494,43 +493,6 @@ private fun PlayerScreenImpl(
                         Text(name, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        if (hash.isBlank()) {
-                            Toast.makeText(context, "Нет hash — субтитры недоступны", Toast.LENGTH_SHORT).show()
-                            return@OutlinedButton
-                        }
-                        subFilesLoading = true
-                        scope.launch {
-                            val files = TorrentRepository.getFiles(hash)
-                            val subs = files.filter {
-                                val ext = it.path.substringAfterLast(".", "").lowercase()
-                                ext in setOf("srt", "ass", "ssa", "sub", "vtt")
-                            }
-                            if (subs.isEmpty()) {
-                                Toast.makeText(context, "Субтитров нет в торренте", Toast.LENGTH_SHORT).show()
-                            } else {
-                                val f = subs.first()
-                                val subUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}"
-                                mediaPlayer.addSlave(Media.Slave.Type.Subtitle, Uri.parse(subUrl), true)
-                                Toast.makeText(context, "Загружено: ${f.path.substringAfterLast("/")}", Toast.LENGTH_SHORT).show()
-                                android.util.Log.d("JecWeb", "VLC subtitle slave: $subUrl")
-                            }
-                            subFilesLoading = false
-                            subSheet = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                ) {
-                    if (subFilesLoading) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("📁 Загрузить .srt из торрента")
-                    }
-                }
             }
         }
     }
@@ -585,31 +547,6 @@ private fun PlayerScreenImpl(
                             onClick = { mediaPlayer.aspectRatio = ar; optionsSheet = false })
                         Text(name, modifier = Modifier.padding(start = 8.dp))
                     }
-                }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Button(
-                    onClick = {
-                        val dir = java.io.File(
-                            android.os.Environment.getExternalStoragePublicDirectory(
-                                android.os.Environment.DIRECTORY_PICTURES), "JecWeb")
-                        dir.mkdirs()
-                        val f = java.io.File(dir, "snap_${System.currentTimeMillis()}.jpg")
-                        val ok = mediaPlayer.takeSnapshot(f, 0, 0)
-                        if (ok) Toast.makeText(context, "Снимок: ${f.name}", Toast.LENGTH_SHORT).show()
-                        else Toast.makeText(context, "Ошибка снимка", Toast.LENGTH_SHORT).show()
-                        optionsSheet = false
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("📷 Снимок кадра") }
-                if (!isPlaying) {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            mediaPlayer.nextFrame()
-                            optionsSheet = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("▶ Кадр вперёд") }
                 }
             }
         }
