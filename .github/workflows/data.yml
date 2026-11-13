@@ -33,10 +33,11 @@ jobs:
           git init -q
           git checkout -q -b data
           cp ~/work/JecWebGo-Android/JecWebGo-Android/scripts/torrents.json . 2>/dev/null || cp $GITHUB_WORKSPACE/scripts/torrents.json .
+          cp $GITHUB_WORKSPACE/scripts/meta.json . 2>/dev/null || echo 'no meta.json'
           if [ -d "$GITHUB_WORKSPACE/scripts/posters" ]; then cp -r "$GITHUB_WORKSPACE/scripts/posters" .; echo "posters copied: $(ls posters | wc -l) files"; else echo "no posters dir"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add torrents.json
+          git add torrents.json meta.json 2>/dev/null || git add torrents.json
           [ -d posters ] && git add posters
           git commit -q -m "data: $(date -u +%F_%H:%M)"
           git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git

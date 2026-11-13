@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import asyncio, aiohttp, re, json, os, argparse, time, hashlib
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 DB_FILE = "torrents.json"
@@ -53,6 +54,21 @@ def load_db():
 
 def save_db(items):
     with open(DB_FILE,'w',encoding='utf-8') as f: json.dump(items,f,ensure_ascii=False,indent=2)
+
+def save_meta():
+    try:
+        size = os.path.getsize(DB_FILE)
+        count = len(load_db())
+        meta = {
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "count": count,
+            "size_bytes": size,
+        }
+        with open("meta.json", "w", encoding="utf-8") as f:
+            json.dump(meta, f, separators=(",", ":"))
+        print(f"\u2705 meta.json: {count} \u0444\u0438\u043b\u044c\u043c\u043e\u0432, {size} \u0431\u0430\u0439\u0442")
+    except Exception as e:
+        print(f"\u274c meta: {e}")
 
 def info_hash(magnet):
     m = re.search(r'btih:([a-fA-F0-9]+)',magnet)
@@ -526,6 +542,7 @@ def main():
         if KP_TOKEN: asyncio.run(run_enrich_kp())
         if TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
         asyncio.run(download_posters_step())
+        save_meta()
     elif args.mode == 'parse': asyncio.run(run_parser())
     elif args.mode == 'kp' and KP_TOKEN: asyncio.run(run_enrich_kp())
     elif args.mode == 'tmdb' and TMDB_API_KEY: asyncio.run(run_enrich_tmdb())

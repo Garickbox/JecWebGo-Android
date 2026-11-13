@@ -47,6 +47,13 @@ data class TorrentItem(
     val actors: String = ""
 )
 
+@Serializable
+data class MetaInfo(
+    val generated_at: String = "",
+    val count: Int = 0,
+    val size_bytes: Long = 0
+)
+
 object DataRepository {
     private const val URL = "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/torrents.json"
     private const val FNAME = "torrents.json"
@@ -80,6 +87,17 @@ object DataRepository {
     fun cacheAge(ctx: Context): Long {
         val f = file(ctx)
         return if (f.exists()) System.currentTimeMillis() - f.lastModified() else Long.MAX_VALUE
+    }
+
+    suspend fun loadMeta(ctx: Context): MetaInfo? = withContext(Dispatchers.IO) {
+        try {
+            val req = Request.Builder().url("https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/meta.json").build()
+            val text = client.newCall(req).execute().use { r ->
+                if (!r.isSuccessful) return@withContext null
+                r.body?.string().orEmpty()
+            }
+            if (text.length < 10) null else json.decodeFromString<MetaInfo>(text)
+        } catch (e: Exception) { null }
     }
 
     suspend fun refresh(ctx: Context): List<TorrentItem> = withContext(Dispatchers.IO) {

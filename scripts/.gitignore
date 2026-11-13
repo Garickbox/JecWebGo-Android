@@ -8,3 +8,4 @@ __pycache__/
 posters/
 tmdb_movies.json
 posters_tmdb/
+meta.json

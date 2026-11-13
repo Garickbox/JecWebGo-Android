@@ -34,7 +34,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 items = grouped, loading = false,
                 error = if (grouped.isEmpty()) "База пуста. Обновите данные." else null
             )
-            updateDate()
+            updateDateFromMeta()
         }
     }
 
@@ -46,11 +46,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 items = grouped, refreshing = false,
                 error = if (grouped.isEmpty()) "Не удалось загрузить базу" else null
             )
-            updateDate()
+            updateDateFromMeta()
         }
     }
 
-    private fun updateDate() {
+    private suspend fun updateDateFromMeta() {
+        val meta = DataRepository.loadMeta(getApplication())
+        if (meta != null && meta.generated_at.isNotBlank()) {
+            try {
+                val instant = java.time.Instant.parse(meta.generated_at)
+                val local = instant.atZone(java.time.ZoneId.systemDefault())
+                val text = java.time.format.DateTimeFormatter.ofPattern("dd.MM HH:mm").format(local)
+                _state.value = _state.value.copy(lastUpdate = "$text · ${meta.count} фильмов")
+                return
+            } catch (_: Exception) {}
+        }
         val age = DataRepository.cacheAge(getApplication())
         val fmt = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
         val text = if (age < Long.MAX_VALUE / 2) fmt.format(Date(System.currentTimeMillis() - age)) else "—"
