@@ -94,9 +94,33 @@ object DownloadRepository {
         persist()
     }
 
+    fun pauseQueueItem(id: String) {
+        _queue.value = _queue.value.map { if (it.id == id) it.copy(status = DownloadItem.Status.PAUSED) else it }
+        persist()
+    }
+
+    fun resumeQueueItem(id: String) {
+        _queue.value = _queue.value.map { if (it.id == id) it.copy(status = DownloadItem.Status.QUEUED) else it }
+        persist()
+    }
+
+    fun pauseGroup(groupKey: String) {
+        _queue.value = _queue.value.map {
+            if (groupKeyOf(it) == groupKey) it.copy(status = DownloadItem.Status.PAUSED) else it
+        }
+        persist()
+    }
+
+    fun resumeGroup(groupKey: String) {
+        _queue.value = _queue.value.map {
+            if (groupKeyOf(it) == groupKey) it.copy(status = DownloadItem.Status.QUEUED) else it
+        }
+        persist()
+    }
+
     fun next(): DownloadItem? {
-        val n = _queue.value.firstOrNull() ?: return null
-        _queue.value = _queue.value.drop(1)
+        val n = _queue.value.firstOrNull { it.status != DownloadItem.Status.PAUSED } ?: return null
+        _queue.value = _queue.value.filter { it.id != n.id }
         paused = false
         cancelled = false
         val item = n.copy(status = DownloadItem.Status.ACTIVE, totalBytes = n.request.totalBytes)

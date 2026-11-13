@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +35,10 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     var deleteDialogFor by remember { mutableStateOf<DownloadedItem?>(null) }
     var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var activeCollapsed by remember { mutableStateOf(false) }
+    var queueCollapsed by remember { mutableStateOf(false) }
+    var pausedCollapsed by remember { mutableStateOf(false) }
+    var historyCollapsed by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -85,8 +90,8 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
         LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (active != null) {
-                item { SectionTitle("Сейчас качается") }
-                item { ActiveCard(
+                item { SectionTitle("Сейчас качается", activeCollapsed) { activeCollapsed = !activeCollapsed } }
+                if (!activeCollapsed) item { ActiveCard(
                     item = active!!,
                     onPause = { DownloadRepository.pause() },
                     onResume = { DownloadRepository.resume() },
@@ -94,40 +99,94 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                     onWatch = { active?.let { PlayActions.playHash(ctx, scope, it.request.hash, it.request.title) } }
                 ) }
             }
-            if (queue.isNotEmpty()) {
-                item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queue.size})") }
-                itemsIndexed(groupKeys) { gIdx, key ->
-                    val items = queueGroups[key] ?: emptyList()
-                    if (items.isEmpty()) return@itemsIndexed
-                    val first = items.first()
-                    val parentDir = first.request.relPath.substringBeforeLast("/", "")
-                    val isExpanded = key in expandedGroups || items.size == 1
-                    val prevKey = groupKeys.getOrNull(gIdx - 1)
-                    val nextKey = groupKeys.getOrNull(gIdx + 1)
-                    QueueGroupCard(
-                        title = first.request.title,
-                        parentDir = parentDir,
-                        files = items,
-                        groupIndex = gIdx,
-                        totalGroups = groupKeys.size,
-                        isExpanded = isExpanded,
-                        canExpand = items.size > 1,
-                        onToggleExpand = {
-                            expandedGroups = if (key in expandedGroups) expandedGroups - key else expandedGroups + key
-                        },
-                        onMoveGroupUp = { prevKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
-                        onMoveGroupDown = { nextKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
-                        onRemoveGroup = { DownloadRepository.removeGroupFromQueue(key) },
-                        onRemoveFile = { f -> DownloadRepository.removeFromQueue(f.id) }
-                    )
+
+            val queueActive = queue.filter { it.status != DownloadItem.Status.PAUSED }
+            val queuePaused = queue.filter { it.status == DownloadItem.Status.PAUSED }
+
+            if (queueActive.isNotEmpty()) {
+                item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queueActive.size})", queueCollapsed) { queueCollapsed = !queueCollapsed } }
+                if (!queueCollapsed) {
+                    val g = queueActive.groupBy { DownloadRepository.groupKeyOf(it) }
+                    val keys = g.keys.toList()
+                    itemsIndexed(keys) { gIdx, key ->
+                        val items = g[key] ?: emptyList()
+                        if (items.isEmpty()) return@itemsIndexed
+                        val first = items.first()
+                        val parentDir = first.request.relPath.substringBeforeLast("/", "")
+                        val isExpanded = key in expandedGroups || items.size == 1
+                        val prevKey = keys.getOrNull(gIdx - 1)
+                        val nextKey = keys.getOrNull(gIdx + 1)
+                        QueueGroupCard(
+                            title = first.request.title,
+                            parentDir = parentDir,
+                            files = items,
+                            groupIndex = gIdx,
+                            totalGroups = keys.size,
+                            isExpanded = isExpanded,
+                            canExpand = items.size > 1,
+                            isPaused = false,
+                            onToggleExpand = {
+                                expandedGroups = if (key in expandedGroups) expandedGroups - key else expandedGroups + key
+                            },
+                            onMoveGroupUp = { prevKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                            onMoveGroupDown = { nextKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                            onPauseGroup = { DownloadRepository.pauseGroup(key) },
+                            onResumeGroup = { DownloadRepository.resumeGroup(key) },
+                            onRemoveGroup = { DownloadRepository.removeGroupFromQueue(key) },
+                            onRemoveFile = { f -> DownloadRepository.removeFromQueue(f.id) },
+                            onPauseFile = { f -> DownloadRepository.pauseQueueItem(f.id) },
+                            onResumeFile = { f -> DownloadRepository.resumeQueueItem(f.id) }
+                        )
+                    }
                 }
             }
+
+            if (queuePaused.isNotEmpty()) {
+                item { Spacer(Modifier.height(8.dp)); SectionTitle("Отложенные (${queuePaused.size})", pausedCollapsed) { pausedCollapsed = !pausedCollapsed } }
+                if (!pausedCollapsed) {
+                    val g = queuePaused.groupBy { DownloadRepository.groupKeyOf(it) }
+                    val keys = g.keys.toList()
+                    itemsIndexed(keys) { gIdx, key ->
+                        val items = g[key] ?: emptyList()
+                        if (items.isEmpty()) return@itemsIndexed
+                        val first = items.first()
+                        val parentDir = first.request.relPath.substringBeforeLast("/", "")
+                        val isExpanded = key in expandedGroups || items.size == 1
+                        val prevKey = keys.getOrNull(gIdx - 1)
+                        val nextKey = keys.getOrNull(gIdx + 1)
+                        QueueGroupCard(
+                            title = first.request.title,
+                            parentDir = parentDir,
+                            files = items,
+                            groupIndex = gIdx,
+                            totalGroups = keys.size,
+                            isExpanded = isExpanded,
+                            canExpand = items.size > 1,
+                            isPaused = true,
+                            onToggleExpand = {
+                                expandedGroups = if (key in expandedGroups) expandedGroups - key else expandedGroups + key
+                            },
+                            onMoveGroupUp = { prevKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                            onMoveGroupDown = { nextKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                            onPauseGroup = { DownloadRepository.pauseGroup(key) },
+                            onResumeGroup = { DownloadRepository.resumeGroup(key) },
+                            onRemoveGroup = { DownloadRepository.removeGroupFromQueue(key) },
+                            onRemoveFile = { f -> DownloadRepository.removeFromQueue(f.id) },
+                            onPauseFile = { f -> DownloadRepository.pauseQueueItem(f.id) },
+                            onResumeFile = { f -> DownloadRepository.resumeQueueItem(f.id) }
+                        )
+                    }
+                }
+            }
+
             if (history.isNotEmpty()) {
-                item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})") }
-                items(history) { h -> HistoryCard(h, fmt,
-                    onOpen = { vm.open(ctx, h) },
-                    onDelete = { deleteDialogFor = h }
-                ) }
+                item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})", historyCollapsed) { historyCollapsed = !historyCollapsed } }
+                if (!historyCollapsed) {
+                    items(history) { h -> HistoryCard(h, fmt,
+                        onOpen = { vm.open(ctx, h) },
+                        onDelete = { deleteDialogFor = h }
+                    ) }
+                }
             }
             if (active == null && queue.isEmpty() && history.isEmpty()) {
                 item {
@@ -178,8 +237,28 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     )
 }
 
-@Composable private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+@Composable private fun SectionTitle(
+    text: String,
+    collapsed: Boolean = false,
+    onToggle: (() -> Unit)? = null
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .clickable(enabled = onToggle != null) { onToggle?.invoke() }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (onToggle != null) {
+            Text(
+                if (collapsed) "▶" else "▼",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+        }
+        Text(text, style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable private fun ActiveCard(
@@ -242,15 +321,21 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     totalGroups: Int,
     isExpanded: Boolean,
     canExpand: Boolean,
+    isPaused: Boolean,
     onToggleExpand: () -> Unit,
     onMoveGroupUp: () -> Unit,
     onMoveGroupDown: () -> Unit,
+    onPauseGroup: () -> Unit,
+    onResumeGroup: () -> Unit,
     onRemoveGroup: () -> Unit,
-    onRemoveFile: (DownloadItem) -> Unit
+    onRemoveFile: (DownloadItem) -> Unit,
+    onPauseFile: (DownloadItem) -> Unit,
+    onResumeFile: (DownloadItem) -> Unit
 ) {
     val totalSize = files.sumOf { it.request.totalBytes }
+    val alpha = if (isPaused) 0.55f else 1f
     Card(Modifier.fillMaxWidth()) {
-        Column {
+        Column(Modifier.alpha(alpha)) {
             Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (canExpand) {
                     Text(
@@ -260,7 +345,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                         modifier = Modifier.clickable { onToggleExpand() }.padding(end = 6.dp)
                     )
                 } else {
-                    Text("⏳", fontSize = 18.sp)
+                    Text(if (isPaused) "⏸" else "⏳", fontSize = 18.sp)
                     Spacer(Modifier.width(6.dp))
                 }
                 Column(Modifier.weight(1f)) {
@@ -269,8 +354,9 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                         fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        if (files.size == 1) files.first().request.fileName
-                        else "${files.size} файлов · ${formatSize(totalSize)}",
+                        (if (isPaused) "⏸ пауза · " else "") +
+                            (if (files.size == 1) files.first().request.fileName
+                             else "${files.size} файлов · ${formatSize(totalSize)}"),
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1, overflow = TextOverflow.Ellipsis
@@ -287,6 +373,10 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) { Text("↓", fontSize = 16.sp) }
                 TextButton(
+                    onClick = if (isPaused) onResumeGroup else onPauseGroup,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) { Text(if (isPaused) "▶" else "⏸", fontSize = 16.sp) }
+                TextButton(
                     onClick = onRemoveGroup,
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) { Text("✕", fontSize = 16.sp) }
@@ -294,6 +384,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             if (canExpand && isExpanded) {
                 HorizontalDivider(Modifier.padding(horizontal = 10.dp))
                 files.forEach { f ->
+                    val fPaused = f.status == DownloadItem.Status.PAUSED
                     Row(
                         Modifier.fillMaxWidth().padding(start = 26.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -308,6 +399,10 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                                 fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        TextButton(
+                            onClick = { if (fPaused) onResumeFile(f) else onPauseFile(f) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                        ) { Text(if (fPaused) "▶" else "⏸", fontSize = 14.sp) }
                         TextButton(
                             onClick = { onRemoveFile(f) },
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
@@ -325,7 +420,9 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             Text("✅", fontSize = 18.sp)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f).clickable(onClick = onOpen)) {
-                Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val name = if (item.title == item.fileName || item.title.isBlank()) item.fileName
+                           else item.title + " · " + item.fileName
+                Text(name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(formatSize(item.sizeBytes) + " · " + fmt.format(Date(item.completedAt)),
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
