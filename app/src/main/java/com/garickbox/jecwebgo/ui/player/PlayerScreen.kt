@@ -392,17 +392,26 @@ private fun PlayerScreenImpl(
             if (rem <= 0L) break
             delay(1000L)
         }
-        // Сработал
+        // Сработал — reset ПОСЛЕ finish, иначе LaunchedEffect(sleepTimerEndMs) перезапустится
+        // и убьёт корутину ДО finishAndRemoveTask()
         android.util.Log.d("JecWeb", "sleep timer FIRED")
         runCatching { mediaPlayer.pause() }
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
+        Toast.makeText(context, "🌙 Таймер сна: пауза", Toast.LENGTH_LONG).show()
+        delay(500L)
+        val act = activity ?: context.findActivity()
+        android.util.Log.d("JecWeb", "sleep timer: activity=$act")
+        try {
+            act?.finishAndRemoveTask()
+            android.util.Log.d("JecWeb", "sleep timer: finishAndRemoveTask OK")
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "sleep timer: finish fail: ${e.message}")
+            try { act?.finishAffinity() } catch (_: Exception) {}
+        }
         sleepTimerEndMs = 0L
         sleepTimerMinutes = 0
         stopAtFileEnd = false
-        Toast.makeText(context, "🌙 Таймер сна: пауза", Toast.LENGTH_LONG).show()
-        delay(400L)
-        runCatching { activity?.finishAndRemoveTask() }
     }
 
     DisposableEffect(Unit) {
@@ -838,6 +847,22 @@ private fun PlayerScreenImpl(
                 poster = poster,
                 status = if (bufferingPct > 0) "Буферизация $bufferingPct%" else "Ожидание потока...",
                 onCancel = onBack
+            )
+        }
+
+        if (firstFrameReady && sleepTimerEndMs > 0L && sleepTimerRemaining in 1L..60000L) {
+            val mm = (sleepTimerRemaining / 60000L).toInt()
+            val ss = ((sleepTimerRemaining / 1000L) % 60L).toInt()
+            Text(
+                "🌙 %d:%02d".format(mm, ss),
+                color = Color.White,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 80.dp)
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
             )
         }
     }
