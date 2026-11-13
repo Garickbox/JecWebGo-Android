@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -174,6 +175,7 @@ private fun PlayerScreenImpl(
     var firstFrameReady by remember { mutableStateOf(false) }
     var bufferingPct by remember { mutableIntStateOf(0) }
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
+    var aspectIndex by remember { mutableIntStateOf(0) }
     var optionsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
@@ -265,7 +267,10 @@ private fun PlayerScreenImpl(
         playbackRate = 1.0f
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
+        val aspectLabels = listOf(null, "16:9", "4:3", "1:1", "21:9")
+        val curAspect = aspectLabels.getOrNull(aspectIndex)
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
+            if (curAspect != null) addOption(":aspect-ratio=$curAspect")
             // AVI (DivX/XviD) не поддерживается MediaCodec — принудительно SW
             if (isAvi) {
                 setHWDecoderEnabled(false, false)
@@ -381,8 +386,10 @@ private fun PlayerScreenImpl(
                 TextButton(
                     onClick = {
                         playbackRate = when (playbackRate) {
-                            1.0f -> 2.0f
-                            2.0f -> 0.5f
+                            1.0f -> 1.25f
+                            1.25f -> 1.5f
+                            1.5f -> 2.0f
+                            2.0f -> 0.75f
                             else -> 1.0f
                         }
                         mediaPlayer.rate = playbackRate
@@ -392,8 +399,16 @@ private fun PlayerScreenImpl(
                 ) {
                     Text("${playbackRate}x", color = Color.White, fontSize = 13.sp)
                 }
-                IconButton(onClick = { optionsSheet = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Опции", tint = Color.White)
+                val aspectLabelsTop = listOf("Auto", "16:9", "4:3", "1:1", "21:9")
+                TextButton(
+                    onClick = {
+                        aspectIndex = (aspectIndex + 1) % aspectLabelsTop.size
+                        reloadKey++
+                        android.util.Log.d("JecWeb", "VLC aspect cycle -> ${aspectLabelsTop[aspectIndex]}")
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(aspectLabelsTop[aspectIndex], color = Color.White, fontSize = 12.sp)
                 }
             }
 
@@ -464,6 +479,16 @@ private fun PlayerScreenImpl(
     }
 
     if (audioSheet) {
+        val vA = LocalView.current
+        DisposableEffect(vA) {
+            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vA)
+            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+            vA.viewTreeObserver.addOnWindowFocusChangeListener(l)
+            onDispose { vA.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
+        }
         ModalBottomSheet(onDismissRequest = { audioSheet = false }) {
             Column(Modifier.padding(16.dp)) {
                 Text("Аудиодорожка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -486,6 +511,16 @@ private fun PlayerScreenImpl(
     }
 
     if (subSheet) {
+        val vS = LocalView.current
+        DisposableEffect(vS) {
+            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vS)
+            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+            vS.viewTreeObserver.addOnWindowFocusChangeListener(l)
+            onDispose { vS.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
+        }
         ModalBottomSheet(onDismissRequest = { subSheet = false }) {
             Column(Modifier.padding(16.dp)) {
                 Text("Субтитры", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -518,41 +553,17 @@ private fun PlayerScreenImpl(
         }
     }
 
-    if (optionsSheet) {
-        ModalBottomSheet(onDismissRequest = { optionsSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Опции", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text("Соотношение сторон", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(4.dp))
-                listOf(
-                    null to "Auto",
-                    "16:9" to "16:9",
-                    "4:3" to "4:3",
-                    "1:1" to "1:1",
-                    "21:9" to "21:9"
-                ).forEach { (ar, name) ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            mediaPlayer.aspectRatio = ar
-                            // VLC применяет aspect только на новом фрейме — форсим перерисовку
-                            val t = mediaPlayer.time
-                            mediaPlayer.time = t.coerceAtLeast(0)
-                            optionsSheet = false
-                            android.util.Log.d("JecWeb", "VLC aspect set=$ar now=${mediaPlayer.aspectRatio} t=$t")
-                        }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = mediaPlayer.aspectRatio == ar,
-                            onClick = { mediaPlayer.aspectRatio = ar; optionsSheet = false })
-                        Text(name, modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        }
-    }
-
     if (seriesSheet) {
+        val vSer = LocalView.current
+        DisposableEffect(vSer) {
+            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vSer)
+            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+            vSer.viewTreeObserver.addOnWindowFocusChangeListener(l)
+            onDispose { vSer.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
+        }
         ModalBottomSheet(onDismissRequest = { seriesSheet = false }) {
             Column(Modifier.padding(16.dp)) {
                 Text("Выбор серии", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
