@@ -31,5 +31,16 @@ class AdminReceiver : DeviceAdminReceiver() {
                 dpm.isAdminActive(componentName(ctx))
             } catch (_: Exception) { false }
         }
+        fun applyWhitelist(ctx: Context) {
+            try {
+                val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                if (dpm.isAdminActive(componentName(ctx))) {
+                    dpm.setLockTaskPackages(componentName(ctx), arrayOf(ctx.packageName))
+                    Log.d("JecWeb", "applyWhitelist OK")
+                }
+            } catch (e: Exception) {
+                Log.e("JecWeb", "applyWhitelist fail: ${e.message}")
+            }
+        }
     }
 }

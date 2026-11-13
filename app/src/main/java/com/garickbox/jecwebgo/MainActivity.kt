@@ -242,7 +242,9 @@ class MainActivity : ComponentActivity() {
                 needBatteryOptRequest = true
             }
         } catch (_: Exception) {}
-        if (!com.garickbox.jecwebgo.admin.AdminReceiver.isActive(this)) {
+        if (com.garickbox.jecwebgo.admin.AdminReceiver.isActive(this)) {
+            com.garickbox.jecwebgo.admin.AdminReceiver.applyWhitelist(this)
+        } else {
             needAdminRequest = true
         }
     }

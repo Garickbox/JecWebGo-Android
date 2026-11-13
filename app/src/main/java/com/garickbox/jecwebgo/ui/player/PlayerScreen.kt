@@ -142,6 +142,13 @@ private fun PlayerScreenImpl(
     val activity = remember(context) { context.findActivity() }
     val dpm = remember(context) { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
     DisposableEffect(activity) {
+        onDispose {
+            try {
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            } catch (_: Exception) {}
+        }
+    }
+    DisposableEffect(activity) {
         activity?.let {
             val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
             wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -656,14 +663,22 @@ private fun PlayerScreenImpl(
                                 } catch (_: Exception) {}
                                 if (AdminReceiver.isActive(context)) {
                                     try {
+                                        val wl = dpm.getLockTaskPackages(AdminReceiver.componentName(context)).contains(context.packageName)
+                                        android.util.Log.d("JecWeb", "startLockTask whitelisted=$wl")
+                                        Toast.makeText(context,
+                                            if (wl) "🔒 System Lock ✅" else "🔒 System Lock ⚠️ (whitelist пуст)",
+                                            Toast.LENGTH_SHORT).show()
                                         activity?.startLockTask()
-                                        android.util.Log.d("JecWeb", "startLockTask OK")
                                     } catch (e: Exception) {
                                         android.util.Log.e("JecWeb", "startLockTask fail: ${e.message}")
                                     }
                                 } else {
                                     Toast.makeText(context, "Полная блокировка требует разрешения (MainActivity диалог)", Toast.LENGTH_LONG).show()
                                 }
+                                try {
+                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                                    android.util.Log.d("JecWeb", "orientation LOCKED")
+                                } catch (_: Exception) {}
                                 android.util.Log.d("JecWeb", "UI lock ON")
                             }
                         }
@@ -904,13 +919,17 @@ private fun PlayerScreenImpl(
                                 } catch (e: Exception) {
                                     android.util.Log.e("JecWeb", "stopLockTask fail: ${e.message}")
                                 }
+                                try {
+                                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                                    android.util.Log.d("JecWeb", "orientation UNSPECIFIED")
+                                } catch (_: Exception) {}
                                 android.util.Log.d("JecWeb", "UI lock OFF")
                             }
                         )
                     }
             ) {
-                // Маленький 🔒 в углу постоянно (только когда не pulse)
-                if (!lockIconPulse) {
+                // Маленький 🔒 — только при tap (1.5 сек)
+                if (lockIconPulse) {
                     Text(
                         "🔒",
                         fontSize = 24.sp,
@@ -924,21 +943,6 @@ private fun PlayerScreenImpl(
                         delay(1500)
                         lockIconPulse = false
                     }
-                }
-                if (lockIconPulse) Column(
-                    Modifier
-                        .align(Alignment.Center)
-                        .background(Color.Black.copy(alpha = 0.85f))
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("🔒", fontSize = 48.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Удерживайте для разблокировки",
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
                 }
             }
         }
