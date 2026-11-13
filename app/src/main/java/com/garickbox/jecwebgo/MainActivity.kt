@@ -96,7 +96,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
-                    }
                 }) { pad ->
                     Column(Modifier.padding(pad).fillMaxSize()) {
                         StatusBar()
