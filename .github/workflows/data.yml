@@ -31,7 +31,9 @@ jobs:
           echo "torrents.json: $SIZE bytes"
           mkdir -p /tmp/data-out && cd /tmp/data-out
           git init -q
-          git checkout -q -b data
+          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git fetch -q origin data || true
+          git checkout -q -B data origin/data 2>/dev/null || git checkout -q --orphan data
           cp ~/work/JecWebGo-Android/JecWebGo-Android/scripts/torrents.json . 2>/dev/null || cp $GITHUB_WORKSPACE/scripts/torrents.json .
           cp $GITHUB_WORKSPACE/scripts/meta.json . 2>/dev/null || echo 'no meta.json'
           # posters/ больше не публикуются (используем URL KP/TMDB через Worker /img)
@@ -39,9 +41,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Удалить старую папку posters из data-ветки (было 920 MB)
           rm -rf posters || true
-          git add -A torrents.json meta.json 2>/dev/null || git add torrents.json
-          git commit -q -m "data: $(date -u +%F_%H:%M)"
-          git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git add -A
+          git commit -q -m "data: $(date -u +%F_%H:%M)" || echo "no changes"
           git push -f origin data
 
 # touch: 2026-11-12 08:18 UTC (cron re-register)
