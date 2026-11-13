@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }) { pad ->
                     Column(Modifier.padding(pad).fillMaxSize()) {
-                        StatusBar()
+                        if (current != "player") StatusBar()
                         NavHost(nav, "home", Modifier.fillMaxSize()) {
                             composable("home") { HomeScreen(onOpenSearch = { q ->
                                 pendingSearch = q

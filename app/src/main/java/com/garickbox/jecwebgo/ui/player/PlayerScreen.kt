@@ -108,11 +108,14 @@ private fun PlayerScreenImpl(
     val scope = rememberCoroutineScope()
 
     val useTextureView = hwMode == "auto"
-    val hwFlags = when (hwMode) {
-        "auto" -> listOf("--avcodec-hw=any")
-        "sw" -> listOf("--avcodec-hw=none")
-        else -> listOf("--avcodec-hw=all", "--mediacodec-dr")
+
+    // HW acceleration level — ВАЖНО: до создания MediaPlayer
+    val hwAccelLevel = when (hwMode) {
+        "auto" -> LibVLC.HW_ACCELERATION_DECODING
+        "sw" -> LibVLC.HW_ACCELERATION_NONE
+        else -> LibVLC.HW_ACCELERATION_FULL
     }
+    val hwExtraFlags = if (hwMode == "full") listOf("--mediacodec-dr", "--avcodec-hw=all") else emptyList()
 
     val activity = remember(context) { context.findActivity() }
     DisposableEffect(activity) {
@@ -140,12 +143,15 @@ private fun PlayerScreenImpl(
         }
     }
     val libVLC = remember(hwMode) {
-        LibVLC(context, (arrayListOf(
+        val lv = LibVLC(context, (arrayListOf(
             "--audio-time-stretch",
             "--network-caching=3000",
             "--no-drop-late-frames",
             "--no-skip-frames"
-        ) + hwFlags))
+        ) + hwExtraFlags))
+        runCatching { lv.setHardwareAcceleration(hwAccelLevel) }
+        runCatching { lv.eventVideoPlayerActivityCreated(true) }
+        lv
     }
     val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
 
@@ -188,11 +194,18 @@ private fun PlayerScreenImpl(
         }
         mediaPlayer.setEventListener(listener)
         onDispose {
-            runCatching { mediaPlayer.setEventListener(null) }
-            runCatching { mediaPlayer.stop() }
-            runCatching { mediaPlayer.detachViews() }
-            runCatching { mediaPlayer.release() }
-            runCatching { libVLC.release() }
+            // Асинхронный release — не блокирует main thread → HomeScreen перерисовывается
+            val mp = mediaPlayer
+            val lv = libVLC
+            val vv = vlcView
+            Thread {
+                runCatching { mp.setEventListener(null) }
+                runCatching { mp.stop() }
+                runCatching { mp.detachViews() }
+                runCatching { mp.release() }
+                runCatching { lv.release() }
+                runCatching { vv.removeAllViews() }
+            }.apply { isDaemon = true }.start()
         }
     }
 
