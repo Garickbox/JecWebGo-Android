@@ -210,6 +210,9 @@ private fun PlayerScreenImpl(
     var bufferingPct by remember { mutableIntStateOf(0) }
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
     var aspectIndex by remember { mutableIntStateOf(0) }
+    var speedMenuSheet by remember { mutableStateOf(false) }
+    var aspectMenuSheet by remember { mutableStateOf(false) }
+    var spuTextScale by remember { mutableFloatStateOf(1.0f) }
     var userSelectedAudio by remember { mutableStateOf(false) }
     var userSelectedSubs by remember { mutableStateOf(false) }
     var tracksLoadedOnce by remember { mutableStateOf(false) }
@@ -687,8 +690,12 @@ private fun PlayerScreenImpl(
                 .filter { it.id >= 0 }
                 .map { it.id to (it.name ?: "Субтитры ${it.id}") }
 
+            val _settings = try { com.garickbox.jecwebgo.data.store.SettingsStore.load(context) } catch (_: Exception) { null }
+            val _autoRusAudio = _settings?.auto_russian_audio ?: true
+            val _autoRusSubs = _settings?.auto_russian_subs ?: true
+
             // АВТО-ВЫБОР РУССКОЙ АУДИОДОРОЖКИ (если пользователь не выбрал вручную)
-            if (!userSelectedAudio && audioTracks.isNotEmpty()) {
+            if (!userSelectedAudio && audioTracks.isNotEmpty() && _autoRusAudio) {
                 val rusAudio = audioTracks.firstOrNull { (_, name) -> isRussianTrack(name) }
                 if (rusAudio != null && mediaPlayer.audioTrack != rusAudio.first) {
                     mediaPlayer.audioTrack = rusAudio.first
@@ -699,7 +706,7 @@ private fun PlayerScreenImpl(
             }
 
             // АВТО-ВЫБОР РУССКИХ СУБТИТРОВ (только если есть русские, не навязывать)
-            if (!userSelectedSubs && subTracks.isNotEmpty() && mediaPlayer.spuTrack == -1) {
+            if (!userSelectedSubs && subTracks.isNotEmpty() && mediaPlayer.spuTrack == -1 && _autoRusSubs) {
                 val rusSubs = subTracks.firstOrNull { (_, name) -> isRussianTrack(name) }
                 if (rusSubs != null) {
                     mediaPlayer.spuTrack = rusSubs.first
@@ -867,19 +874,25 @@ private fun PlayerScreenImpl(
                 Text(currentTitle, color = Color.White, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(start = 4.dp))
-                TextButton(
-                    onClick = {
-                        playbackRate = when (playbackRate) {
-                            1.0f -> 1.25f
-                            1.25f -> 1.5f
-                            1.5f -> 2.0f
-                            2.0f -> 0.75f
-                            else -> 1.0f
+                Box(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    playbackRate = when (playbackRate) {
+                                        1.0f -> 1.25f
+                                        1.25f -> 1.5f
+                                        1.5f -> 2.0f
+                                        2.0f -> 0.75f
+                                        else -> 1.0f
+                                    }
+                                    mediaPlayer.rate = playbackRate
+                                    android.util.Log.d("JecWeb", "VLC rate set=${playbackRate}x get=${mediaPlayer.rate}")
+                                },
+                                onLongPress = { speedMenuSheet = true }
+                            )
                         }
-                        mediaPlayer.rate = playbackRate
-                        android.util.Log.d("JecWeb", "VLC rate set=${playbackRate}x get=${mediaPlayer.rate}")
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 12.dp)
                 ) {
                     Text("${playbackRate}x", color = Color.White, fontSize = 13.sp)
                 }
@@ -895,20 +908,26 @@ private fun PlayerScreenImpl(
                     Text(txt, color = Color.White, fontSize = 13.sp)
                 }
                 val aspectLabelsTop = listOf("Auto", "16:9", "4:3", "1:1", "21:9")
-                TextButton(
-                    onClick = {
-                        aspectIndex = (aspectIndex + 1) % aspectLabelsTop.size
-                        val newAspect = if (aspectIndex == 0) null else aspectLabelsTop[aspectIndex]
-                        try {
-                            val vout = mediaPlayer.vlcVout
-                            vout.setWindowSize(vlcView.width, vlcView.height)
-                            mediaPlayer.aspectRatio = newAspect
-                            android.util.Log.d("JecWeb", "VLC aspect=${aspectLabelsTop[aspectIndex]} set=${mediaPlayer.aspectRatio} vout=${vlcView.width}x${vlcView.height}")
-                        } catch (e: Exception) {
-                            android.util.Log.e("JecWeb", "aspect fail: ${e.message}")
+                Box(
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = {
+                                    aspectIndex = (aspectIndex + 1) % aspectLabelsTop.size
+                                    val newAspect = if (aspectIndex == 0) null else aspectLabelsTop[aspectIndex]
+                                    try {
+                                        val vout = mediaPlayer.vlcVout
+                                        vout.setWindowSize(vlcView.width, vlcView.height)
+                                        mediaPlayer.aspectRatio = newAspect
+                                        android.util.Log.d("JecWeb", "VLC aspect=${aspectLabelsTop[aspectIndex]} set=${mediaPlayer.aspectRatio} vout=${vlcView.width}x${vlcView.height}")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("JecWeb", "aspect fail: ${e.message}")
+                                    }
+                                },
+                                onLongPress = { aspectMenuSheet = true }
+                            )
                         }
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 12.dp)
                 ) {
                     Text(aspectLabelsTop[aspectIndex], color = Color.White, fontSize = 12.sp)
                 }
@@ -1162,6 +1181,22 @@ private fun PlayerScreenImpl(
                     Text(name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Размер субтитров: ${(spuTextScale * 100).toInt()}%",
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = spuTextScale,
+                onValueChange = {
+                    spuTextScale = it
+                    runCatching { mediaPlayer.spuTextScale = it }
+                },
+                valueRange = 0.5f..2.0f,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 
@@ -1230,6 +1265,61 @@ private fun PlayerScreenImpl(
                     },
                     modifier = Modifier.weight(1f)
                 ) { Text("Готово") }
+            }
+        }
+    }
+
+    if (speedMenuSheet) {
+        PlayerSheet(title = "Скорость", onDismiss = { speedMenuSheet = false }) {
+            listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f, 3.0f).forEach { r ->
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        playbackRate = r
+                        runCatching { mediaPlayer.rate = r }
+                        speedMenuSheet = false
+                        android.util.Log.d("JecWeb", "VLC rate menu -> ${r}x")
+                    }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = playbackRate == r,
+                        onClick = { playbackRate = r; runCatching { mediaPlayer.rate = r }; speedMenuSheet = false })
+                    Text("${r}x", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+
+    if (aspectMenuSheet) {
+        val labels = listOf("Auto", "16:9", "4:3", "1:1", "21:9")
+        PlayerSheet(title = "Соотношение сторон", onDismiss = { aspectMenuSheet = false }) {
+            labels.forEachIndexed { idx, label ->
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        aspectIndex = idx
+                        val newAspect = if (idx == 0) null else label
+                        try {
+                            val vout = mediaPlayer.vlcVout
+                            vout.setWindowSize(vlcView.width, vlcView.height)
+                            mediaPlayer.aspectRatio = newAspect
+                            android.util.Log.d("JecWeb", "VLC aspect menu -> $label")
+                        } catch (_: Exception) {}
+                        aspectMenuSheet = false
+                    }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = aspectIndex == idx,
+                        onClick = {
+                            aspectIndex = idx
+                            val na = if (idx == 0) null else label
+                            try {
+                                val vout = mediaPlayer.vlcVout
+                                vout.setWindowSize(vlcView.width, vlcView.height)
+                                mediaPlayer.aspectRatio = na
+                            } catch (_: Exception) {}
+                            aspectMenuSheet = false
+                        })
+                    Text(label, modifier = Modifier.padding(start = 8.dp))
+                }
             }
         }
     }

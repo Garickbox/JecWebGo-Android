@@ -79,6 +79,18 @@ fun SettingsScreen() {
             }
         }
 
+        HorizontalDivider()
+        Text("Авто-выбор дорожек", style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = s.auto_russian_audio, onCheckedChange = { s = s.copy(auto_russian_audio = it) })
+            Text("Авто-русская аудиодорожка")
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = s.auto_russian_subs, onCheckedChange = { s = s.copy(auto_russian_subs = it) })
+            Text("Авто-русские субтитры")
+        }
+        HorizontalDivider()
         Button(onClick = {
             SettingsStore.save(ctx, s)
             Toast.makeText(ctx, "Сохранено", Toast.LENGTH_SHORT).show()
