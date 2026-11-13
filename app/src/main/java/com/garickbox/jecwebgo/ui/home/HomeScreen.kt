@@ -68,8 +68,18 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     }
     LaunchedEffect(Unit) { if (s.items.isEmpty() && !s.loading) vm.load() }
 
-    // Принудительная перезагрузка при возврате с других экранов (плеер, поиск)
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val homeLifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(homeLifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, ev ->
+            if (ev == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                if (s.items.isEmpty()) vm.load()
+            }
+        }
+        homeLifecycle.lifecycle.addObserver(obs)
+        onDispose { homeLifecycle.lifecycle.removeObserver(obs) }
+    }
+
+
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {

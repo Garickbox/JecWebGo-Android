@@ -109,14 +109,6 @@ private fun PlayerScreenImpl(
 
     val useTextureView = hwMode == "auto"
 
-    // HW acceleration level — ВАЖНО: до создания MediaPlayer
-    val hwAccelLevel = when (hwMode) {
-        "auto" -> LibVLC.HW_ACCELERATION_DECODING
-        "sw" -> LibVLC.HW_ACCELERATION_NONE
-        else -> LibVLC.HW_ACCELERATION_FULL
-    }
-    val hwExtraFlags = if (hwMode == "full") listOf("--mediacodec-dr", "--avcodec-hw=all") else emptyList()
-
     val activity = remember(context) { context.findActivity() }
     DisposableEffect(activity) {
         activity?.let {
@@ -143,15 +135,12 @@ private fun PlayerScreenImpl(
         }
     }
     val libVLC = remember(hwMode) {
-        val lv = LibVLC(context, (arrayListOf(
+        LibVLC(context, arrayListOf(
             "--audio-time-stretch",
             "--network-caching=3000",
             "--no-drop-late-frames",
             "--no-skip-frames"
-        ) + hwExtraFlags))
-        runCatching { lv.setHardwareAcceleration(hwAccelLevel) }
-        runCatching { lv.eventVideoPlayerActivityCreated(true) }
-        lv
+        ))
     }
     val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
 
@@ -194,7 +183,6 @@ private fun PlayerScreenImpl(
         }
         mediaPlayer.setEventListener(listener)
         onDispose {
-            // Асинхронный release — не блокирует main thread → HomeScreen перерисовывается
             val mp = mediaPlayer
             val lv = libVLC
             val vv = vlcView
@@ -237,6 +225,11 @@ private fun PlayerScreenImpl(
         position = 0L
         duration = 0L
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
+            when (hwMode) {
+                "full" -> setHWDecoderEnabled(true, true)
+                "auto" -> setHWDecoderEnabled(true, false)
+                "sw" -> setHWDecoderEnabled(false, false)
+            }
             addOption(":network-caching=3000")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
