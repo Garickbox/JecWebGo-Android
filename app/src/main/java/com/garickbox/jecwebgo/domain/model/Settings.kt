@@ -11,5 +11,6 @@ import kotlinx.serialization.Serializable
     val theme: String = "dark", val history_limit: Int = 50, val play_log_limit: Int = 100,
     val show_torrent_panel: Boolean = true, val voice_search: Boolean = false,
     val voice_assistant: Boolean = true, val password: String = "",
-    val ai_api_key: String = ""
+    val ai_api_key: String = "",
+    val hw_mode: String = "full"
 )

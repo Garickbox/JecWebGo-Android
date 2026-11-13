@@ -1,17 +1,30 @@
 package com.garickbox.jecwebgo.ui.player
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,19 +37,59 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.garickbox.jecwebgo.data.store.SettingsStore
+import com.garickbox.jecwebgo.domain.TorrentFile
+import com.garickbox.jecwebgo.domain.TorrentRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
+import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.util.VLCVideoLayout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
+fun PlayerScreen(
+    url: String,
+    title: String,
+    hash: String = "",
+    currentIndex: Int = 1,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    val hwMode = remember { SettingsStore.load(context).hw_mode }
+
+    val useTextureView = hwMode == "auto"
+    val hwFlags: List<String> = when (hwMode) {
+        "auto" -> listOf("--avcodec-hw=any")
+        "sw" -> listOf("--avcodec-hw=none")
+        else -> listOf("--avcodec-hw=all", "--mediacodec-dr")
+    }
+
+    val activity = remember(context) { context.findActivity() }
+    DisposableEffect(activity) {
+        activity?.let {
+            val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
+            wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            wic.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {
+            activity?.let {
+                val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
+                wic.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    BackHandler { onBack() }
 
     val vlcView = remember {
         VLCVideoLayout(context).apply {
@@ -46,26 +99,42 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
             )
         }
     }
-    val libVLC = remember {
-        LibVLC(context, arrayListOf(
+    val libVLC = remember(hwMode) {
+        LibVLC(context, (arrayListOf(
             "--audio-time-stretch",
             "--network-caching=3000",
-            "--avcodec-hw=any",
             "--no-drop-late-frames",
             "--no-skip-frames"
-        ))
+        ) + hwFlags))
     }
-    val mediaPlayer = remember { MediaPlayer(libVLC) }
+    val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
 
+    var currentUrl by remember { mutableStateOf(url) }
+    var currentTitle by remember { mutableStateOf(title) }
+    var currentIdx by remember { mutableIntStateOf(currentIndex) }
     var isPlaying by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var controlsVisible by remember { mutableStateOf(true) }
-    var mediaKey by remember { mutableIntStateOf(0) }
     var backgroundedAt by remember { mutableLongStateOf(0L) }
+    var reloadKey by remember { mutableIntStateOf(0) }
+    var audioDialog by remember { mutableStateOf(false) }
+    var subDialog by remember { mutableStateOf(false) }
+    var seriesDialog by remember { mutableStateOf(false) }
+    var audioTracks by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
+    var subTracks by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
+    var seriesList by remember { mutableStateOf<List<TorrentFile>>(emptyList()) }
+    var loadingSeries by remember { mutableStateOf(false) }
 
-    DisposableEffect(mediaPlayer, vlcView) {
-        mediaPlayer.attachViews(vlcView, null, false, true)
+    DisposableEffect(mediaPlayer, vlcView, useTextureView) {
+        mediaPlayer.attachViews(vlcView, null, false, useTextureView)
+        if (!useTextureView) {
+            vlcView.post {
+                for (i in 0 until vlcView.childCount) {
+                    (vlcView.getChildAt(i) as? android.view.SurfaceView)?.setZOrderMediaOverlay(true)
+                }
+            }
+        }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
                 MediaPlayer.Event.Playing -> isPlaying = true
@@ -100,7 +169,7 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
                 Lifecycle.Event.ON_START -> {
                     if (backgroundedAt > 0L) {
                         val away = System.currentTimeMillis() - backgroundedAt
-                        if (away > 5 * 60 * 1000L) mediaKey++
+                        if (away > 5 * 60 * 1000L) reloadKey++
                         else runCatching { mediaPlayer.play() }
                         backgroundedAt = 0L
                     }
@@ -112,12 +181,12 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(url, mediaKey) {
+    LaunchedEffect(currentUrl, reloadKey) {
+        runCatching { mediaPlayer.stop() }
         isPlaying = false
         position = 0L
         duration = 0L
-        val media = Media(libVLC, Uri.parse(url)).apply {
-            setHWDecoderEnabled(true, true)
+        val media = Media(libVLC, Uri.parse(currentUrl)).apply {
             addOption(":network-caching=3000")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
@@ -134,6 +203,49 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
         }
     }
 
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            delay(600)
+            val a = mediaPlayer.audioTracks
+            audioTracks = (a?.toList() ?: emptyList())
+                .filter { it.id >= 0 }
+                .map { it.id to (it.name ?: "Дорожка ${it.id}") }
+            val sp = mediaPlayer.spuTracks
+            subTracks = (sp?.toList() ?: emptyList())
+                .filter { it.id >= 0 }
+                .map { it.id to (it.name ?: "Субтитры ${it.id}") }
+        }
+    }
+
+    val srtLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            runCatching {
+                mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, it, true)
+                Toast.makeText(context, "Субтитры загружены", Toast.LENGTH_SHORT).show()
+                subDialog = false
+            }
+        }
+    }
+
+    fun openSeriesDialog() {
+        if (hash.isBlank()) {
+            Toast.makeText(context, "Нет данных о сериях", Toast.LENGTH_SHORT).show()
+            return
+        }
+        loadingSeries = true
+        seriesDialog = true
+        scope.launch {
+            val files = TorrentRepository.getFiles(hash)
+            seriesList = files.filter {
+                val ext = it.path.substringAfterLast(".", "").lowercase()
+                ext in setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
+            }
+            loadingSeries = false
+        }
+    }
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(factory = { vlcView }, modifier = Modifier.fillMaxSize())
 
@@ -145,51 +257,42 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
         )
 
         if (controlsVisible) {
-            TopAppBar(
-                title = {
-                    Text(title, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Назад")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.6f),
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                ),
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
+            Row(
+                Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "Назад", tint = Color.White)
+                }
+                Text(currentTitle, color = Color.White, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp))
+            }
 
             IconButton(
-                onClick = {
-                    if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
-                },
+                onClick = { if (isPlaying) mediaPlayer.pause() else mediaPlayer.play() },
                 modifier = Modifier.align(Alignment.Center).size(72.dp)
                     .background(Color.Black.copy(alpha = 0.5f), CircleShape)
             ) {
                 Icon(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
+                    contentDescription = null, tint = Color.White,
                     modifier = Modifier.size(48.dp)
                 )
             }
 
             Column(
                 Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(formatTime(position), color = Color.White, fontSize = 12.sp)
+                    Text(formatTime(position), color = Color.White, fontSize = 11.sp)
                     Slider(
                         value = if (duration > 0) position.toFloat() / duration.toFloat() else 0f,
-                        onValueChange = { v ->
-                            if (duration > 0) mediaPlayer.time = (v * duration).toLong()
-                        },
+                        onValueChange = { v -> if (duration > 0) mediaPlayer.time = (v * duration).toLong() },
                         modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                         colors = SliderDefaults.colors(
                             thumbColor = Color.White,
@@ -197,11 +300,161 @@ fun PlayerScreen(url: String, title: String, onBack: () -> Unit) {
                             inactiveTrackColor = Color.White.copy(alpha = 0.3f)
                         )
                     )
-                    Text(formatTime(duration), color = Color.White, fontSize = 12.sp)
+                    Text(formatTime(duration), color = Color.White, fontSize = 11.sp)
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) }) {
+                        Icon(Icons.Filled.Replay10, contentDescription = "-10с", tint = Color.White)
+                    }
+                    IconButton(onClick = { if (audioTracks.isNotEmpty()) audioDialog = true else Toast.makeText(context, "Нет аудиодорожек", Toast.LENGTH_SHORT).show() }) {
+                        Icon(Icons.Filled.Audiotrack, contentDescription = "Аудио", tint = Color.White)
+                    }
+                    IconButton(onClick = { subDialog = true }) {
+                        Icon(Icons.Filled.Subtitles, contentDescription = "Субтитры", tint = Color.White)
+                    }
+                    IconButton(onClick = { openSeriesDialog() }) {
+                        Icon(Icons.Filled.VideoLibrary, contentDescription = "Серии", tint = Color.White)
+                    }
+                    IconButton(onClick = { mediaPlayer.time = mediaPlayer.time + 10000 }) {
+                        Icon(Icons.Filled.Forward10, contentDescription = "+10с", tint = Color.White)
+                    }
                 }
             }
         }
     }
+
+    if (audioDialog) {
+        AlertDialog(
+            onDismissRequest = { audioDialog = false },
+            title = { Text("Аудиодорожка") },
+            text = {
+                Column {
+                    audioTracks.forEach { (id, name) ->
+                        val sel = mediaPlayer.audioTrack == id
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                mediaPlayer.audioTrack = id
+                                audioDialog = false
+                            }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = sel, onClick = {
+                                mediaPlayer.audioTrack = id
+                                audioDialog = false
+                            })
+                            Text(name, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { audioDialog = false }) { Text("Закрыть") } }
+        )
+    }
+
+    if (subDialog) {
+        AlertDialog(
+            onDismissRequest = { subDialog = false },
+            title = { Text("Субтитры") },
+            text = {
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            mediaPlayer.spuTrack = -1
+                            subDialog = false
+                        }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = mediaPlayer.spuTrack == -1, onClick = {
+                            mediaPlayer.spuTrack = -1
+                            subDialog = false
+                        })
+                        Text("Выключены", modifier = Modifier.padding(start = 8.dp))
+                    }
+                    subTracks.forEach { (id, name) ->
+                        val sel = mediaPlayer.spuTrack == id
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                mediaPlayer.spuTrack = id
+                                subDialog = false
+                            }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = sel, onClick = {
+                                mediaPlayer.spuTrack = id
+                                subDialog = false
+                            })
+                            Text(name, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    TextButton(onClick = {
+                        srtLauncher.launch(arrayOf("application/x-subrip", "text/plain", "*/*"))
+                    }) { Text("📁 Загрузить SRT файл") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { subDialog = false }) { Text("Закрыть") } }
+        )
+    }
+
+    if (seriesDialog) {
+        AlertDialog(
+            onDismissRequest = { seriesDialog = false },
+            title = { Text("Выбор серии") },
+            text = {
+                if (loadingSeries) {
+                    Box(Modifier.fillMaxWidth().height(80.dp), Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (seriesList.isEmpty()) {
+                    Text("Файлы не найдены")
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                        items(seriesList) { f ->
+                            val isCurrent = f.id == currentIdx
+                            Row(
+                                Modifier.fillMaxWidth().clickable {
+                                    seriesDialog = false
+                                    if (!isCurrent) {
+                                        currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}&play&t=${System.currentTimeMillis()}"
+                                        currentTitle = f.path.substringAfterLast("/")
+                                        currentIdx = f.id
+                                    }
+                                }.padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (isCurrent) {
+                                    Icon(Icons.Filled.PlayArrow, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                } else {
+                                    Spacer(Modifier.width(24.dp))
+                                }
+                                Column(Modifier.padding(start = 8.dp)) {
+                                    Text(f.path.substringAfterLast("/"),
+                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
+                                    Text("${(f.length / 1024 / 1024)} MB",
+                                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { seriesDialog = false }) { Text("Закрыть") } }
+        )
+    }
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }
 
 private fun formatTime(ms: Long): String {

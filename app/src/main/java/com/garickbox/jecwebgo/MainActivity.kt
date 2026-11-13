@@ -118,10 +118,16 @@ class MainActivity : ComponentActivity() {
                             composable("player") {
                                 val pr = playerRequest
                                 if (pr != null) {
-                                    PlayerScreen(url = pr.url, title = pr.title, onBack = {
-                                        PendingPlayer.consume()
-                                        nav.popBackStack()
-                                    })
+                                    PlayerScreen(
+                                        url = pr.url,
+                                        title = pr.title,
+                                        hash = pr.hash,
+                                        currentIndex = pr.currentIndex,
+                                        onBack = {
+                                            PendingPlayer.consume()
+                                            nav.popBackStack()
+                                        }
+                                    )
                                 } else {
                                     LaunchedEffect(Unit) { nav.popBackStack() }
                                 }
