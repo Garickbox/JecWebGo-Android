@@ -174,7 +174,6 @@ private fun PlayerScreenImpl(
     var firstFrameReady by remember { mutableStateOf(false) }
     var bufferingPct by remember { mutableIntStateOf(0) }
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
-    var speedSheet by remember { mutableStateOf(false) }
     var optionsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
@@ -313,6 +312,18 @@ private fun PlayerScreenImpl(
         }
     }
 
+    // При открытии любого sheet — скрываем system bars (immersive)
+    LaunchedEffect(optionsSheet, audioSheet, subSheet, seriesSheet) {
+        if (optionsSheet || audioSheet || subSheet || seriesSheet) {
+            delay(150)
+            activity?.let {
+                val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
+                wic.hide(WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+    }
+
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             delay(600)
@@ -367,8 +378,18 @@ private fun PlayerScreenImpl(
                 Text(currentTitle, color = Color.White, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(start = 4.dp))
-                TextButton(onClick = { speedSheet = true },
-                    contentPadding = PaddingValues(horizontal = 8.dp)) {
+                TextButton(
+                    onClick = {
+                        playbackRate = when (playbackRate) {
+                            1.0f -> 2.0f
+                            2.0f -> 0.5f
+                            else -> 1.0f
+                        }
+                        mediaPlayer.rate = playbackRate
+                        android.util.Log.d("JecWeb", "VLC rate=${playbackRate}x")
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
                     Text("${playbackRate}x", color = Color.White, fontSize = 13.sp)
                 }
                 IconButton(onClick = { optionsSheet = true }) {
@@ -497,30 +518,6 @@ private fun PlayerScreenImpl(
         }
     }
 
-    if (speedSheet) {
-        ModalBottomSheet(onDismissRequest = { speedSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Скорость", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                listOf(0.5f, 1.0f, 2.0f).forEach { rate ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            mediaPlayer.rate = rate
-                            playbackRate = rate
-                            speedSheet = false
-                            android.util.Log.d("JecWeb", "VLC rate=$rate")
-                        }.padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = playbackRate == rate,
-                            onClick = { mediaPlayer.rate = rate; playbackRate = rate; speedSheet = false })
-                        Text("${rate}x", modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        }
-    }
-
     if (optionsSheet) {
         ModalBottomSheet(onDismissRequest = { optionsSheet = false }) {
             Column(Modifier.padding(16.dp)) {
@@ -538,8 +535,11 @@ private fun PlayerScreenImpl(
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             mediaPlayer.aspectRatio = ar
+                            // VLC применяет aspect только на новом фрейме — форсим перерисовку
+                            val t = mediaPlayer.time
+                            mediaPlayer.time = t.coerceAtLeast(0)
                             optionsSheet = false
-                            android.util.Log.d("JecWeb", "VLC aspect=$ar")
+                            android.util.Log.d("JecWeb", "VLC aspect set=$ar now=${mediaPlayer.aspectRatio} t=$t")
                         }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
