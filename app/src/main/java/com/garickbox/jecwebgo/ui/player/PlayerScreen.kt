@@ -635,6 +635,14 @@ private fun PlayerScreenImpl(
                             if (!uiLocked) {
                                 uiLocked = true
                                 controlsVisible = false
+                                try {
+                                    val v = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                        v.vibrate(android.os.VibrationEffect.createOneShot(30, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                                    } else {
+                                        @Suppress("DEPRECATION") v.vibrate(30)
+                                    }
+                                } catch (_: Exception) {}
                                 android.util.Log.d("JecWeb", "UI lock ON")
                             }
                         }
@@ -856,26 +864,44 @@ private fun PlayerScreenImpl(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = {
-                                lockIconPulse = true
+                                lockIconPulse = !lockIconPulse
                             },
                             onLongPress = {
                                 uiLocked = false
                                 lockIconPulse = false
+                                try {
+                                    val v = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                        v.vibrate(android.os.VibrationEffect.createOneShot(30, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                                    } else {
+                                        @Suppress("DEPRECATION") v.vibrate(30)
+                                    }
+                                } catch (_: Exception) {}
                                 android.util.Log.d("JecWeb", "UI lock OFF")
                             }
                         )
                     }
             ) {
+                // Маленький 🔒 в углу постоянно (только когда не pulse)
+                if (!lockIconPulse) {
+                    Text(
+                        "🔒",
+                        fontSize = 24.sp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 80.dp, end = 16.dp)
+                    )
+                }
                 if (lockIconPulse) {
-                    LaunchedEffect(Unit) {
+                    LaunchedEffect(lockIconPulse) {
                         delay(1500)
                         lockIconPulse = false
                     }
                 }
-                Column(
+                if (lockIconPulse) Column(
                     Modifier
                         .align(Alignment.Center)
-                        .background(Color.Black.copy(alpha = if (lockIconPulse) 0.85f else 0.5f))
+                        .background(Color.Black.copy(alpha = 0.85f))
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -913,6 +939,21 @@ private fun PlayerScreenImpl(
                     .padding(top = 80.dp)
                     .background(Color.Black.copy(alpha = 0.85f))
                     .padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+        }
+        if (firstFrameReady && sleepTimerEndMs > 0L && sleepTimerRemaining > 60000L && !controlsVisible) {
+            val mm = (sleepTimerRemaining / 60000L).toInt()
+            val ss = ((sleepTimerRemaining / 1000L) % 60L).toInt()
+            Text(
+                "🌙 %d:%02d".format(mm, ss),
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 80.dp, end = 16.dp)
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }
     }
@@ -970,46 +1011,46 @@ private fun PlayerScreenImpl(
     if (sleepSheet) {
         PlayerSheet(title = "🌙 Таймер сна", onDismiss = { sleepSheet = false }) {
             val canEnd = duration > position && duration > 0L
-            data class TimerOpt(val label: String, val minutes: Int, val toEnd: Boolean)
-            val opts = buildList {
-                add(TimerOpt("Off", 0, false))
-                add(TimerOpt("30м", 30, false))
-                add(TimerOpt("1ч", 60, false))
-                add(TimerOpt("1.5ч", 90, false))
-                add(TimerOpt("2ч", 120, false))
-                if (canEnd) add(TimerOpt("До конца", -1, true))
-            }
-            var sliderPos by remember {
-                mutableFloatStateOf(
-                    when {
-                        stopAtFileEnd -> (opts.size - 1).toFloat()
-                        sleepTimerMinutes == 30 -> 1f
-                        sleepTimerMinutes == 60 -> 2f
-                        sleepTimerMinutes == 90 -> 3f
-                        sleepTimerMinutes == 120 -> 4f
-                        else -> 0f
-                    }
+            var minutes by remember {
+                mutableIntStateOf(
+                    if (sleepTimerMinutes > 0) sleepTimerMinutes
+                    else 30
                 )
             }
-            val currentLabel = opts.getOrNull(sliderPos.toInt())?.label ?: "Off"
-            val currentTimeStr = if (stopAtFileEnd && canEnd) " (${formatTime(duration - position)})" else ""
+            var toEnd by remember { mutableStateOf(stopAtFileEnd && canEnd) }
+            fun fmtMin(m: Int): String = if (m >= 60) {
+                val h = m / 60; val r = m % 60
+                if (r == 0) "${h}ч" else "${h}ч ${r}м"
+            } else "${m}м"
             Text(
-                "$currentLabel$currentTimeStr",
+                if (toEnd) "До конца (${formatTime(duration - position)})"
+                else fmtMin(minutes),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
             Spacer(Modifier.height(8.dp))
             Slider(
-                value = sliderPos,
-                onValueChange = { sliderPos = it },
-                valueRange = 0f..(opts.size - 1).toFloat(),
-                steps = if (opts.size > 2) opts.size - 2 else 0,
+                value = minutes.toFloat(),
+                onValueChange = { minutes = it.toInt().coerceIn(1, 180); toEnd = false },
+                valueRange = 1f..180f,
+                enabled = !toEnd,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                opts.forEach { t ->
-                    Text(t.label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                listOf(1, 30, 60, 90, 120, 180).forEach { m ->
+                    Text(fmtMin(m), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (canEnd) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable { toEnd = !toEnd }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = toEnd, onCheckedChange = { toEnd = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text("До конца файла (${formatTime(duration - position)})")
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -1026,9 +1067,8 @@ private fun PlayerScreenImpl(
                 ) { Text("Выключить") }
                 Button(
                     onClick = {
-                        val idx = sliderPos.toInt().coerceIn(0, opts.size - 1)
-                        val o = opts[idx]
-                        startSleepTimer(o.minutes, o.toEnd)
+                        if (toEnd) startSleepTimer(-1, true)
+                        else startSleepTimer(minutes, false)
                         sleepSheet = false
                     },
                     modifier = Modifier.weight(1f)
