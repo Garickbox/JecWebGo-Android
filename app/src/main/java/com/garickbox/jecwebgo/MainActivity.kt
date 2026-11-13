@@ -149,6 +149,8 @@ class MainActivity : ComponentActivity() {
                                         hash = pr.hash,
                                         currentIndex = pr.currentIndex,
                                         fileName = pr.fileName,
+                                        poster = pr.poster,
+                                        description = pr.description,
                                         onBack = {
                                             PendingPlayer.consume()
                                             nav.popBackStack()

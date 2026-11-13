@@ -58,6 +58,8 @@ fun PlayerScreen(
     hash: String = "",
     currentIndex: Int = 1,
     fileName: String = "",
+    poster: String = "",
+    description: String = "",
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -87,6 +89,8 @@ fun PlayerScreen(
             hash = hash,
             currentIndex = currentIndex,
             fileName = fileName,
+            poster = poster,
+            description = description,
             hwMode = effectiveMode,
             onBack = onBack,
             onError = { fallback() }
@@ -102,6 +106,8 @@ private fun PlayerScreenImpl(
     hash: String,
     currentIndex: Int,
     fileName: String,
+    poster: String,
+    description: String,
     hwMode: String,
     onBack: () -> Unit,
     onError: () -> Unit
@@ -164,6 +170,8 @@ private fun PlayerScreenImpl(
     var subTracks by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
     var seriesList by remember { mutableStateOf<List<TorrentFile>>(emptyList()) }
     var loadingSeries by remember { mutableStateOf(false) }
+    var firstFrameReady by remember { mutableStateOf(false) }
+    var bufferingPct by remember { mutableIntStateOf(0) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -180,9 +188,23 @@ private fun PlayerScreenImpl(
                 MediaPlayer.Event.Paused -> isPlaying = false
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> onBack()
-                MediaPlayer.Event.TimeChanged -> position = event.timeChanged
+                MediaPlayer.Event.TimeChanged -> {
+                    position = event.timeChanged
+                    if (event.timeChanged > 100 && !firstFrameReady) {
+                        firstFrameReady = true
+                        android.util.Log.d("JecWeb", "VLC firstFrameReady at ${event.timeChanged}ms")
+                    }
+                }
                 MediaPlayer.Event.LengthChanged -> duration = event.lengthChanged
-                MediaPlayer.Event.EncounteredError -> { android.util.Log.e("JecWeb", "VLC EncounteredError"); onError() }
+                MediaPlayer.Event.Buffering -> {
+                    bufferingPct = event.buffering.toInt()
+                    if (bufferingPct % 10 == 0) android.util.Log.d("JecWeb", "VLC buffering $bufferingPct%")
+                }
+                MediaPlayer.Event.EncounteredError -> {
+                    android.util.Log.e("JecWeb", "VLC EncounteredError")
+                    firstFrameReady = false
+                    onError()
+                }
             }
         }
         mediaPlayer.setEventListener(listener)
@@ -228,6 +250,8 @@ private fun PlayerScreenImpl(
         isPlaying = false
         position = 0L
         duration = 0L
+        firstFrameReady = false
+        bufferingPct = 0
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
@@ -264,6 +288,16 @@ private fun PlayerScreenImpl(
         if (controlsVisible) {
             delay(4000)
             controlsVisible = false
+        }
+    }
+
+    LaunchedEffect(firstFrameReady, currentUrl) {
+        if (!firstFrameReady) {
+            delay(90000)
+            if (!firstFrameReady) {
+                android.util.Log.e("JecWeb", "VLC first frame timeout 90s, back")
+                onBack()
+            }
         }
     }
 
@@ -376,6 +410,16 @@ private fun PlayerScreenImpl(
                     }
                 }
             }
+        }
+
+        if (!firstFrameReady) {
+            LoadingView(
+                title = mainTitle,
+                description = description,
+                poster = poster,
+                status = if (bufferingPct > 0) "Буферизация $bufferingPct%" else "Ожидание потока...",
+                onCancel = onBack
+            )
         }
     }
 
