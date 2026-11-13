@@ -213,6 +213,7 @@ private fun PlayerScreenImpl(
     var speedMenuSheet by remember { mutableStateOf(false) }
     var aspectMenuSheet by remember { mutableStateOf(false) }
     var spuTextScale by remember { mutableFloatStateOf(1.0f) }
+    var localPfd by remember { mutableStateOf<android.os.ParcelFileDescriptor?>(null) }
     var userSelectedAudio by remember { mutableStateOf(false) }
     var userSelectedSubs by remember { mutableStateOf(false) }
     var tracksLoadedOnce by remember { mutableStateOf(false) }
@@ -538,6 +539,8 @@ private fun PlayerScreenImpl(
     DisposableEffect(Unit) {
         onDispose {
             wakeLock?.let { if (it.isHeld) it.release() }
+            localPfd?.let { runCatching { it.close() } }
+            localPfd = null
         }
     }
 
@@ -557,32 +560,77 @@ private fun PlayerScreenImpl(
             userSelectedSubs = false
             tracksLoadedOnce = false
         }
+        val isLocal = currentUrl.startsWith("content://") || currentUrl.startsWith("file://")
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
-        android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
-        val media = Media(libVLC, Uri.parse(currentUrl)).apply {
-            if (spuTextScale != 1.0f) addOption(":sub-text-scale=$spuTextScale")
-            // AVI (DivX/XviD) не поддерживается MediaCodec — принудительно SW
-            if (isAvi) {
+        android.util.Log.d("JecWeb", "PlayerScreen play local=$isLocal file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
+
+        val media: Media
+        if (isLocal && currentUrl.startsWith("content://")) {
+            val uri = Uri.parse(currentUrl)
+            val pfd = try { context.contentResolver.openFileDescriptor(uri, "r") } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "openFileDescriptor fail: ${e.message}")
+                null
+            }
+            if (pfd == null) {
+                android.util.Log.e("JecWeb", "local file not accessible: $currentUrl")
+                onError()
+                return@LaunchedEffect
+            }
+            localPfd?.let { runCatching { it.close() } }
+            localPfd = pfd
+            android.util.Log.d("JecWeb", "local play via fd=${pfd.fd} file=$fileName")
+            media = Media(libVLC, pfd.fileDescriptor).apply {
                 setHWDecoderEnabled(false, false)
                 addOption(":avcodec-hw=disabled")
-            } else {
-                when (hwMode) {
-                    "full" -> setHWDecoderEnabled(true, true)
-                    "auto" -> setHWDecoderEnabled(true, false)
-                    "sw" -> setHWDecoderEnabled(false, false)
+                if (spuTextScale != 1.0f) addOption(":sub-text-scale=$spuTextScale")
+                addOption(":file-caching=15000")
+                addOption(":start-time=0")
+                addOption(":clock-jitter=0")
+                addOption(":clock-synchro=0")
+                if (isAvi) {
+                    addOption(":demux=avformat")
+                    addOption(":no-seektable")
                 }
             }
-            if (isAvi) {
-                addOption(":network-caching=20000")
-                addOption(":demux=avformat")
-                addOption(":no-seektable")
-            } else {
-                addOption(":network-caching=15000")
+        } else if (isLocal && currentUrl.startsWith("file://")) {
+            val path = Uri.parse(currentUrl).path ?: currentUrl.removePrefix("file://")
+            android.util.Log.d("JecWeb", "local play via path=$path")
+            media = Media(libVLC, path).apply {
+                setHWDecoderEnabled(false, false)
+                addOption(":avcodec-hw=disabled")
+                if (spuTextScale != 1.0f) addOption(":sub-text-scale=$spuTextScale")
+                addOption(":file-caching=15000")
+                addOption(":start-time=0")
+                if (isAvi) {
+                    addOption(":demux=avformat")
+                    addOption(":no-seektable")
+                }
             }
-            addOption(":file-caching=15000")
-            addOption(":start-time=0")
-            addOption(":clock-jitter=0")
-            addOption(":clock-synchro=0")
+        } else {
+            media = Media(libVLC, Uri.parse(currentUrl)).apply {
+                if (spuTextScale != 1.0f) addOption(":sub-text-scale=$spuTextScale")
+                if (isAvi) {
+                    setHWDecoderEnabled(false, false)
+                    addOption(":avcodec-hw=disabled")
+                } else {
+                    when (hwMode) {
+                        "full" -> setHWDecoderEnabled(true, true)
+                        "auto" -> setHWDecoderEnabled(true, false)
+                        "sw" -> setHWDecoderEnabled(false, false)
+                    }
+                }
+                if (isAvi) {
+                    addOption(":network-caching=20000")
+                    addOption(":demux=avformat")
+                    addOption(":no-seektable")
+                } else {
+                    addOption(":network-caching=15000")
+                }
+                addOption(":file-caching=15000")
+                addOption(":start-time=0")
+                addOption(":clock-jitter=0")
+                addOption(":clock-synchro=0")
+            }
         }
         mediaPlayer.media = media
         media.release()
