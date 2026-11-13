@@ -3,6 +3,7 @@ package com.garickbox.jecwebgo.ui.player
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.net.Uri
 import android.view.ViewGroup
 import android.widget.Toast
@@ -142,27 +143,6 @@ private fun PlayerScreenImpl(
 
     val activity = remember(context) { context.findActivity() }
     val dpm = remember(context) { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
-    DisposableEffect(Unit) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: Context?, i: Intent?) {
-                if (i?.action == TouchBlockerService.ACTION_UNLOCK) {
-                    uiLocked = false
-                    lockIconPulse = false
-                    try { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED } catch (_: Exception) {}
-                    android.util.Log.d("JecWeb", "TouchBlocker unlock broadcast -> uiLocked=false")
-                }
-            }
-        }
-        val filter = android.content.IntentFilter(TouchBlockerService.ACTION_UNLOCK)
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                context.registerReceiver(receiver, filter)
-            }
-        } catch (_: Exception) {}
-        onDispose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
-    }
     DisposableEffect(activity) {
         onDispose {
             try {
@@ -249,6 +229,28 @@ private fun PlayerScreenImpl(
     var sleepTimerRemaining by remember { mutableLongStateOf(0L) }
     var uiLocked by remember { mutableStateOf(false) }
     var lockIconPulse by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                if (i?.action == TouchBlockerService.ACTION_UNLOCK) {
+                    uiLocked = false
+                    lockIconPulse = false
+                    try { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED } catch (_: Exception) {}
+                    android.util.Log.d("JecWeb", "TouchBlocker unlock broadcast -> uiLocked=false")
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(TouchBlockerService.ACTION_UNLOCK)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (_: Exception) {}
+        onDispose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
+    }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
