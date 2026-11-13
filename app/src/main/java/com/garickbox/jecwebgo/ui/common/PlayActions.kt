@@ -20,22 +20,26 @@ object PlayActions {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
             val result = TorrentRepository.addWithFile(magnet)
             android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash} idx=${result?.firstVideoIndex}")
+            val hash: String
+            val idx: Int
+            val fname: String
             if (result == null) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
-                return@launch
+                hash = com.garickbox.jecwebgo.util.MagnetUtil.hashOf(magnet)
+                idx = 1
+                fname = ""
+                if (hash.isBlank()) {
+                    com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
+                    return@launch
+                }
+                android.util.Log.w("JecWeb", "playPhone: addWithFile null, fallback hash=$hash idx=1")
+            } else {
+                hash = result.hash
+                idx = result.firstVideoIndex
+                fname = result.firstVideoName
+                android.util.Log.d("JecWeb", "playPhone: file=$fname idx=$idx hash=$hash")
             }
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Ожидание потока...")
-            android.util.Log.d("JecWeb", "playPhone: file=${result.firstVideoName} idx=${result.firstVideoIndex}")
-            val t0 = System.currentTimeMillis()
-            val ready = TorrentRepository.waitReady(result.hash, result.firstVideoIndex, 15000L)
-            val elapsed = System.currentTimeMillis() - t0
-            android.util.Log.d("JecWeb", "playPhone waitReady=$ready after ${elapsed}ms")
-            if (!ready) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer не отдал поток за 15с")
-                return@launch
-            }
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем...")
-            openVlc(ctx, result.hash, result.firstVideoIndex, title, magnet, result.firstVideoName)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем VLC...")
+            openVlc(ctx, hash, idx, title, magnet, fname)
         }
     }
 

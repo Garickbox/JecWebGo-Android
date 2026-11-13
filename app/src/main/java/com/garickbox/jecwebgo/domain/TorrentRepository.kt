@@ -127,19 +127,31 @@ object TorrentRepository {
     }
 
     /** Ждёт появления видеофайла в metadata (до timeoutMs), опрашивая getFiles каждую 1с. */
-    suspend fun waitForVideo(hash: String, timeoutMs: Long = 40000L): TorrentFile? = withContext(Dispatchers.IO) {
+    suspend fun waitForVideo(hash: String, timeoutMs: Long = 90000L): TorrentFile? = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         var polls = 0
+        var lastStat = -1
         while (System.currentTimeMillis() < deadline) {
             polls++
+            val stat = try {
+                val g = get(hash)
+                g?.get("stat")?.jsonPrimitive?.intOrNull ?: -1
+            } catch (e: Exception) { -1 }
             val files = getFiles(hash)
+            if (polls % 5 == 0 || stat != lastStat) {
+                android.util.Log.d("JecWeb", "waitForVideo poll=$polls stat=$stat files=${files.size}")
+                lastStat = stat
+            }
             if (files.isNotEmpty()) {
                 val video = files.firstOrNull { f ->
                     val ext = f.path.substringAfterLast(".", "").lowercase()
                     ext in VIDEO_EXT_SET && f.length > 0
+                } ?: files.firstOrNull { f ->
+                    val ext = f.path.substringAfterLast(".", "").lowercase()
+                    ext in VIDEO_EXT_SET
                 }
                 if (video != null) {
-                    android.util.Log.d("JecWeb", "waitForVideo: found ${video.path} len=${video.length} after ${polls}s")
+                    android.util.Log.d("JecWeb", "waitForVideo: found ${video.path} len=${video.length} stat=$stat after ${polls}s")
                     return@withContext video
                 }
             }
@@ -192,6 +204,13 @@ object TorrentRepository {
         try { post(buildJsonObject { put("action","rem"); put("hash",hash) }.toString()); Unit } catch (_: Exception) {}
     }
 
+    private val probeClient: okhttp3.OkHttpClient by lazy {
+        okhttp3.OkHttpClient.Builder()
+            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     fun isAlive(): Boolean = try {
         val req = Request.Builder().url("$BASE/").head().build()
         HttpClient.client.newCall(req).execute().use { it.code in 200..499 }
@@ -234,14 +253,26 @@ object TorrentRepository {
         jobs.forEach { it.await() }
     }
 
-    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 120000L): Boolean = withContext(Dispatchers.IO) {
+    suspend fun waitReady(hash: String, index: Int = 1, timeoutMs: Long = 30000L): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         val url = "$BASE/stream?link=$hash&index=$index&play"
+        var lastStat = -1
         while (System.currentTimeMillis() < deadline) {
             try {
-                // GET Range 0-1 — считается чтением, TorrServer НЕ закрывает торрент по DisconnectTimeout
+                val stat = try {
+                    val g = get(hash)
+                    g?.get("stat")?.jsonPrimitive?.intOrNull ?: -1
+                } catch (e: Exception) { -1 }
+                if (stat != lastStat) {
+                    android.util.Log.d("JecWeb", "waitReady: stat=$stat")
+                    lastStat = stat
+                }
+                if (stat in 0..2) {
+                    Thread.sleep(1000)
+                    continue
+                }
                 val req = Request.Builder().url(url).header("Range", "bytes=0-1").get().build()
-                val (code, bytesRead) = HttpClient.client.newCall(req).execute().use {
+                val (code, bytesRead) = probeClient.newCall(req).execute().use {
                     val body = it.body
                     val n = if (body != null) {
                         try {
@@ -254,8 +285,10 @@ object TorrentRepository {
                     } else 0
                     Pair(it.code, n)
                 }
-                if (code in 200..299 && bytesRead >= 2) return@withContext true
-                android.util.Log.d("JecWeb", "waitReady: code=$code bytes=$bytesRead (need 2)")
+                if (code in 200..299 && bytesRead >= 2) {
+                    android.util.Log.d("JecWeb", "waitReady: OK stat=$stat")
+                    return@withContext true
+                }
             } catch (_: Exception) {}
             Thread.sleep(2000)
         }
