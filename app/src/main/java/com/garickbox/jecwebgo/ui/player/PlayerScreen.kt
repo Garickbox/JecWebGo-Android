@@ -176,7 +176,7 @@ private fun PlayerScreenImpl(
         }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
-                MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing state=${mediaPlayer.state}") }
+                MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing") }
                 MediaPlayer.Event.Paused -> isPlaying = false
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> onBack()
