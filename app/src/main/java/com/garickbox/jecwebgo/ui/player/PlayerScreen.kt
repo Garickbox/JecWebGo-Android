@@ -560,6 +560,7 @@ private fun PlayerScreenImpl(
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
+            if (spuTextScale != 1.0f) addOption(":sub-text-scale=$spuTextScale")
             // AVI (DivX/XviD) не поддерживается MediaCodec — принудительно SW
             if (isAvi) {
                 setHWDecoderEnabled(false, false)
@@ -1190,10 +1191,8 @@ private fun PlayerScreenImpl(
             )
             Slider(
                 value = spuTextScale,
-                onValueChange = {
-                    spuTextScale = it
-                    runCatching { mediaPlayer.spuTextScale = it }
-                },
+                onValueChange = { spuTextScale = it },
+                onValueChangeFinished = { reloadKey++ },
                 valueRange = 0.5f..2.0f,
                 modifier = Modifier.fillMaxWidth()
             )
