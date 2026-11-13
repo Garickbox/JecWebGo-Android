@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         TorrServerService.start(this)
         com.garickbox.jecwebgo.data.download.DownloadRepository.init(this)
         handleIntent(intent)
+        requestRuntimePermissions()
         setContent {
             JecWebTheme {
                 HandoffDialog(
@@ -70,6 +71,37 @@ class MainActivity : ComponentActivity() {
                     title = handoffTitle,
                     onDismiss = { handoffMagnet = null; handoffTorrent = null; handoffTitle = "" }
                 )
+                if (needBatteryOptRequest) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { needBatteryOptRequest = false },
+                        title = { androidx.compose.material3.Text("⚡ Разрешение энергосбережения") },
+                        text = { androidx.compose.material3.Text(
+                            "На MIUI/POCO система может убивать TorrServer в фоне через 1-2 минуты. " +
+                            "Чтобы Play и Download работали стабильно — отключите оптимизацию батареи для JecWeb Go."
+                        ) },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                needBatteryOptRequest = false
+                                try {
+                                    val i = android.content.Intent(
+                                        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        android.net.Uri.parse("package:$packageName")
+                                    )
+                                    startActivity(i)
+                                } catch (_: Exception) {
+                                    try {
+                                        startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                    } catch (_: Exception) {}
+                                }
+                            }) { androidx.compose.material3.Text("Открыть настройки") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { needBatteryOptRequest = false }) {
+                                androidx.compose.material3.Text("Позже")
+                            }
+                        }
+                    )
+                }
                 val nav = rememberNavController()
                 var searchResetKey by remember { mutableStateOf(0) }
                 val playerRequest by PendingPlayer.data.collectAsState()
@@ -163,6 +195,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private var needBatteryOptRequest by mutableStateOf(false)
+
+    private fun requestRuntimePermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+        }
+        try {
+            val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                needBatteryOptRequest = true
+            }
+        } catch (_: Exception) {}
     }
 
     override fun onNewIntent(intent: Intent) {

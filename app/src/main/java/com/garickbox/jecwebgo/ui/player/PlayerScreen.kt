@@ -215,6 +215,8 @@ private fun PlayerScreenImpl(
     var stopAtFileEnd by remember { mutableStateOf(false) }
     var sleepSheet by remember { mutableStateOf(false) }
     var sleepTimerRemaining by remember { mutableLongStateOf(0L) }
+    var uiLocked by remember { mutableStateOf(false) }
+    var lockIconPulse by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -628,6 +630,13 @@ private fun PlayerScreenImpl(
                         onTap = { controlsVisible = !controlsVisible },
                         onDoubleTap = {
                             if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
+                        },
+                        onLongPress = {
+                            if (!uiLocked) {
+                                uiLocked = true
+                                controlsVisible = false
+                                android.util.Log.d("JecWeb", "UI lock ON")
+                            }
                         }
                     )
                 }
@@ -840,6 +849,47 @@ private fun PlayerScreenImpl(
             }
         }
 
+        if (uiLocked) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                lockIconPulse = true
+                            },
+                            onLongPress = {
+                                uiLocked = false
+                                lockIconPulse = false
+                                android.util.Log.d("JecWeb", "UI lock OFF")
+                            }
+                        )
+                    }
+            ) {
+                if (lockIconPulse) {
+                    LaunchedEffect(Unit) {
+                        delay(1500)
+                        lockIconPulse = false
+                    }
+                }
+                Column(
+                    Modifier
+                        .align(Alignment.Center)
+                        .background(Color.Black.copy(alpha = if (lockIconPulse) 0.85f else 0.5f))
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("🔒", fontSize = 48.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Удерживайте для разблокировки",
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+
         if (!firstFrameReady) {
             LoadingView(
                 title = mainTitle,
@@ -919,36 +969,70 @@ private fun PlayerScreenImpl(
 
     if (sleepSheet) {
         PlayerSheet(title = "🌙 Таймер сна", onDismiss = { sleepSheet = false }) {
-            val opts = mutableListOf(
-                Triple("Выключен", 0, false),
-                Triple("30 минут", 30, false),
-                Triple("45 минут", 45, false),
-                Triple("1 час", 60, false)
-            )
-            if (duration > position && duration > 0L) {
-                opts.add(Triple("До конца файла (${formatTime(duration - position)})", -1, true))
+            val canEnd = duration > position && duration > 0L
+            data class TimerOpt(val label: String, val minutes: Int, val toEnd: Boolean)
+            val opts = buildList {
+                add(TimerOpt("Off", 0, false))
+                add(TimerOpt("30м", 30, false))
+                add(TimerOpt("1ч", 60, false))
+                add(TimerOpt("1.5ч", 90, false))
+                add(TimerOpt("2ч", 120, false))
+                if (canEnd) add(TimerOpt("До конца", -1, true))
             }
-            opts.forEach { (label, minutes, toEnd) ->
-                val selected = if (toEnd) {
-                    stopAtFileEnd
-                } else if (minutes == 0) {
-                    sleepTimerEndMs <= 0L
-                } else {
-                    sleepTimerMinutes == minutes
+            var sliderPos by remember {
+                mutableFloatStateOf(
+                    when {
+                        stopAtFileEnd -> (opts.size - 1).toFloat()
+                        sleepTimerMinutes == 30 -> 1f
+                        sleepTimerMinutes == 60 -> 2f
+                        sleepTimerMinutes == 90 -> 3f
+                        sleepTimerMinutes == 120 -> 4f
+                        else -> 0f
+                    }
+                )
+            }
+            val currentLabel = opts.getOrNull(sliderPos.toInt())?.label ?: "Off"
+            val currentTimeStr = if (stopAtFileEnd && canEnd) " (${formatTime(duration - position)})" else ""
+            Text(
+                "$currentLabel$currentTimeStr",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Slider(
+                value = sliderPos,
+                onValueChange = { sliderPos = it },
+                valueRange = 0f..(opts.size - 1).toFloat(),
+                steps = if (opts.size > 2) opts.size - 2 else 0,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                opts.forEach { t ->
+                    Text(t.label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row(
-                    Modifier.fillMaxWidth().clickable {
-                        startSleepTimer(minutes, toEnd)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        startSleepTimer(0, false)
                         sleepSheet = false
-                    }.padding(vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = selected, onClick = {
-                        startSleepTimer(minutes, toEnd)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Выключить") }
+                Button(
+                    onClick = {
+                        val idx = sliderPos.toInt().coerceIn(0, opts.size - 1)
+                        val o = opts[idx]
+                        startSleepTimer(o.minutes, o.toEnd)
                         sleepSheet = false
-                    })
-                    Text(label, modifier = Modifier.padding(start = 8.dp))
-                }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Готово") }
             }
         }
     }
