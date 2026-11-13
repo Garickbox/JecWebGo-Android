@@ -52,6 +52,10 @@ val tabs = listOf(
 
 private val moreRoutes = setOf("more", "history", "bookmarks", "settings", "about")
 
+object MainState {
+    @Volatile var currentRoute: String = "home"
+}
+
 class MainActivity : ComponentActivity() {
     private var handoffMagnet by mutableStateOf<String?>(null)
     private var handoffTorrent by mutableStateOf<ByteArray?>(null)
@@ -147,6 +151,9 @@ class MainActivity : ComponentActivity() {
                 }
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"
+                LaunchedEffect(current) {
+                    updatePipForRoute(current)
+                }
                 val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(bottomBar = {
@@ -262,25 +269,46 @@ class MainActivity : ComponentActivity() {
             try {
                 val params = android.app.PictureInPictureParams.Builder()
                     .setAspectRatio(android.util.Rational(16, 9))
-                    .setAutoEnterEnabled(true)
+                    .setAutoEnterEnabled(false)
                     .build()
                 setPictureInPictureParams(params)
-                android.util.Log.d("JecWeb", "PiP auto-enter enabled (API 31+)")
+                android.util.Log.d("JecWeb", "PiP disabled by default")
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "setupPip fail: ${e.message}")
             }
         }
     }
 
+    fun updatePipForRoute(route: String) {
+        MainState.currentRoute = route
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                val isPlayer = route == "player"
+                val params = android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .setAutoEnterEnabled(isPlayer)
+                    .build()
+                setPictureInPictureParams(params)
+                android.util.Log.d("JecWeb", "PiP autoEnter=$isPlayer for route=$route")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "updatePipForRoute fail: ${e.message}")
+            }
+        }
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        if (MainState.currentRoute != "player") {
+            android.util.Log.d("JecWeb", "onUserLeaveHint ignored (route=${MainState.currentRoute})")
+            return
+        }
         if (android.os.Build.VERSION.SDK_INT in 26..30) {
             try {
                 val params = android.app.PictureInPictureParams.Builder()
                     .setAspectRatio(android.util.Rational(16, 9))
                     .build()
                 enterPictureInPictureMode(params)
-                android.util.Log.d("JecWeb", "enterPip (API 26-30)")
+                android.util.Log.d("JecWeb", "enterPip (API 26-30) route=player")
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "enterPip fail: ${e.message}")
             }

@@ -38,7 +38,12 @@ class DownloadService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
-                NotificationChannel(CH, "Загрузки", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CH, "Загрузки", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    setShowBadge(true)
+                    enableLights(false)
+                    enableVibration(false)
+                    setSound(null, null)
+                }
             )
         }
         startForeground(NOTIF_ID, buildNotif("JecWeb", "Ожидание...", 0L, 0L))
@@ -209,19 +214,30 @@ class DownloadService : Service() {
             .setContentIntent(openAppIntent())
             .setAutoCancel(false)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         if (total > 0) b.setProgress(100, ((progress * 100) / total).toInt(), false)
         return b.build()
     }
 
     private fun updateNotif(item: DownloadItem, progress: Long, total: Long) {
-        val pct = if (total > 0) (progress * 100 / total).toInt() else 0
-        val mbDone = progress / 1048576
-        val mbTotal = total / 1048576
-        val spd = if (item.speedBps > 0) " · %.1f MB/s".format(item.speedBps / 1e6) else ""
-        val title = item.request.title.ifBlank { "JecWeb загрузка" }
-        val text = "$pct% · $mbDone / $mbTotal MB$spd"
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
+        try {
+            val nm = getSystemService(NotificationManager::class.java)
+            if (!nm.areNotificationsEnabled()) {
+                android.util.Log.w("JecWeb", "notifications disabled by user - download runs silent")
+                return
+            }
+            val pct = if (total > 0) (progress * 100 / total).toInt() else 0
+            val mbDone = progress / 1048576
+            val mbTotal = total / 1048576
+            val spd = if (item.speedBps > 0) " · %.1f MB/s".format(item.speedBps / 1e6) else ""
+            val title = item.request.title.ifBlank { "JecWeb загрузка" }
+            val text = "$pct% · $mbDone / $mbTotal MB$spd"
+            nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "updateNotif fail: ${e.message}")
+        }
     }
 }
