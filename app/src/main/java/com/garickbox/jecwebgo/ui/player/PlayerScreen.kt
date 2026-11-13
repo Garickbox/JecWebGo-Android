@@ -7,8 +7,6 @@ import android.net.Uri
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,15 +43,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.garickbox.jecwebgo.data.store.SettingsStore
 import com.garickbox.jecwebgo.domain.TorrentFile
 import com.garickbox.jecwebgo.domain.TorrentRepository
+import com.garickbox.jecwebgo.util.TitleUtil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
-import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.util.VLCVideoLayout
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     url: String,
@@ -62,13 +59,56 @@ fun PlayerScreen(
     currentIndex: Int = 1,
     onBack: () -> Unit
 ) {
+    val ctx = LocalContext.current
+    val savedMode = remember { runCatching { SettingsStore.load(ctx).hw_mode }.getOrDefault("full") }
+    var effectiveMode by remember { mutableStateOf(savedMode) }
+    val cleanMainTitle = remember(title) { TitleUtil.cleanTitle(title) }
+
+    fun fallback() {
+        val next = when (effectiveMode) {
+            "full" -> "auto"
+            "auto" -> "sw"
+            else -> null
+        }
+        if (next != null) {
+            Toast.makeText(ctx, "Кодек не поддержан HW, переключаю на ${next.uppercase()}", Toast.LENGTH_LONG).show()
+            effectiveMode = next
+        } else {
+            Toast.makeText(ctx, "Ошибка воспроизведения", Toast.LENGTH_SHORT).show()
+            onBack()
+        }
+    }
+
+    key(effectiveMode) {
+        PlayerScreenImpl(
+            url = url,
+            mainTitle = cleanMainTitle,
+            hash = hash,
+            currentIndex = currentIndex,
+            hwMode = effectiveMode,
+            onBack = onBack,
+            onError = { fallback() }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlayerScreenImpl(
+    url: String,
+    mainTitle: String,
+    hash: String,
+    currentIndex: Int,
+    hwMode: String,
+    onBack: () -> Unit,
+    onError: () -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
-    val hwMode = remember { SettingsStore.load(context).hw_mode }
 
     val useTextureView = hwMode == "auto"
-    val hwFlags: List<String> = when (hwMode) {
+    val hwFlags = when (hwMode) {
         "auto" -> listOf("--avcodec-hw=any")
         "sw" -> listOf("--avcodec-hw=none")
         else -> listOf("--avcodec-hw=all", "--mediacodec-dr")
@@ -110,7 +150,7 @@ fun PlayerScreen(
     val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
 
     var currentUrl by remember { mutableStateOf(url) }
-    var currentTitle by remember { mutableStateOf(title) }
+    var currentTitle by remember { mutableStateOf(mainTitle) }
     var currentIdx by remember { mutableIntStateOf(currentIndex) }
     var isPlaying by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0L) }
@@ -118,9 +158,9 @@ fun PlayerScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     var backgroundedAt by remember { mutableLongStateOf(0L) }
     var reloadKey by remember { mutableIntStateOf(0) }
-    var audioDialog by remember { mutableStateOf(false) }
-    var subDialog by remember { mutableStateOf(false) }
-    var seriesDialog by remember { mutableStateOf(false) }
+    var audioSheet by remember { mutableStateOf(false) }
+    var subSheet by remember { mutableStateOf(false) }
+    var seriesSheet by remember { mutableStateOf(false) }
     var audioTracks by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
     var subTracks by remember { mutableStateOf<List<Pair<Int, String>>>(emptyList()) }
     var seriesList by remember { mutableStateOf<List<TorrentFile>>(emptyList()) }
@@ -143,10 +183,7 @@ fun PlayerScreen(
                 MediaPlayer.Event.EndReached -> onBack()
                 MediaPlayer.Event.TimeChanged -> position = event.timeChanged
                 MediaPlayer.Event.LengthChanged -> duration = event.lengthChanged
-                MediaPlayer.Event.EncounteredError -> {
-                    Toast.makeText(context, "Ошибка воспроизведения", Toast.LENGTH_SHORT).show()
-                    onBack()
-                }
+                MediaPlayer.Event.EncounteredError -> onError()
             }
         }
         mediaPlayer.setEventListener(listener)
@@ -217,25 +254,13 @@ fun PlayerScreen(
         }
     }
 
-    val srtLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        uri?.let {
-            runCatching {
-                mediaPlayer.addSlave(IMedia.Slave.Type.Subtitle, it, true)
-                Toast.makeText(context, "Субтитры загружены", Toast.LENGTH_SHORT).show()
-                subDialog = false
-            }
-        }
-    }
-
-    fun openSeriesDialog() {
+    fun openSeriesSheet() {
         if (hash.isBlank()) {
             Toast.makeText(context, "Нет данных о сериях", Toast.LENGTH_SHORT).show()
             return
         }
         loadingSeries = true
-        seriesDialog = true
+        seriesSheet = true
         scope.launch {
             val files = TorrentRepository.getFiles(hash)
             seriesList = files.filter {
@@ -310,13 +335,13 @@ fun PlayerScreen(
                     IconButton(onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) }) {
                         Icon(Icons.Filled.Replay10, contentDescription = "-10с", tint = Color.White)
                     }
-                    IconButton(onClick = { if (audioTracks.isNotEmpty()) audioDialog = true else Toast.makeText(context, "Нет аудиодорожек", Toast.LENGTH_SHORT).show() }) {
+                    IconButton(onClick = { if (audioTracks.isNotEmpty()) audioSheet = true else Toast.makeText(context, "Нет аудиодорожек", Toast.LENGTH_SHORT).show() }) {
                         Icon(Icons.Filled.Audiotrack, contentDescription = "Аудио", tint = Color.White)
                     }
-                    IconButton(onClick = { subDialog = true }) {
+                    IconButton(onClick = { subSheet = true }) {
                         Icon(Icons.Filled.Subtitles, contentDescription = "Субтитры", tint = Color.White)
                     }
-                    IconButton(onClick = { openSeriesDialog() }) {
+                    IconButton(onClick = { openSeriesSheet() }) {
                         Icon(Icons.Filled.VideoLibrary, contentDescription = "Серии", tint = Color.White)
                     }
                     IconButton(onClick = { mediaPlayer.time = mediaPlayer.time + 10000 }) {
@@ -327,100 +352,83 @@ fun PlayerScreen(
         }
     }
 
-    if (audioDialog) {
-        AlertDialog(
-            onDismissRequest = { audioDialog = false },
-            title = { Text("Аудиодорожка") },
-            text = {
-                Column {
-                    audioTracks.forEach { (id, name) ->
-                        val sel = mediaPlayer.audioTrack == id
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                mediaPlayer.audioTrack = id
-                                audioDialog = false
-                            }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = sel, onClick = {
-                                mediaPlayer.audioTrack = id
-                                audioDialog = false
-                            })
-                            Text(name, modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { audioDialog = false }) { Text("Закрыть") } }
-        )
-    }
-
-    if (subDialog) {
-        AlertDialog(
-            onDismissRequest = { subDialog = false },
-            title = { Text("Субтитры") },
-            text = {
-                Column {
+    if (audioSheet) {
+        ModalBottomSheet(onDismissRequest = { audioSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Аудиодорожка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                audioTracks.forEach { (id, name) ->
                     Row(
                         Modifier.fillMaxWidth().clickable {
-                            mediaPlayer.spuTrack = -1
-                            subDialog = false
+                            mediaPlayer.audioTrack = id
+                            audioSheet = false
                         }.padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(selected = mediaPlayer.spuTrack == -1, onClick = {
-                            mediaPlayer.spuTrack = -1
-                            subDialog = false
-                        })
-                        Text("Выключены", modifier = Modifier.padding(start = 8.dp))
+                        RadioButton(selected = mediaPlayer.audioTrack == id,
+                            onClick = { mediaPlayer.audioTrack = id; audioSheet = false })
+                        Text(name, modifier = Modifier.padding(start = 8.dp))
                     }
-                    subTracks.forEach { (id, name) ->
-                        val sel = mediaPlayer.spuTrack == id
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                mediaPlayer.spuTrack = id
-                                subDialog = false
-                            }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(selected = sel, onClick = {
-                                mediaPlayer.spuTrack = id
-                                subDialog = false
-                            })
-                            Text(name, modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                    TextButton(onClick = {
-                        srtLauncher.launch(arrayOf("application/x-subrip", "text/plain", "*/*"))
-                    }) { Text("📁 Загрузить SRT файл") }
                 }
-            },
-            confirmButton = { TextButton(onClick = { subDialog = false }) { Text("Закрыть") } }
-        )
+            }
+        }
     }
 
-    if (seriesDialog) {
-        AlertDialog(
-            onDismissRequest = { seriesDialog = false },
-            title = { Text("Выбор серии") },
-            text = {
+    if (subSheet) {
+        ModalBottomSheet(onDismissRequest = { subSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Субтитры", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        mediaPlayer.spuTrack = -1
+                        subSheet = false
+                    }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = mediaPlayer.spuTrack == -1,
+                        onClick = { mediaPlayer.spuTrack = -1; subSheet = false })
+                    Text("Выключены", modifier = Modifier.padding(start = 8.dp))
+                }
+                subTracks.forEach { (id, name) ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            mediaPlayer.spuTrack = id
+                            subSheet = false
+                        }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = mediaPlayer.spuTrack == id,
+                            onClick = { mediaPlayer.spuTrack = id; subSheet = false })
+                        Text(name, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    if (seriesSheet) {
+        ModalBottomSheet(onDismissRequest = { seriesSheet = false }) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Выбор серии", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
                 if (loadingSeries) {
-                    Box(Modifier.fillMaxWidth().height(80.dp), Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 } else if (seriesList.isEmpty()) {
-                    Text("Файлы не найдены")
+                    Text("Файлы не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     LazyColumn(Modifier.heightIn(max = 400.dp)) {
                         items(seriesList) { f ->
                             val isCurrent = f.id == currentIdx
+                            val fName = f.path.substringAfterLast("/")
                             Row(
                                 Modifier.fillMaxWidth().clickable {
-                                    seriesDialog = false
+                                    seriesSheet = false
                                     if (!isCurrent) {
                                         currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}&play&t=${System.currentTimeMillis()}"
-                                        currentTitle = f.path.substringAfterLast("/")
+                                        currentTitle = "$mainTitle · $fName"
                                         currentIdx = f.id
                                     }
                                 }.padding(vertical = 10.dp),
@@ -433,7 +441,7 @@ fun PlayerScreen(
                                     Spacer(Modifier.width(24.dp))
                                 }
                                 Column(Modifier.padding(start = 8.dp)) {
-                                    Text(f.path.substringAfterLast("/"),
+                                    Text(fName,
                                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
                                     Text("${(f.length / 1024 / 1024)} MB",
                                         fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -442,9 +450,8 @@ fun PlayerScreen(
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { seriesDialog = false }) { Text("Закрыть") } }
-        )
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,6 +50,33 @@ fun SettingsScreen() {
 
         OutlinedTextField(value = s.theme, onValueChange = { s = s.copy(theme = it) },
             label = { Text("Тема (dark / oled)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+
+        HorizontalDivider()
+        Text("Воспроизведение", style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary)
+        Text("Аппаратное декодирование", fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            listOf(
+                Triple("auto", "Auto", "HW→SW"),
+                Triple("full", "Full", "HW+DR"),
+                Triple("sw", "SW", "только SW")
+            ).forEach { (id, label, hint) ->
+                val selected = s.hw_mode == id
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                        .androidx.compose.foundation.clickable { s = s.copy(hw_mode = id) }
+                ) {
+                    RadioButton(selected = selected, onClick = { s = s.copy(hw_mode = id) })
+                    Column {
+                        Text(label, fontSize = 13.sp)
+                        Text(hint, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
 
         Button(onClick = {
             SettingsStore.save(ctx, s)

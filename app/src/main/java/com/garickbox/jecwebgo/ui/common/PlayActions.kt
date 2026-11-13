@@ -80,6 +80,7 @@ object PlayActions {
         PlayLogStore.add(ctx, PlayLogEntry("phone", title, magnet, hash, System.currentTimeMillis()/1000))
         val base = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
         val url = "$base&t=${System.currentTimeMillis()}"
-        com.garickbox.jecwebgo.ui.player.PendingPlayer.open(url, title, hash, index, magnet)
+        val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title)
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.open(url, cleanT, hash, index, magnet)
     }
 }
