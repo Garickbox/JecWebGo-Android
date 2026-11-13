@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
         com.garickbox.jecwebgo.data.download.DownloadRepository.init(this)
         handleIntent(intent)
         requestRuntimePermissions()
+        setupPip()
         setContent {
             JecWebTheme {
                 HandoffDialog(
@@ -247,6 +248,42 @@ class MainActivity : ComponentActivity() {
         } else {
             needAdminRequest = true
         }
+    }
+
+    private fun setupPip() {
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            try {
+                val params = android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .setAutoEnterEnabled(true)
+                    .build()
+                setPictureInPictureParams(params)
+                android.util.Log.d("JecWeb", "PiP auto-enter enabled (API 31+)")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "setupPip fail: ${e.message}")
+            }
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT in 26..30) {
+            try {
+                val params = android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .build()
+                enterPictureInPictureMode(params)
+                android.util.Log.d("JecWeb", "enterPip (API 26-30)")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "enterPip fail: ${e.message}")
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPip, newConfig)
+        com.garickbox.jecwebgo.ui.player.PipState.isInPip.value = isInPip
+        android.util.Log.d("JecWeb", "PiP mode=$isInPip")
     }
 
     override fun onNewIntent(intent: Intent) {

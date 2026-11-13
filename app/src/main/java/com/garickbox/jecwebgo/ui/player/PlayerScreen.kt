@@ -65,6 +65,9 @@ import android.os.PowerManager
 import android.app.admin.DevicePolicyManager
 import com.garickbox.jecwebgo.admin.AdminReceiver
 import com.garickbox.jecwebgo.admin.TouchBlockerService
+import android.os.Build
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import kotlin.math.abs
 import com.garickbox.jecwebgo.data.store.PlayLogStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
@@ -229,6 +232,8 @@ private fun PlayerScreenImpl(
     var sleepTimerRemaining by remember { mutableLongStateOf(0L) }
     var uiLocked by remember { mutableStateOf(false) }
     var lockIconPulse by remember { mutableStateOf(false) }
+    var restrictedSettingsDialog by remember { mutableStateOf(false) }
+    val isInPip by PipState.isInPip
 
     DisposableEffect(Unit) {
         val receiver = object : android.content.BroadcastReceiver() {
@@ -250,6 +255,55 @@ private fun PlayerScreenImpl(
             }
         } catch (_: Exception) {}
         onDispose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
+    }
+
+    DisposableEffect(Unit) {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        var resumeOnGain = false
+        val listener = AudioManager.OnAudioFocusChangeListener { change ->
+            when (change) {
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    runCatching { mediaPlayer.pause() }
+                    resumeOnGain = false
+                    android.util.Log.d("JecWeb", "AudioFocus LOSS -> pause (no resume)")
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                    resumeOnGain = isPlaying
+                    runCatching { mediaPlayer.pause() }
+                    android.util.Log.d("JecWeb", "AudioFocus LOSS_TRANSIENT -> pause, resume=$resumeOnGain")
+                }
+                AudioManager.AUDIOFOCUS_GAIN -> {
+                    if (resumeOnGain) {
+                        runCatching { mediaPlayer.play() }
+                        android.util.Log.d("JecWeb", "AudioFocus GAIN -> play")
+                    }
+                    resumeOnGain = false
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                    runCatching { mediaPlayer.volume = 30 }
+                    android.util.Log.d("JecWeb", "AudioFocus DUCK -> vol 30")
+                }
+            }
+        }
+        val req = if (Build.VERSION.SDK_INT >= 26) {
+            AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build()
+            ).setOnAudioFocusChangeListener(listener).build()
+        } else null
+        if (Build.VERSION.SDK_INT >= 26) {
+            am.requestAudioFocus(req!!)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(listener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+        }
+        android.util.Log.d("JecWeb", "AudioFocus requested")
+        onDispose {
+            if (Build.VERSION.SDK_INT >= 26) am.abandonAudioFocusRequest(req!!)
+            else @Suppress("DEPRECATION") am.abandonAudioFocus(listener)
+            android.util.Log.d("JecWeb", "AudioFocus abandoned")
+        }
     }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
@@ -355,13 +409,32 @@ private fun PlayerScreenImpl(
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
                     backgroundedAt = System.currentTimeMillis()
-                    runCatching { mediaPlayer.pause() }
+                    if (!PipState.isInPip.value) {
+                        if (hash.isNotBlank() && position > 1000 && duration > 0) {
+                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                try {
+                                    PlayLogStore.add(context, PlayLogEntry(
+                                        "phone", mainTitle, "", hash,
+                                        System.currentTimeMillis() / 1000, position, duration
+                                    ))
+                                } catch (_: Exception) {}
+                            }
+                        }
+                        runCatching { mediaPlayer.stop() }
+                        android.util.Log.d("JecWeb", "ON_STOP без PiP -> stop()")
+                    } else {
+                        android.util.Log.d("JecWeb", "ON_STOP в PiP -> keep playing")
+                    }
                 }
                 Lifecycle.Event.ON_START -> {
                     if (backgroundedAt > 0L) {
-                        val away = System.currentTimeMillis() - backgroundedAt
-                        if (away > 5 * 60 * 1000L) reloadKey++
-                        else runCatching { mediaPlayer.play() }
+                        if (!PipState.isInPip.value) {
+                            val away = System.currentTimeMillis() - backgroundedAt
+                            reloadKey++
+                            android.util.Log.d("JecWeb", "ON_START без PiP -> reload (away=${away}ms)")
+                        } else {
+                            android.util.Log.d("JecWeb", "ON_START в PiP -> no-op")
+                        }
                         backgroundedAt = 0L
                     }
                 }
@@ -658,6 +731,7 @@ private fun PlayerScreenImpl(
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(factory = { vlcView }, modifier = Modifier.fillMaxSize())
 
+        if (!isInPip) {
         val configuration = LocalConfiguration.current
         val density = LocalDensity.current
         val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
@@ -691,12 +765,8 @@ private fun PlayerScreenImpl(
                                     Toast.makeText(context, "🔒 Блокировка активна", Toast.LENGTH_SHORT).show()
                                     android.util.Log.d("JecWeb", "TouchBlocker started")
                                 } else {
-                                    Toast.makeText(context, "Разрешите Accessibility: Настройки → Специальные возможности → JecWeb Go", Toast.LENGTH_LONG).show()
-                                    try {
-                                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        })
-                                    } catch (_: Exception) {}
+                                    restrictedSettingsDialog = true
+                                    android.util.Log.d("JecWeb", "TouchBlocker not enabled -> show restricted settings dialog")
                                 }
                                 try {
                                     activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
@@ -1005,6 +1075,44 @@ private fun PlayerScreenImpl(
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }
+        }  // if (!isInPip)
+    }
+
+    if (restrictedSettingsDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { restrictedSettingsDialog = false },
+            title = { androidx.compose.material3.Text("🔐 Разрешить Accessibility") },
+            text = { androidx.compose.material3.Text(
+                "На Android 13+ нужно разрешить ограниченные настройки:\n\n" +
+                "1. Открыть настройки приложения\n" +
+                "2. Меню ⋮ (справа сверху) → «Разрешить ограниченные настройки»\n" +
+                "3. Настройки → Специальные возможности → JecWeb Go → включить\n\n" +
+                "Без этого TouchBlocker не сможет блокировать системные свайпы."
+            ) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    restrictedSettingsDialog = false
+                    try {
+                        val i = android.content.Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.parse("package:" + context.packageName)
+                        )
+                        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(i)
+                    } catch (_: Exception) {}
+                }) { androidx.compose.material3.Text("Настройки приложения") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    restrictedSettingsDialog = false
+                    try {
+                        val i = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(i)
+                    } catch (_: Exception) {}
+                }) { androidx.compose.material3.Text("Accessibility") }
+            }
+        )
     }
 
     if (audioSheet) {
