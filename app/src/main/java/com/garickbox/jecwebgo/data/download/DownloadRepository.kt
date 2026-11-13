@@ -57,6 +57,29 @@ object DownloadRepository {
         return id
     }
 
+    fun groupKeyOf(item: DownloadItem): String =
+        item.request.title + "|" + item.request.relPath.substringBeforeLast("/", "")
+
+    fun moveGroupInQueue(groupKey: String, neighborKey: String) {
+        if (groupKey == neighborKey || groupKey.isBlank() || neighborKey.isBlank()) return
+        val q = _queue.value.toMutableList()
+        val groupIdx = q.indices.filter { groupKeyOf(q[it]) == groupKey }
+        val neighIdx = q.indices.filter { groupKeyOf(q[it]) == neighborKey }
+        if (groupIdx.isEmpty() || neighIdx.isEmpty()) return
+        val groupItems = groupIdx.map { q[it] }
+        val neighItems = neighIdx.map { q[it] }
+        val allIdx = (groupIdx + neighIdx).sorted()
+        val combined = if (groupIdx.first() < neighIdx.first()) groupItems + neighItems else neighItems + groupItems
+        allIdx.forEachIndexed { i, idx -> q[idx] = combined[i] }
+        _queue.value = q
+        persist()
+    }
+
+    fun removeGroupFromQueue(groupKey: String) {
+        _queue.value = _queue.value.filter { groupKeyOf(it) != groupKey }
+        persist()
+    }
+
     fun moveInQueue(from: Int, to: Int) {
         val q = _queue.value.toMutableList()
         if (from !in q.indices || to !in q.indices || from == to) return

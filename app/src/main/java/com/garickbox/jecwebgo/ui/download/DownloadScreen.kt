@@ -33,6 +33,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
     val scope = rememberCoroutineScope()
     var deleteDialogFor by remember { mutableStateOf<DownloadedItem?>(null) }
+    var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     Scaffold(
         topBar = {
@@ -59,14 +60,35 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             }
             if (queue.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queue.size})") }
-                itemsIndexed(queue) { idx, q -> QueueCard(
-                    item = q,
-                    index = idx,
-                    totalCount = queue.size,
-                    onMoveUp = { DownloadRepository.moveInQueue(idx, idx - 1) },
-                    onMoveDown = { DownloadRepository.moveInQueue(idx, idx + 1) },
-                    onRemove = { DownloadRepository.removeFromQueue(q.id) }
-                ) }
+                val queueGroups = remember(queue) {
+                    queue.groupBy { DownloadRepository.groupKeyOf(it) }
+                }
+                val groupKeys = remember(queueGroups) { queueGroups.keys.toList() }
+                itemsIndexed(groupKeys) { gIdx, key ->
+                    val items = queueGroups[key] ?: emptyList()
+                    if (items.isEmpty()) return@itemsIndexed
+                    val first = items.first()
+                    val parentDir = first.request.relPath.substringBeforeLast("/", "")
+                    val isExpanded = key in expandedGroups || items.size == 1
+                    val prevKey = groupKeys.getOrNull(gIdx - 1)
+                    val nextKey = groupKeys.getOrNull(gIdx + 1)
+                    QueueGroupCard(
+                        title = first.request.title,
+                        parentDir = parentDir,
+                        files = items,
+                        groupIndex = gIdx,
+                        totalGroups = groupKeys.size,
+                        isExpanded = isExpanded,
+                        canExpand = items.size > 1,
+                        onToggleExpand = {
+                            expandedGroups = if (key in expandedGroups) expandedGroups - key else expandedGroups + key
+                        },
+                        onMoveGroupUp = { prevKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                        onMoveGroupDown = { nextKey?.let { DownloadRepository.moveGroupInQueue(key, it) } },
+                        onRemoveGroup = { DownloadRepository.removeGroupFromQueue(key) },
+                        onRemoveFile = { f -> DownloadRepository.removeFromQueue(f.id) }
+                    )
+                }
             }
             if (history.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})") }
@@ -180,37 +202,87 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     }
 }
 
-@Composable private fun QueueCard(
-    item: DownloadItem,
-    index: Int,
-    totalCount: Int,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
-    onRemove: () -> Unit
+@Composable private fun QueueGroupCard(
+    title: String,
+    parentDir: String,
+    files: List<DownloadItem>,
+    groupIndex: Int,
+    totalGroups: Int,
+    isExpanded: Boolean,
+    canExpand: Boolean,
+    onToggleExpand: () -> Unit,
+    onMoveGroupUp: () -> Unit,
+    onMoveGroupDown: () -> Unit,
+    onRemoveGroup: () -> Unit,
+    onRemoveFile: (DownloadItem) -> Unit
 ) {
+    val totalSize = files.sumOf { it.request.totalBytes }
     Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("⏳", fontSize = 18.sp)
-            Spacer(Modifier.width(8.dp))
-            Column(Modifier.weight(1f)) {
-                Text(item.request.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(item.request.fileName, fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column {
+            Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (canExpand) {
+                    Text(
+                        if (isExpanded) "▼" else "▶",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.clickable { onToggleExpand() }.padding(end = 6.dp)
+                    )
+                } else {
+                    Text("⏳", fontSize = 18.sp)
+                    Spacer(Modifier.width(6.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title.ifBlank { "?" } + if (parentDir.isNotBlank()) " / ${parentDir.substringAfterLast("/")}" else "",
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        if (files.size == 1) files.first().request.fileName
+                        else "${files.size} файлов · ${formatSize(totalSize)}",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                TextButton(
+                    onClick = onMoveGroupUp,
+                    enabled = groupIndex > 0,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) { Text("↑", fontSize = 16.sp) }
+                TextButton(
+                    onClick = onMoveGroupDown,
+                    enabled = groupIndex < totalGroups - 1,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) { Text("↓", fontSize = 16.sp) }
+                TextButton(
+                    onClick = onRemoveGroup,
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                ) { Text("✕", fontSize = 16.sp) }
             }
-            TextButton(
-                onClick = onMoveUp,
-                enabled = index > 0,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-            ) { Text("↑", fontSize = 16.sp) }
-            TextButton(
-                onClick = onMoveDown,
-                enabled = index < totalCount - 1,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-            ) { Text("↓", fontSize = 16.sp) }
-            TextButton(
-                onClick = onRemove,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-            ) { Text("✕", fontSize = 16.sp) }
+            if (canExpand && isExpanded) {
+                HorizontalDivider(Modifier.padding(horizontal = 10.dp))
+                files.forEach { f ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 26.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                f.request.fileName,
+                                fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                formatSize(f.request.totalBytes),
+                                fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            onClick = { onRemoveFile(f) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                        ) { Text("✕", fontSize = 14.sp) }
+                    }
+                }
+            }
         }
     }
 }
