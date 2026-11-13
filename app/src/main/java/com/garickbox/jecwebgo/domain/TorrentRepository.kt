@@ -160,6 +160,54 @@ object TorrentRepository {
         false
     }
 
+    /**
+     * Реальная проверка: download_speed > 0 AND loaded_size > 5MB.
+     * Параллельно preload(30MB, 8 threads) — заставляет TorrServer качать.
+     * Early exit: 25 сек нет прогресса + 0 seeds → dead.
+     */
+    suspend fun waitReadyReal(
+        hash: String,
+        index: Int,
+        timeoutMs: Long = 60000L,
+        onProgress: (String) -> Unit = {}
+    ): Boolean = withContext(Dispatchers.IO) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            try { preload(hash, 30, 8) } catch (_: Exception) {}
+        }
+        var lastProgress = 0L
+        var lastProgressTime = System.currentTimeMillis()
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                val obj = get(hash)
+                if (obj != null) {
+                    val loaded = obj["loaded_size"]?.jsonPrimitive?.longOrNull
+                        ?: obj["loadedSize"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val speed = obj["download_speed"]?.jsonPrimitive?.longOrNull
+                        ?: obj["downloadSpeed"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val seeds = obj["connected_seeders"]?.jsonPrimitive?.intOrNull
+                        ?: obj["connectedSeeders"]?.jsonPrimitive?.intOrNull ?: 0
+                    val loadedMB = loaded / (1024L * 1024L)
+                    val speedKB = speed / 1024L
+
+                    onProgress("$seeds сидов · $loadedMB MB · $speedKB KB/s")
+
+                    if (loaded > 5L * 1024 * 1024 && speed > 0L) {
+                        return@withContext true
+                    }
+                    if (loaded > lastProgress) {
+                        lastProgress = loaded
+                        lastProgressTime = System.currentTimeMillis()
+                    } else if (seeds == 0 && System.currentTimeMillis() - lastProgressTime > 25000L) {
+                        return@withContext false
+                    }
+                }
+            } catch (_: Exception) {}
+            Thread.sleep(1500)
+        }
+        false
+    }
+
     fun streamM3U(hash: String, ip: String = "127.0.0.1") = "http://$ip:8090/stream?link=$hash&m3u"
     fun streamPlay(hash: String, ip: String = "127.0.0.1") = "http://$ip:8090/stream?link=$hash&index=1&play"
 }

@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
                                 } else if (pr.loading) {
                                     LoadingView(
                                         title = pr.title,
+                                        description = pr.description,
                                         poster = pr.poster,
                                         status = pr.status,
                                         onCancel = {

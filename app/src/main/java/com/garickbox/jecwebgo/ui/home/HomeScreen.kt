@@ -136,7 +136,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
             g = g,
             onClose = { selected = null },
             onPlay = { item ->
-                PlayActions.playPhone(ctx, scope, item.magnet, item.title, item.poster)
+                PlayActions.playPhone(ctx, scope, item.magnet, item.title, item.poster, item.description)
             },
             onSearch = { onOpenSearch(g.cleanTitle); selected = null }
         )

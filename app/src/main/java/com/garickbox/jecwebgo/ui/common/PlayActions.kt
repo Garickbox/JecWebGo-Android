@@ -14,9 +14,9 @@ import kotlinx.coroutines.launch
 object PlayActions {
     private val VIDEO_EXT = setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
 
-    fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String, poster: String = "") {
+    fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String, poster: String = "", description: String = "") {
         scope.launch {
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster, description)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Подключение к TorrServer...")
             val h = TorrentRepository.add(magnet)
             android.util.Log.d("JecWeb", "play_phone hash=$h title=$title")
@@ -30,10 +30,12 @@ object PlayActions {
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Видеофайл не найден в торренте")
                 return@launch
             }
-            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров... (до 60 сек)")
-            val ready = TorrentRepository.waitReady(h, video.id, 60000L)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров...")
+            val ready = TorrentRepository.waitReadyReal(h, video.id, 60000L) { status ->
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status)
+            }
             if (!ready) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Торрент не готов за 60 сек. Попробуйте другой фильм или скачайте")
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Нет пиров (или мало сидов). Попробуйте другой фильм или скачайте")
                 return@launch
             }
             openVlc(ctx, h, video.id, title, magnet)

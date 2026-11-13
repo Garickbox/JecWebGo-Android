@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 data class PlayerRequest(
     val url: String = "",
     val title: String = "",
+    val description: String = "",
     val hash: String = "",
     val currentIndex: Int = 1,
     val magnet: String = "",
@@ -20,14 +21,20 @@ object PendingPlayer {
     private val _data = MutableStateFlow<PlayerRequest?>(null)
     val data: StateFlow<PlayerRequest?> = _data.asStateFlow()
 
-    fun openLoading(title: String, poster: String) {
-        _data.value = PlayerRequest(title = title, poster = poster, loading = true, status = "Подключение...")
+    fun openLoading(title: String, poster: String, description: String = "") {
+        _data.value = PlayerRequest(
+            title = title, poster = poster, description = description,
+            loading = true, status = "Подключение..."
+        )
     }
     fun updateStatus(msg: String) {
         _data.value = _data.value?.copy(status = msg)
     }
     fun openReady(url: String, title: String, hash: String, currentIndex: Int) {
-        _data.value = PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, loading = false)
+        _data.value = _data.value?.copy(
+            url = url, title = title, hash = hash,
+            currentIndex = currentIndex, loading = false, error = null
+        ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex)
     }
     fun error(msg: String) {
         _data.value = _data.value?.copy(loading = false, error = msg)

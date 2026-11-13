@@ -16,28 +16,49 @@ import coil.compose.AsyncImage
 import com.garickbox.jecwebgo.util.PosterUtil
 
 @Composable
-fun LoadingView(title: String, poster: String, status: String, onCancel: () -> Unit) {
+fun LoadingView(
+    title: String,
+    description: String,
+    poster: String,
+    status: String,
+    onCancel: () -> Unit
+) {
     val url = PosterUtil.posterUrl(poster)
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
                 model = url, contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop, alpha = 0.4f
+                contentScale = ContentScale.Crop, alpha = 0.35f
             )
         }
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+
+        Box(Modifier.fillMaxSize().padding(16.dp)) {
+            CircularProgressIndicator(
+                color = Color.White,
+                modifier = Modifier.align(Alignment.TopEnd).size(32.dp),
+                strokeWidth = 3.dp
+            )
+        }
+
         Column(
             Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.Bottom
         ) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(64.dp), strokeWidth = 4.dp)
-            Spacer(Modifier.height(24.dp))
-            Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            Text(status, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-            Spacer(Modifier.height(32.dp))
+            Text(title, color = Color.White.copy(alpha = 0.7f),
+                fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(6.dp))
+            if (description.isNotBlank()) {
+                Text(description, color = Color.White,
+                    fontSize = 14.sp, lineHeight = 18.sp,
+                    maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(10.dp))
+            }
+            Text(status, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
+            Spacer(Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onCancel,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
