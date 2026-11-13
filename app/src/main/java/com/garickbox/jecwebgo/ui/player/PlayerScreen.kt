@@ -63,6 +63,7 @@ import android.media.AudioManager
 import android.os.PowerManager
 import android.app.admin.DevicePolicyManager
 import com.garickbox.jecwebgo.admin.AdminReceiver
+import com.garickbox.jecwebgo.admin.TouchBlockerService
 import kotlin.math.abs
 import com.garickbox.jecwebgo.data.store.PlayLogStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
@@ -141,6 +142,27 @@ private fun PlayerScreenImpl(
 
     val activity = remember(context) { context.findActivity() }
     val dpm = remember(context) { context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager }
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) {
+                if (i?.action == TouchBlockerService.ACTION_UNLOCK) {
+                    uiLocked = false
+                    lockIconPulse = false
+                    try { activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED } catch (_: Exception) {}
+                    android.util.Log.d("JecWeb", "TouchBlocker unlock broadcast -> uiLocked=false")
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(TouchBlockerService.ACTION_UNLOCK)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (_: Exception) {}
+        onDispose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
+    }
     DisposableEffect(activity) {
         onDispose {
             try {
@@ -661,19 +683,17 @@ private fun PlayerScreenImpl(
                                         @Suppress("DEPRECATION") v.vibrate(30)
                                     }
                                 } catch (_: Exception) {}
-                                if (AdminReceiver.isActive(context)) {
-                                    try {
-                                        val wl = dpm.getLockTaskPackages(AdminReceiver.componentName(context)).contains(context.packageName)
-                                        android.util.Log.d("JecWeb", "startLockTask whitelisted=$wl")
-                                        Toast.makeText(context,
-                                            if (wl) "🔒 System Lock ✅" else "🔒 System Lock ⚠️ (whitelist пуст)",
-                                            Toast.LENGTH_SHORT).show()
-                                        activity?.startLockTask()
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("JecWeb", "startLockTask fail: ${e.message}")
-                                    }
+                                if (TouchBlockerService.isEnabled(context)) {
+                                    TouchBlockerService.start(context)
+                                    Toast.makeText(context, "🔒 Блокировка активна", Toast.LENGTH_SHORT).show()
+                                    android.util.Log.d("JecWeb", "TouchBlocker started")
                                 } else {
-                                    Toast.makeText(context, "Полная блокировка требует разрешения (MainActivity диалог)", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Разрешите Accessibility: Настройки → Специальные возможности → JecWeb Go", Toast.LENGTH_LONG).show()
+                                    try {
+                                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        })
+                                    } catch (_: Exception) {}
                                 }
                                 try {
                                     activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
@@ -913,12 +933,7 @@ private fun PlayerScreenImpl(
                                         @Suppress("DEPRECATION") v.vibrate(30)
                                     }
                                 } catch (_: Exception) {}
-                                try {
-                                    activity?.stopLockTask()
-                                    android.util.Log.d("JecWeb", "stopLockTask OK")
-                                } catch (e: Exception) {
-                                    android.util.Log.e("JecWeb", "stopLockTask fail: ${e.message}")
-                                }
+                                TouchBlockerService.stop(context)
                                 try {
                                     activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                                     android.util.Log.d("JecWeb", "orientation UNSPECIFIED")

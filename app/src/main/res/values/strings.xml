@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_desc">JecWeb Touch Blocker — блокирует касания при UI Lock (шторка, кнопки, свайпы)</string>
+</resources>
