@@ -52,6 +52,11 @@ import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun PlayerScreen(
@@ -148,6 +153,8 @@ private fun PlayerScreenImpl(
     val libVLC = remember(hwMode) {
         LibVLC(context, arrayListOf(
             "--audio-time-stretch",
+            "--audio-resampler=soxr",
+            "--pitch-shift",
             "--network-caching=15000",
             "--http-reconnect",
             "--no-drop-late-frames",
@@ -267,10 +274,7 @@ private fun PlayerScreenImpl(
         playbackRate = 1.0f
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
-        val aspectLabels = listOf(null, "16:9", "4:3", "1:1", "21:9")
-        val curAspect = aspectLabels.getOrNull(aspectIndex)
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
-            if (curAspect != null) addOption(":aspect-ratio=$curAspect")
             // AVI (DivX/XviD) не поддерживается MediaCodec — принудительно SW
             if (isAvi) {
                 setHWDecoderEnabled(false, false)
@@ -393,7 +397,7 @@ private fun PlayerScreenImpl(
                             else -> 1.0f
                         }
                         mediaPlayer.rate = playbackRate
-                        android.util.Log.d("JecWeb", "VLC rate=${playbackRate}x")
+                        android.util.Log.d("JecWeb", "VLC rate set=${playbackRate}x get=${mediaPlayer.rate}")
                     },
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
@@ -403,8 +407,15 @@ private fun PlayerScreenImpl(
                 TextButton(
                     onClick = {
                         aspectIndex = (aspectIndex + 1) % aspectLabelsTop.size
-                        reloadKey++
-                        android.util.Log.d("JecWeb", "VLC aspect cycle -> ${aspectLabelsTop[aspectIndex]}")
+                        val newAspect = if (aspectIndex == 0) null else aspectLabelsTop[aspectIndex]
+                        try {
+                            val vout = mediaPlayer.vlcVout
+                            vout.setWindowSize(vlcView.width, vlcView.height)
+                            mediaPlayer.aspectRatio = newAspect
+                            android.util.Log.d("JecWeb", "VLC aspect=${aspectLabelsTop[aspectIndex]} set=${mediaPlayer.aspectRatio} vout=${vlcView.width}x${vlcView.height}")
+                        } catch (e: Exception) {
+                            android.util.Log.e("JecWeb", "aspect fail: ${e.message}")
+                        }
                     },
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
@@ -479,132 +490,131 @@ private fun PlayerScreenImpl(
     }
 
     if (audioSheet) {
-        val vA = LocalView.current
-        DisposableEffect(vA) {
-            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vA)
-            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            }
-            vA.viewTreeObserver.addOnWindowFocusChangeListener(l)
-            onDispose { vA.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
-        }
-        ModalBottomSheet(onDismissRequest = { audioSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Аудиодорожка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                audioTracks.forEach { (id, name) ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            mediaPlayer.audioTrack = id
-                            audioSheet = false
-                        }.padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = mediaPlayer.audioTrack == id,
-                            onClick = { mediaPlayer.audioTrack = id; audioSheet = false })
-                        Text(name, modifier = Modifier.padding(start = 8.dp))
-                    }
+        PlayerSheet(title = "Аудиодорожка", onDismiss = { audioSheet = false }) {
+            audioTracks.forEach { (id, name) ->
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        mediaPlayer.audioTrack = id
+                        audioSheet = false
+                    }.padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = mediaPlayer.audioTrack == id,
+                        onClick = { mediaPlayer.audioTrack = id; audioSheet = false })
+                    Text(name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
     }
 
     if (subSheet) {
-        val vS = LocalView.current
-        DisposableEffect(vS) {
-            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vS)
-            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        PlayerSheet(title = "Субтитры", onDismiss = { subSheet = false }) {
+            Row(
+                Modifier.fillMaxWidth().clickable {
+                    mediaPlayer.spuTrack = -1
+                    subSheet = false
+                }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(selected = mediaPlayer.spuTrack == -1,
+                    onClick = { mediaPlayer.spuTrack = -1; subSheet = false })
+                Text("Выключены", modifier = Modifier.padding(start = 8.dp))
             }
-            vS.viewTreeObserver.addOnWindowFocusChangeListener(l)
-            onDispose { vS.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
-        }
-        ModalBottomSheet(onDismissRequest = { subSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Субтитры", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
+            subTracks.forEach { (id, name) ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
-                        mediaPlayer.spuTrack = -1
+                        mediaPlayer.spuTrack = id
                         subSheet = false
                     }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    RadioButton(selected = mediaPlayer.spuTrack == -1,
-                        onClick = { mediaPlayer.spuTrack = -1; subSheet = false })
-                    Text("Выключены", modifier = Modifier.padding(start = 8.dp))
-                }
-                subTracks.forEach { (id, name) ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            mediaPlayer.spuTrack = id
-                            subSheet = false
-                        }.padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = mediaPlayer.spuTrack == id,
-                            onClick = { mediaPlayer.spuTrack = id; subSheet = false })
-                        Text(name, modifier = Modifier.padding(start = 8.dp))
-                    }
+                    RadioButton(selected = mediaPlayer.spuTrack == id,
+                        onClick = { mediaPlayer.spuTrack = id; subSheet = false })
+                    Text(name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
         }
     }
 
     if (seriesSheet) {
-        val vSer = LocalView.current
-        DisposableEffect(vSer) {
-            val wic = androidx.core.view.ViewCompat.getWindowInsetsController(vSer)
-            wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            val l = android.view.ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
-                if (hasFocus) wic?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            }
-            vSer.viewTreeObserver.addOnWindowFocusChangeListener(l)
-            onDispose { vSer.viewTreeObserver.removeOnWindowFocusChangeListener(l) }
-        }
-        ModalBottomSheet(onDismissRequest = { seriesSheet = false }) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Выбор серии", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                if (loadingSeries) {
-                    Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (seriesList.isEmpty()) {
-                    Text("Файлы не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                        items(seriesList) { f ->
-                            val isCurrent = f.id == currentIdx
-                            val fName = f.path.substringAfterLast("/")
-                            Row(
-                                Modifier.fillMaxWidth().clickable {
-                                    seriesSheet = false
-                                    if (!isCurrent) {
-                                        currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}&play&t=${System.currentTimeMillis()}"
-                                        currentTitle = "$mainTitle · $fName"
-                                        currentIdx = f.id
-                                    }
-                                }.padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isCurrent) {
-                                    Icon(Icons.Filled.PlayArrow, contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary)
-                                } else {
-                                    Spacer(Modifier.width(24.dp))
+        PlayerSheet(title = "Выбор серии", onDismiss = { seriesSheet = false }) {
+            if (loadingSeries) {
+                Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (seriesList.isEmpty()) {
+                Text("Файлы не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                    items(seriesList) { f ->
+                        val isCurrent = f.id == currentIdx
+                        val fName = f.path.substringAfterLast("/")
+                        Row(
+                            Modifier.fillMaxWidth().clickable {
+                                seriesSheet = false
+                                if (!isCurrent) {
+                                    currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}&play&t=${System.currentTimeMillis()}"
+                                    currentTitle = "$mainTitle · $fName"
+                                    currentIdx = f.id
                                 }
-                                Column(Modifier.padding(start = 8.dp)) {
-                                    Text(fName,
-                                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
-                                    Text("${(f.length / 1024 / 1024)} MB",
-                                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                            }.padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isCurrent) {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary)
+                            } else {
+                                Spacer(Modifier.width(24.dp))
+                            }
+                            Column(Modifier.padding(start = 8.dp)) {
+                                Text(fName,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
+                                Text("${(f.length / 1024 / 1024)} MB",
+                                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerSheet(
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        val dialogWindowProvider = LocalView.current.parent as? DialogWindowProvider
+        DisposableEffect(Unit) {
+            dialogWindowProvider?.window?.let { w ->
+                val wic = WindowCompat.getInsetsController(w, w.decorView)
+                wic.hide(WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+            onDispose { }
+        }
+        Box(
+            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Card(
+                Modifier.fillMaxWidth().padding(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                    Text(title, style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    content()
                 }
             }
         }
