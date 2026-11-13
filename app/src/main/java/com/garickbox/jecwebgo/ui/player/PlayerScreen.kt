@@ -137,7 +137,7 @@ private fun PlayerScreenImpl(
     val libVLC = remember(hwMode) {
         LibVLC(context, arrayListOf(
             "--audio-time-stretch",
-            "--network-caching=15000",
+            "--network-caching=60000",
             "--file-caching=15000",
             "--http-reconnect",
             "--http-continuous",
@@ -234,8 +234,8 @@ private fun PlayerScreenImpl(
                 "auto" -> setHWDecoderEnabled(true, false)
                 "sw" -> setHWDecoderEnabled(false, false)
             }
-            addOption(":network-caching=15000")
-            addOption(":file-caching=15000")
+            addOption(":network-caching=60000")
+            addOption(":file-caching=60000")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
             addOption(":start-time=0")

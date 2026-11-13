@@ -34,6 +34,8 @@ import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
 import com.garickbox.jecwebgo.ui.more.MoreScreen
 import com.garickbox.jecwebgo.ui.player.PendingPlayer
+import com.garickbox.jecwebgo.ui.player.ErrorView
+import com.garickbox.jecwebgo.ui.player.LoadingView
 import com.garickbox.jecwebgo.ui.player.PlayerScreen
 import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.settings.SettingsScreen
@@ -117,7 +119,29 @@ class MainActivity : ComponentActivity() {
                             composable("about") { AboutScreen() }
                             composable("player") {
                                 val pr = playerRequest
-                                if (pr != null) {
+                                if (pr == null) {
+                                    LaunchedEffect(Unit) { nav.popBackStack() }
+                                } else if (pr.loading) {
+                                    LoadingView(
+                                        title = pr.title,
+                                        poster = pr.poster,
+                                        status = pr.status,
+                                        onCancel = {
+                                            PendingPlayer.consume()
+                                            nav.popBackStack()
+                                        }
+                                    )
+                                } else if (pr.error != null) {
+                                    ErrorView(
+                                        title = pr.title,
+                                        message = pr.error ?: "Ошибка",
+                                        onRetry = null,
+                                        onBack = {
+                                            PendingPlayer.consume()
+                                            nav.popBackStack()
+                                        }
+                                    )
+                                } else {
                                     PlayerScreen(
                                         url = pr.url,
                                         title = pr.title,
@@ -128,8 +152,6 @@ class MainActivity : ComponentActivity() {
                                             nav.popBackStack()
                                         }
                                     )
-                                } else {
-                                    LaunchedEffect(Unit) { nav.popBackStack() }
                                 }
                             }
                         }

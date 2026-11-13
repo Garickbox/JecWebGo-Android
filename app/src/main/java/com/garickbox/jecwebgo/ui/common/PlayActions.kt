@@ -14,23 +14,26 @@ import kotlinx.coroutines.launch
 object PlayActions {
     private val VIDEO_EXT = setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
 
-    fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String) {
+    fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String, poster: String = "") {
         scope.launch {
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Подключение к TorrServer...")
             val h = TorrentRepository.add(magnet)
             android.util.Log.d("JecWeb", "play_phone hash=$h title=$title")
             if (h == null) {
-                Toast.makeText(ctx, "TorrServer недоступен", Toast.LENGTH_SHORT).show()
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
                 return@launch
             }
-            Toast.makeText(ctx, "Загрузка торрента…", Toast.LENGTH_SHORT).show()
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем метаданные торрента...")
             val video = findVideoFile(h)
             if (video == null) {
-                Toast.makeText(ctx, "Видеофайл не найден в торренте", Toast.LENGTH_LONG).show()
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Видеофайл не найден в торренте")
                 return@launch
             }
-            val ready = TorrentRepository.waitReady(h, video.id, 30000L)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров... (до 60 сек)")
+            val ready = TorrentRepository.waitReady(h, video.id, 60000L)
             if (!ready) {
-                Toast.makeText(ctx, "Торрент не готов за 30с", Toast.LENGTH_LONG).show()
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("Торрент не готов за 60 сек. Попробуйте другой фильм или скачайте")
                 return@launch
             }
             openVlc(ctx, h, video.id, title, magnet)
@@ -81,6 +84,6 @@ object PlayActions {
         val base = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
         val url = "$base&t=${System.currentTimeMillis()}"
         val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title)
-        com.garickbox.jecwebgo.ui.player.PendingPlayer.open(url, cleanT, hash, index, magnet)
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index)
     }
 }
