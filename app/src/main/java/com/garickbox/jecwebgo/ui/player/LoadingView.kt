@@ -29,7 +29,7 @@ fun LoadingView(
             AsyncImage(
                 model = url, contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop, alpha = 0.35f
+                contentScale = ContentScale.Crop, alpha = 0.25f
             )
         }
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
@@ -53,8 +53,8 @@ fun LoadingView(
             Spacer(Modifier.height(6.dp))
             if (description.isNotBlank()) {
                 Text(description, color = Color.White,
-                    fontSize = 14.sp, lineHeight = 18.sp,
-                    maxLines = 4, overflow = TextOverflow.Ellipsis)
+                    fontSize = 13.sp, lineHeight = 17.sp,
+                    maxLines = 8, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
             }
             Text(status, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)

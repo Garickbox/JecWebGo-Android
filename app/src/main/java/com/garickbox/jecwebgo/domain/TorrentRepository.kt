@@ -163,49 +163,56 @@ object TorrentRepository {
     }
 
     /**
-     * Реальная проверка: download_speed > 0 AND loaded_size > 5MB.
-     * Параллельно preload(30MB, 8 threads) — заставляет TorrServer качать.
-     * Early exit: 25 сек нет прогресса + 0 seeds → dead.
+     * Проверяет РЕАЛЬНУЮ отдачу через Range GET 1 MB.
+     * Если TorrServer вернул 1 MB за < 30 сек → готов (данные реально качаются).
+     * Параллельно preload(10MB, 4) — мягкий буст без перегрузки.
      */
     suspend fun waitReadyReal(
         hash: String,
         index: Int,
-        timeoutMs: Long = 60000L,
+        timeoutMs: Long = 90000L,
         onProgress: (String) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
         CoroutineScope(Dispatchers.IO).launch {
-            try { preload(hash, 30, 8) } catch (_: Exception) {}
+            try { preload(hash, 10, 4) } catch (_: Exception) {}
         }
-        var lastProgress = 0L
-        var lastProgressTime = System.currentTimeMillis()
+        val url = "$BASE/stream?link=$hash&index=$index&play"
+        val req = Request.Builder().url(url).header("Range", "bytes=0-1048575").build()
+        var zeroSince = System.currentTimeMillis()
         while (System.currentTimeMillis() < deadline) {
             try {
-                val obj = get(hash)
-                if (obj != null) {
-                    val loaded = obj["loaded_size"]?.jsonPrimitive?.longOrNull
-                        ?: obj["loadedSize"]?.jsonPrimitive?.longOrNull ?: 0L
-                    val speed = obj["download_speed"]?.jsonPrimitive?.longOrNull
-                        ?: obj["downloadSpeed"]?.jsonPrimitive?.longOrNull ?: 0L
-                    val seeds = obj["connected_seeders"]?.jsonPrimitive?.intOrNull
-                        ?: obj["connectedSeeders"]?.jsonPrimitive?.intOrNull ?: 0
-                    val loadedMB = loaded / (1024L * 1024L)
-                    val speedKB = speed / 1024L
-
-                    onProgress("$seeds сидов · $loadedMB MB · $speedKB KB/s")
-
-                    if (loaded > 5L * 1024 * 1024 && speed > 0L) {
-                        return@withContext true
+                val bytesRead = HttpClient.downloadClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use 0L
+                    val input = resp.body?.byteStream() ?: return@use 0L
+                    val buf = ByteArray(64 * 1024)
+                    var total = 0L
+                    val localDeadline = System.currentTimeMillis() + 20000L
+                    while (total < 1048576 && System.currentTimeMillis() < localDeadline) {
+                        val n = input.read(buf)
+                        if (n <= 0) break
+                        total += n
                     }
-                    if (loaded > lastProgress) {
-                        lastProgress = loaded
-                        lastProgressTime = System.currentTimeMillis()
-                    } else if (seeds == 0 && System.currentTimeMillis() - lastProgressTime > 25000L) {
+                    total
+                }
+                if (bytesRead >= 1048576L) {
+                    onProgress("Данные идут: ${bytesRead / 1024} KB")
+                    return@withContext true
+                }
+                val mb = bytesRead / (1024L * 1024L)
+                val kb = bytesRead / 1024L
+                val status = if (mb > 0) "$mb MB / 1 MB" else "$kb KB / 1024 KB"
+                onProgress("Загрузка: $status")
+                if (bytesRead == 0L) {
+                    if (System.currentTimeMillis() - zeroSince > 30000L) {
+                        onProgress("Нет данных за 30 сек — торрент мёртв")
                         return@withContext false
                     }
+                } else {
+                    zeroSince = System.currentTimeMillis()
                 }
             } catch (_: Exception) {}
-            Thread.sleep(1500)
+            Thread.sleep(2000)
         }
         false
     }

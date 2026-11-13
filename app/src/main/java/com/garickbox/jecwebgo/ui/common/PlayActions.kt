@@ -31,7 +31,7 @@ object PlayActions {
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Получаем пиров...")
-            val ready = TorrentRepository.waitReadyReal(h, video.id, 60000L) { status ->
+            val ready = TorrentRepository.waitReadyReal(h, video.id, 90000L) { status ->
                 com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus(status)
             }
             if (!ready) {
