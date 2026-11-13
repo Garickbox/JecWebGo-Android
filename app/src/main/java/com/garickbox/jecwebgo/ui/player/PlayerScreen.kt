@@ -258,7 +258,7 @@ private fun PlayerScreenImpl(
                         android.util.Log.d("JecWeb", "VLC firstFrameReady at ${event.timeChanged}ms")
                     }
                     // Предзагрузка следующей серии за 60с до конца
-                    if (duration > 0 && position > 0 && seriesList.size > 1 && (duration - position) in 1..60000L) {
+                    if (duration > 0 && position > 0 && seriesList.size > 1 && (duration - position) in 1..300000L) {
                         val curI = seriesList.indexOfFirst { it.id == currentIdx }
                         val nxt = seriesList.getOrNull(curI + 1)
                         if (nxt != null && preloadedNextFor != nxt.id.toLong()) {
@@ -266,8 +266,8 @@ private fun PlayerScreenImpl(
                             android.util.Log.d("JecWeb", "preload next серия: idx=${nxt.id} за ${(duration-position)/1000}s до конца")
                             scope.launch {
                                 try {
-                                    TorrentRepository.preloadFile(hash, nxt.id, 10, 2)
-                                    android.util.Log.d("JecWeb", "preload done: idx=${nxt.id}")
+                                    TorrentRepository.preloadFile(hash, nxt.id, 30, 2)
+                                    android.util.Log.d("JecWeb", "preload done: idx=${nxt.id} (30MB)")
                                 } catch (e: Exception) {
                                     android.util.Log.e("JecWeb", "preload err: ${e.message}")
                                 }
@@ -713,13 +713,18 @@ private fun PlayerScreenImpl(
                     )
                     Text(formatTime(duration), color = Color.White, fontSize = 11.sp)
                 }
+                val curIdxInList = seriesList.indexOfFirst { it.id == currentIdx }
+                val showPrev = seriesList.size > 1 && curIdxInList > 0
+                val showNext = seriesList.size > 1 && curIdxInList >= 0 && curIdxInList < seriesList.size - 1
                 Row(
                     Modifier.fillMaxWidth().padding(top = 2.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { prevSeries() }) {
-                        Icon(Icons.Filled.SkipPrevious, contentDescription = "Предыдущая", tint = Color.White)
+                    if (showPrev) {
+                        IconButton(onClick = { prevSeries() }) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Предыдущая", tint = Color.White)
+                        }
                     }
                     IconButton(onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) }) {
                         Icon(Icons.Filled.Replay10, contentDescription = "-10с", tint = Color.White)
@@ -736,8 +741,10 @@ private fun PlayerScreenImpl(
                     IconButton(onClick = { mediaPlayer.time = mediaPlayer.time + 10000 }) {
                         Icon(Icons.Filled.Forward10, contentDescription = "+10с", tint = Color.White)
                     }
-                    IconButton(onClick = { nextSeries() }) {
-                        Icon(Icons.Filled.SkipNext, contentDescription = "Следующая", tint = Color.White)
+                    if (showNext) {
+                        IconButton(onClick = { nextSeries() }) {
+                            Icon(Icons.Filled.SkipNext, contentDescription = "Следующая", tint = Color.White)
+                        }
                     }
                 }
             }
