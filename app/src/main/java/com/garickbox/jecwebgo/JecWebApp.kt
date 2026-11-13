@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo
 
 import android.app.Application
 import android.util.Log
+import coil.EventListener
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
@@ -25,7 +26,7 @@ class JecWebApp : Application(), ImageLoaderFactory {
                     .maxSizePercent(0.25)
                     .build()
             }
-            .eventListener(object : ImageLoader.EventListener {
+            .eventListener(object : EventListener() {
                 override fun onSuccess(request: ImageRequest, result: SuccessResult) {
                     Log.d("JecWeb:poster", "OK ${request.data}")
                 }
