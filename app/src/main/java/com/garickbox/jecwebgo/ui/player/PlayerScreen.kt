@@ -183,6 +183,9 @@ private fun PlayerScreenImpl(
     var bufferingPct by remember { mutableIntStateOf(0) }
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
     var aspectIndex by remember { mutableIntStateOf(0) }
+    var userSelectedAudio by remember { mutableStateOf(false) }
+    var userSelectedSubs by remember { mutableStateOf(false) }
+    var tracksLoadedOnce by remember { mutableStateOf(false) }
     var optionsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
@@ -272,6 +275,9 @@ private fun PlayerScreenImpl(
         firstFrameReady = false
         bufferingPct = 0
         playbackRate = 1.0f
+        userSelectedAudio = false
+        userSelectedSubs = false
+        tracksLoadedOnce = false
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
@@ -334,8 +340,17 @@ private fun PlayerScreenImpl(
     }
 
     LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            delay(600)
+        if (isPlaying && !tracksLoadedOnce) {
+            // ждём появления треков до 6 сек
+            var waited = 0
+            while (waited < 6000) {
+                val a = mediaPlayer.audioTracks
+                val sp = mediaPlayer.spuTracks
+                if ((a?.size ?: 0) > 0 || (sp?.size ?: 0) > 0) break
+                delay(300)
+                waited += 300
+            }
+            delay(500)
             val a = mediaPlayer.audioTracks
             audioTracks = (a?.toList() ?: emptyList())
                 .filter { it.id >= 0 }
@@ -344,6 +359,28 @@ private fun PlayerScreenImpl(
             subTracks = (sp?.toList() ?: emptyList())
                 .filter { it.id >= 0 }
                 .map { it.id to (it.name ?: "Субтитры ${it.id}") }
+
+            // АВТО-ВЫБОР РУССКОЙ АУДИОДОРОЖКИ (если пользователь не выбрал вручную)
+            if (!userSelectedAudio && audioTracks.isNotEmpty()) {
+                val rusAudio = audioTracks.firstOrNull { (_, name) -> isRussianTrack(name) }
+                if (rusAudio != null && mediaPlayer.audioTrack != rusAudio.first) {
+                    mediaPlayer.audioTrack = rusAudio.first
+                    android.util.Log.d("JecWeb", "auto audio: ${rusAudio.second} (id=${rusAudio.first})")
+                } else if (rusAudio == null) {
+                    android.util.Log.d("JecWeb", "auto audio: русской нет, оставляем id=${mediaPlayer.audioTrack}")
+                }
+            }
+
+            // АВТО-ВЫБОР РУССКИХ СУБТИТРОВ (только если есть русские, не навязывать)
+            if (!userSelectedSubs && subTracks.isNotEmpty() && mediaPlayer.spuTrack == -1) {
+                val rusSubs = subTracks.firstOrNull { (_, name) -> isRussianTrack(name) }
+                if (rusSubs != null) {
+                    mediaPlayer.spuTrack = rusSubs.first
+                    android.util.Log.d("JecWeb", "auto subs: ${rusSubs.second} (id=${rusSubs.first})")
+                }
+            }
+
+            tracksLoadedOnce = true
         }
     }
 
@@ -495,12 +532,13 @@ private fun PlayerScreenImpl(
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         mediaPlayer.audioTrack = id
+                        userSelectedAudio = true
                         audioSheet = false
                     }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(selected = mediaPlayer.audioTrack == id,
-                        onClick = { mediaPlayer.audioTrack = id; audioSheet = false })
+                        onClick = { mediaPlayer.audioTrack = id; userSelectedAudio = true; audioSheet = false })
                     Text(name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
@@ -512,24 +550,26 @@ private fun PlayerScreenImpl(
             Row(
                 Modifier.fillMaxWidth().clickable {
                     mediaPlayer.spuTrack = -1
+                    userSelectedSubs = true
                     subSheet = false
                 }.padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = mediaPlayer.spuTrack == -1,
-                    onClick = { mediaPlayer.spuTrack = -1; subSheet = false })
+                    onClick = { mediaPlayer.spuTrack = -1; userSelectedSubs = true; subSheet = false })
                 Text("Выключены", modifier = Modifier.padding(start = 8.dp))
             }
             subTracks.forEach { (id, name) ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         mediaPlayer.spuTrack = id
+                        userSelectedSubs = true
                         subSheet = false
                     }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(selected = mediaPlayer.spuTrack == id,
-                        onClick = { mediaPlayer.spuTrack = id; subSheet = false })
+                        onClick = { mediaPlayer.spuTrack = id; userSelectedSubs = true; subSheet = false })
                     Text(name, modifier = Modifier.padding(start = 8.dp))
                 }
             }
@@ -603,11 +643,20 @@ private fun PlayerSheet(
             onDispose { }
         }
         Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
+            Modifier.fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onDismiss() },
             contentAlignment = Alignment.BottomCenter
         ) {
             Card(
-                Modifier.fillMaxWidth().padding(16.dp),
+                Modifier.fillMaxWidth().padding(16.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { /* swallow, не закрывать */ },
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
@@ -628,6 +677,15 @@ private fun Context.findActivity(): Activity? {
         ctx = ctx.baseContext
     }
     return null
+}
+
+private fun isRussianTrack(name: String): Boolean {
+    val n = name.lowercase()
+    return n.contains("rus") || n.contains("рус") || n.contains("russian")
+        || n.contains("[ru]") || n.contains("(ru)") || n.contains("ru ")
+        || n.startsWith("ru") || n.contains("ru-") || n.contains("ru_")
+        || n.contains("дуб") || n.contains("mvo") || n.contains("avo")
+        || n.contains("мво") || n.contains("многоголос")
 }
 
 private fun formatTime(ms: Long): String {
