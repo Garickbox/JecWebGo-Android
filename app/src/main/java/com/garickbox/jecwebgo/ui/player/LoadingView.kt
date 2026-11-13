@@ -54,7 +54,7 @@ fun LoadingView(
             if (description.isNotBlank()) {
                 Text(description, color = Color.White,
                     fontSize = 13.sp, lineHeight = 17.sp,
-                    maxLines = 8, overflow = TextOverflow.Ellipsis)
+                    maxLines = 20, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
             }
             Text(status, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)

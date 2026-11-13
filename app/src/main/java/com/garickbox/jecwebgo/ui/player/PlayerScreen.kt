@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
@@ -196,6 +198,8 @@ private fun PlayerScreenImpl(
     var userSelectedSubs by remember { mutableStateOf(false) }
     var tracksLoadedOnce by remember { mutableStateOf(false) }
     var optionsSheet by remember { mutableStateOf(false) }
+    var isSeriesTransition by remember { mutableStateOf(false) }
+    var preloadedNextFor by remember { mutableLongStateOf(-1L) }
     var gestureHint by remember { mutableStateOf("") }
     var gestureVisible by remember { mutableStateOf(false) }
     var dragMode by remember { mutableIntStateOf(0) }
@@ -233,6 +237,7 @@ private fun PlayerScreenImpl(
                         val idx = seriesList.indexOfFirst { it.id == currentIdx }
                         val next = seriesList.getOrNull(idx + 1)
                         if (next != null) {
+                            isSeriesTransition = true
                             val fName = next.path.substringAfterLast("/")
                             currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${next.id}&play&t=${System.currentTimeMillis()}"
                             currentTitle = "$mainTitle · $fName"
@@ -251,6 +256,23 @@ private fun PlayerScreenImpl(
                     if (event.timeChanged > 100 && !firstFrameReady) {
                         firstFrameReady = true
                         android.util.Log.d("JecWeb", "VLC firstFrameReady at ${event.timeChanged}ms")
+                    }
+                    // Предзагрузка следующей серии за 60с до конца
+                    if (duration > 0 && position > 0 && seriesList.size > 1 && (duration - position) in 1..60000L) {
+                        val curI = seriesList.indexOfFirst { it.id == currentIdx }
+                        val nxt = seriesList.getOrNull(curI + 1)
+                        if (nxt != null && preloadedNextFor != nxt.id.toLong()) {
+                            preloadedNextFor = nxt.id.toLong()
+                            android.util.Log.d("JecWeb", "preload next серия: idx=${nxt.id} за ${(duration-position)/1000}s до конца")
+                            scope.launch {
+                                try {
+                                    TorrentRepository.preloadFile(hash, nxt.id, 10, 2)
+                                    android.util.Log.d("JecWeb", "preload done: idx=${nxt.id}")
+                                } catch (e: Exception) {
+                                    android.util.Log.e("JecWeb", "preload err: ${e.message}")
+                                }
+                            }
+                        }
                     }
                 }
                 MediaPlayer.Event.LengthChanged -> duration = event.lengthChanged
@@ -303,17 +325,42 @@ private fun PlayerScreenImpl(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    fun gotoSeries(targetIdx: Int) {
+        val f = seriesList.getOrNull(targetIdx) ?: return
+        val fName = f.path.substringAfterLast("/")
+        isSeriesTransition = true
+        currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${f.id}&play&t=${System.currentTimeMillis()}"
+        currentTitle = "$mainTitle · $fName"
+        currentIdx = f.id
+        android.util.Log.d("JecWeb", "gotoSeries: $fName id=${f.id} (transition)")
+    }
+
+    fun prevSeries() {
+        val idx = seriesList.indexOfFirst { it.id == currentIdx }
+        if (idx > 0) gotoSeries(idx - 1) else Toast.makeText(context, "Первая серия", Toast.LENGTH_SHORT).show()
+    }
+
+    fun nextSeries() {
+        val idx = seriesList.indexOfFirst { it.id == currentIdx }
+        if (idx >= 0 && idx + 1 < seriesList.size) gotoSeries(idx + 1) else Toast.makeText(context, "Последняя серия", Toast.LENGTH_SHORT).show()
+    }
+
     LaunchedEffect(currentUrl, reloadKey) {
-        runCatching { mediaPlayer.stop() }
-        isPlaying = false
-        position = 0L
-        duration = 0L
-        firstFrameReady = false
-        bufferingPct = 0
-        playbackRate = 1.0f
-        userSelectedAudio = false
-        userSelectedSubs = false
-        tracksLoadedOnce = false
+        if (isSeriesTransition) {
+            android.util.Log.d("JecWeb", "series transition — БЕЗ stop/firstFrameReady сброса")
+            isSeriesTransition = false
+        } else {
+            runCatching { mediaPlayer.stop() }
+            isPlaying = false
+            position = 0L
+            duration = 0L
+            firstFrameReady = false
+            bufferingPct = 0
+            playbackRate = 1.0f
+            userSelectedAudio = false
+            userSelectedSubs = false
+            tracksLoadedOnce = false
+        }
         val isAvi = fileName.endsWith(".avi", ignoreCase = true)
         android.util.Log.d("JecWeb", "PlayerScreen play file=$fileName hw=$hwMode isAvi=$isAvi url=$currentUrl")
         val media = Media(libVLC, Uri.parse(currentUrl)).apply {
@@ -517,7 +564,7 @@ private fun PlayerScreenImpl(
                             dragMode = 0
                             dragStartTimeMs = mediaPlayer.time
                             seekTarget = mediaPlayer.time
-                            dragStartVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            dragStartVolume = mediaPlayer.volume  // 0..200
                             dragStartBrightness = actForGest?.window?.attributes?.screenBrightness ?: -1f
                             if (dragStartBrightness < 0f) dragStartBrightness = 0.5f
                             gestureHint = ""
@@ -539,13 +586,13 @@ private fun PlayerScreenImpl(
                                     gestureHint = "${formatTime(seekTarget)} / ${formatTime(duration)}"
                                 }
                                 2 -> {
-                                    val delta = (totalDy / 200f * maxVolume).toInt()
-                                    val newVol = (dragStartVolume - delta).coerceIn(0, maxVolume)
-                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
-                                    gestureHint = "🔊 $newVol / $maxVolume"
+                                    val delta = (totalDy / 600f * 200).toInt()
+                                    val newVol = (dragStartVolume - delta).coerceIn(0, 200)
+                                    mediaPlayer.volume = newVol
+                                    gestureHint = "🔊 $newVol%"
                                 }
                                 3 -> {
-                                    val delta = -totalDy / 200f
+                                    val delta = -totalDy / 800f
                                     val newBr = (dragStartBrightness + delta).coerceIn(0.05f, 1.0f)
                                     actForGest?.window?.let { w ->
                                         val lp = w.attributes
@@ -671,6 +718,9 @@ private fun PlayerScreenImpl(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(onClick = { prevSeries() }) {
+                        Icon(Icons.Filled.SkipPrevious, contentDescription = "Предыдущая", tint = Color.White)
+                    }
                     IconButton(onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) }) {
                         Icon(Icons.Filled.Replay10, contentDescription = "-10с", tint = Color.White)
                     }
@@ -685,6 +735,9 @@ private fun PlayerScreenImpl(
                     }
                     IconButton(onClick = { mediaPlayer.time = mediaPlayer.time + 10000 }) {
                         Icon(Icons.Filled.Forward10, contentDescription = "+10с", tint = Color.White)
+                    }
+                    IconButton(onClick = { nextSeries() }) {
+                        Icon(Icons.Filled.SkipNext, contentDescription = "Следующая", tint = Color.White)
                     }
                 }
             }
