@@ -137,9 +137,10 @@ private fun PlayerScreenImpl(
     val libVLC = remember(hwMode) {
         LibVLC(context, arrayListOf(
             "--audio-time-stretch",
-            "--network-caching=3000",
+            "--network-caching=1500",
             "--no-drop-late-frames",
-            "--no-skip-frames"
+            "--no-skip-frames",
+            "--verbose=2"
         ))
     }
     val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
@@ -230,7 +231,7 @@ private fun PlayerScreenImpl(
                 "auto" -> setHWDecoderEnabled(true, false)
                 "sw" -> setHWDecoderEnabled(false, false)
             }
-            addOption(":network-caching=3000")
+            addOption(":network-caching=1500")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
         }

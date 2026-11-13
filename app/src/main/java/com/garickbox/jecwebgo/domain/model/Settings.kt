@@ -12,5 +12,5 @@ import kotlinx.serialization.Serializable
     val show_torrent_panel: Boolean = true, val voice_search: Boolean = false,
     val voice_assistant: Boolean = true, val password: String = "",
     val ai_api_key: String = "",
-    val hw_mode: String = "full"
+    val hw_mode: String = "auto"
 )
