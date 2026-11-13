@@ -37,6 +37,12 @@ class DownloadService : Service() {
         super.onCreate()
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
+            // Удалить старый канал (мог залипнуть с IMPORTANCE_LOW из CP10.65) — Android не даёт менять importance
+            val existing = nm.getNotificationChannel(CH)
+            if (existing != null && existing.importance < NotificationManager.IMPORTANCE_DEFAULT) {
+                android.util.Log.w("JecWeb", "channel importance=${existing.importance} < DEFAULT -> recreate")
+                nm.deleteNotificationChannel(CH)
+            }
             nm.createNotificationChannel(
                 NotificationChannel(CH, "Загрузки", NotificationManager.IMPORTANCE_DEFAULT).apply {
                     setShowBadge(true)
@@ -45,8 +51,15 @@ class DownloadService : Service() {
                     setSound(null, null)
                 }
             )
+            val finalCh = nm.getNotificationChannel(CH)
+            android.util.Log.d("JecWeb", "channel: importance=${finalCh?.importance} enabled=${nm.areNotificationsEnabled()}")
         }
-        startForeground(NOTIF_ID, buildNotif("JecWeb", "Ожидание...", 0L, 0L))
+        val notif = buildNotif("JecWeb", "Ожидание...", 0L, 0L)
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(NOTIF_ID, notif, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIF_ID, notif)
+        }
         scope.launch { loop() }
     }
 
@@ -218,6 +231,8 @@ class DownloadService : Service() {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
         if (total > 0) b.setProgress(100, ((progress * 100) / total).toInt(), false)
         return b.build()
     }
@@ -235,6 +250,7 @@ class DownloadService : Service() {
             val spd = if (item.speedBps > 0) " · %.1f MB/s".format(item.speedBps / 1e6) else ""
             val title = item.request.title.ifBlank { "JecWeb загрузка" }
             val text = "$pct% · $mbDone / $mbTotal MB$spd"
+            android.util.Log.d("JecWeb", "notify: $title | $text | $progress/$total")
             nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "updateNotif fail: ${e.message}")

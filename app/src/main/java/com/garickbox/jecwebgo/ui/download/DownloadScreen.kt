@@ -46,6 +46,38 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             })
         }
     ) { pad ->
+        // Проверка: уведомления выключены — предупредить
+        var notifWarned by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            try {
+                val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                if (!nm.areNotificationsEnabled() && !notifWarned) {
+                    notifWarned = true
+                }
+            } catch (_: Exception) {}
+        }
+        if (notifWarned) {
+            AlertDialog(
+                onDismissRequest = { notifWarned = false },
+                title = { Text("Уведомления отключены") },
+                text = { Text("Без уведомлений загрузка может остановиться в фоне на MIUI. Включите уведомления для JecWeb Go.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        notifWarned = false
+                        try {
+                            val i = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            ctx.startActivity(i)
+                        } catch (_: Exception) {}
+                    }) { Text("Открыть настройки") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { notifWarned = false }) { Text("Позже") }
+                }
+            )
+        }
         val queueGroups = remember(queue) {
             queue.groupBy { DownloadRepository.groupKeyOf(it) }
         }
