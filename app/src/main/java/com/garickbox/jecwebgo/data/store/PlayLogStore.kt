@@ -9,7 +9,15 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class PlayLogEntry(val type: String, val title: String, val magnet: String = "", val hash: String = "", val time: Long = 0L)
+data class PlayLogEntry(
+    val type: String,
+    val title: String,
+    val magnet: String = "",
+    val hash: String = "",
+    val time: Long = 0L,
+    val position: Long = 0L,
+    val duration: Long = 0L
+)
 
 object PlayLogStore {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }

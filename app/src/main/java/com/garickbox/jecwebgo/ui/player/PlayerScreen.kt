@@ -52,6 +52,15 @@ import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.util.VLCVideoLayout
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import android.media.AudioManager
+import kotlin.math.abs
+import com.garickbox.jecwebgo.data.store.PlayLogStore
+import com.garickbox.jecwebgo.data.store.PlayLogEntry
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -187,6 +196,15 @@ private fun PlayerScreenImpl(
     var userSelectedSubs by remember { mutableStateOf(false) }
     var tracksLoadedOnce by remember { mutableStateOf(false) }
     var optionsSheet by remember { mutableStateOf(false) }
+    var gestureHint by remember { mutableStateOf("") }
+    var gestureVisible by remember { mutableStateOf(false) }
+    var dragMode by remember { mutableIntStateOf(0) }
+    var seekTarget by remember { mutableLongStateOf(0L) }
+    var dragStartTimeMs by remember { mutableLongStateOf(0L) }
+    var dragStartVolume by remember { mutableIntStateOf(0) }
+    var dragStartBrightness by remember { mutableFloatStateOf(0.5f) }
+    var dragStartX by remember { mutableFloatStateOf(0f) }
+    var dragStartY by remember { mutableFloatStateOf(0f) }
 
     DisposableEffect(mediaPlayer, vlcView, useTextureView) {
         mediaPlayer.attachViews(vlcView, null, false, useTextureView)
@@ -209,7 +227,25 @@ private fun PlayerScreenImpl(
                     }
                 }
                 MediaPlayer.Event.Stopped -> isPlaying = false
-                MediaPlayer.Event.EndReached -> onBack()
+                MediaPlayer.Event.EndReached -> {
+                    android.util.Log.d("JecWeb", "EndReached seriesList=${seriesList.size} curIdx=$currentIdx")
+                    if (seriesList.size > 1) {
+                        val idx = seriesList.indexOfFirst { it.id == currentIdx }
+                        val next = seriesList.getOrNull(idx + 1)
+                        if (next != null) {
+                            val fName = next.path.substringAfterLast("/")
+                            currentUrl = "http://127.0.0.1:8090/stream?link=$hash&index=${next.id}&play&t=${System.currentTimeMillis()}"
+                            currentTitle = "$mainTitle · $fName"
+                            currentIdx = next.id
+                            android.util.Log.d("JecWeb", "auto-next: $fName id=${next.id}")
+                        } else {
+                            android.util.Log.d("JecWeb", "auto-next: last, back")
+                            onBack()
+                        }
+                    } else {
+                        onBack()
+                    }
+                }
                 MediaPlayer.Event.TimeChanged -> {
                     position = event.timeChanged
                     if (event.timeChanged > 100 && !firstFrameReady) {
@@ -308,6 +344,39 @@ private fun PlayerScreenImpl(
         media.release()
         val playOk = mediaPlayer.play()
         android.util.Log.d("JecWeb", "VLC play() ok=$playOk isAvi=$isAvi hw=$hwMode")
+
+        // Prefetch seriesList для auto-next
+        if (hash.isNotBlank()) {
+            scope.launch {
+                try {
+                    seriesList = TorrentRepository.getFiles(hash)
+                        .filter {
+                            val ext = it.path.substringAfterLast(".", "").lowercase()
+                            ext in setOf("mp4","mkv","avi","mov","wmv","webm","flv","m4v","ts","m2ts")
+                        }
+                        .sortedBy { it.path }
+                    android.util.Log.d("JecWeb", "prefetch seriesList=${seriesList.size}")
+                } catch (e: Exception) {
+                    android.util.Log.e("JecWeb", "prefetch err: ${e.message}")
+                }
+            }
+        }
+
+        // Resume позиции (после 1.5с — когда duration появится)
+        if (hash.isNotBlank()) {
+            scope.launch {
+                delay(1500)
+                try {
+                    val log = PlayLogStore.list(context).firstOrNull { it.hash == hash }
+                    if (log != null && log.position > 60000 && duration > 0 && log.position < duration * 0.95) {
+                        mediaPlayer.time = log.position
+                        android.util.Log.d("JecWeb", "resume from ${log.position}/${duration}")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("JecWeb", "resume err: ${e.message}")
+                }
+            }
+        }
     }
 
     LaunchedEffect(controlsVisible) {
@@ -335,6 +404,24 @@ private fun PlayerScreenImpl(
                 val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
                 wic.hide(WindowInsetsCompat.Type.systemBars())
                 wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+    }
+
+    // Сохраняем позицию каждые 20с
+    LaunchedEffect(isPlaying) {
+        if (isPlaying && hash.isNotBlank()) {
+            while (true) {
+                delay(20000)
+                if (position > 60000 && duration > 0) {
+                    try {
+                        PlayLogStore.add(context, PlayLogEntry(
+                            "phone", mainTitle, "", hash,
+                            System.currentTimeMillis() / 1000, position, duration
+                        ))
+                        android.util.Log.d("JecWeb", "save pos $position/$duration")
+                    } catch (e: Exception) { }
+                }
             }
         }
     }
@@ -404,12 +491,108 @@ private fun PlayerScreenImpl(
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(factory = { vlcView }, modifier = Modifier.fillMaxSize())
 
+        val configuration = LocalConfiguration.current
+        val density = LocalDensity.current
+        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+        val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+        val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+        val actForGest = remember(context) { context.findActivity() }
+
         Box(
-            Modifier.fillMaxSize().clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { controlsVisible = !controlsVisible }
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = { controlsVisible = !controlsVisible },
+                        onDoubleTap = {
+                            if (isPlaying) mediaPlayer.pause() else mediaPlayer.play()
+                        },
+                        onLongPress = {
+                            val saved = mediaPlayer.rate
+                            mediaPlayer.rate = 2.0f
+                            android.util.Log.d("JecWeb", "long-press 2x")
+                            tryAwaitRelease()
+                            mediaPlayer.rate = saved
+                            android.util.Log.d("JecWeb", "long-press release $saved")
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            dragStartX = offset.x
+                            dragStartY = offset.y
+                            dragMode = 0
+                            dragStartTimeMs = mediaPlayer.time
+                            seekTarget = mediaPlayer.time
+                            dragStartVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            dragStartBrightness = actForGest?.window?.attributes?.screenBrightness ?: -1f
+                            if (dragStartBrightness < 0f) dragStartBrightness = 0.5f
+                            gestureHint = ""
+                            gestureVisible = true
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val totalDx = change.position.x - dragStartX
+                            val totalDy = change.position.y - dragStartY
+                            if (dragMode == 0) {
+                                dragMode = if (abs(totalDx) > abs(totalDy)) 1
+                                           else if (dragStartX < screenWidthPx / 2) 3
+                                           else 2
+                            }
+                            when (dragMode) {
+                                1 -> {
+                                    val deltaMs = (totalDx / 200f * 10000f).toLong()
+                                    seekTarget = (dragStartTimeMs + deltaMs).coerceIn(0, duration)
+                                    gestureHint = "${formatTime(seekTarget)} / ${formatTime(duration)}"
+                                }
+                                2 -> {
+                                    val delta = (totalDy / 200f * maxVolume).toInt()
+                                    val newVol = (dragStartVolume - delta).coerceIn(0, maxVolume)
+                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                    gestureHint = "🔊 $newVol / $maxVolume"
+                                }
+                                3 -> {
+                                    val delta = -totalDy / 200f
+                                    val newBr = (dragStartBrightness + delta).coerceIn(0.05f, 1.0f)
+                                    actForGest?.window?.let { w ->
+                                        val lp = w.attributes
+                                        lp.screenBrightness = newBr
+                                        w.attributes = lp
+                                    }
+                                    gestureHint = "☀ ${(newBr * 100).toInt()}%"
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            if (dragMode == 1 && duration > 0) {
+                                mediaPlayer.time = seekTarget
+                                android.util.Log.d("JecWeb", "seek -> $seekTarget")
+                            }
+                            dragMode = 0
+                            gestureVisible = false
+                        },
+                        onDragCancel = {
+                            dragMode = 0
+                            gestureVisible = false
+                        }
+                    )
+                }
         )
+
+        if (gestureVisible && gestureHint.isNotBlank()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    gestureHint,
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.75f))
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+            }
+        }
 
         if (controlsVisible) {
             Row(
