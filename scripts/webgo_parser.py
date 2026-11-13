@@ -208,15 +208,15 @@ async def process_section(session,cat_id,cat_name,existing_map):
 async def run_parser():
     print("📡 Парсинг rutor.info...")
     db = load_db()
-    # Миграция: старые локальные постеры 'posters/xxx.jpg' → '' для повторного enrich (URL вместо файла)
+    # Миграция: старые .jpg локальные → '' (перезаполнятся URL). Новые .webp оставляем.
     migrated = 0
     for m in db:
         p = m.get('poster', '')
-        if p.startswith('posters/'):
+        if p.startswith('posters/') and p.endswith('.jpg'):
             m['poster'] = ''
             migrated += 1
     if migrated:
-        print(f"🔄 Миграция постеров: {migrated} локальных → пусто (заполнятся URL из KP/TMDB)")
+        print(f"🔄 Миграция постеров: {migrated} .jpg → пусто")
     existing_map = {info_hash(it['magnet']):i for i,it in enumerate(db) if it.get('magnet')}
     async with aiohttp.ClientSession() as session:
         sem = asyncio.Semaphore(CONCURRENT_SECTIONS)
@@ -502,8 +502,10 @@ async def run_enrich_tmdb():
     print(f"🎉 TMDB: {enriched} за {time.time()-start:.1f}s")
 
 async def download_posters_step():
-    print("🖼️ Скачивание постеров...")
+    print("🖼️ Скачивание постеров + WebP...")
     start = time.time()
+    from PIL import Image
+    from io import BytesIO
     movies = load_db()
     if not movies:
         print("ℹ️ База пуста"); return
@@ -512,13 +514,14 @@ async def download_posters_step():
     print(f"📊 Постеров к скачиванию: {len(need)}")
     sem = asyncio.Semaphore(30)
     downloaded = 0
+    failed = 0
     async def dl(session, m):
-        nonlocal downloaded
+        nonlocal downloaded, failed
         poster = m.get('poster', '')
         h = info_hash(m.get('magnet', ''))
         if not h: return
-        fname = f"posters/{h}.jpg"
-        if os.path.exists(fname) and os.path.getsize(fname) > 1000:
+        fname = f"posters/{h}.webp"
+        if os.path.exists(fname) and os.path.getsize(fname) > 500:
             m['poster'] = fname; return
         async with sem:
             try:
@@ -526,11 +529,20 @@ async def download_posters_step():
                     if r.status == 200:
                         data = await r.read()
                         if len(data) > 1000:
-                            with open(fname, 'wb') as fh:
-                                fh.write(data)
-                            m['poster'] = fname
-                            downloaded += 1
-            except: pass
+                            try:
+                                img = Image.open(BytesIO(data)).convert("RGB")
+                                img.thumbnail((400, 600), Image.Resampling.LANCZOS)
+                                buf = BytesIO()
+                                img.save(buf, "WEBP", quality=78, method=6)
+                                webp = buf.getvalue()
+                                with open(fname, "wb") as fh:
+                                    fh.write(webp)
+                                m['poster'] = fname
+                                downloaded += 1
+                            except Exception as e:
+                                failed += 1
+            except:
+                failed += 1
     async with aiohttp.ClientSession() as session:
         B = 200
         for i in range(0, len(need), B):
@@ -538,7 +550,7 @@ async def download_posters_step():
             await asyncio.gather(*[dl(session, m) for m in batch])
             print(f"   📦 {i+len(batch)}/{len(need)}")
     save_db(movies)
-    print(f"🎉 Постеров скачано: {downloaded} за {time.time()-start:.1f}s")
+    print(f"🎉 Постеров WebP: {downloaded} OK, {failed} fail, за {time.time()-start:.1f}s")
 
 def main():
     p = argparse.ArgumentParser()
@@ -550,6 +562,7 @@ def main():
         asyncio.run(run_parser())
         if KP_TOKEN: asyncio.run(run_enrich_kp())
         if TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
+        asyncio.run(download_posters_step())
         save_meta()
     elif args.mode == 'parse': asyncio.run(run_parser())
     elif args.mode == 'kp' and KP_TOKEN: asyncio.run(run_enrich_kp())

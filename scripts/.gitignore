@@ -5,7 +5,6 @@ enrich_state_tmdb.json
 __pycache__/
 *.pyc
 
-posters/
 tmdb_movies.json
 posters_tmdb/
 meta.json

@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install aiohttp beautifulsoup4
+      - run: pip install aiohttp beautifulsoup4 Pillow
       - name: Run parser
         working-directory: scripts
         env:
@@ -36,11 +36,9 @@ jobs:
           git checkout -q -B data origin/data 2>/dev/null || git checkout -q --orphan data
           cp ~/work/JecWebGo-Android/JecWebGo-Android/scripts/torrents.json . 2>/dev/null || cp $GITHUB_WORKSPACE/scripts/torrents.json .
           cp $GITHUB_WORKSPACE/scripts/meta.json . 2>/dev/null || echo 'no meta.json'
-          # posters/ больше не публикуются (используем URL KP/TMDB через Worker /img)
+          if [ -d "$GITHUB_WORKSPACE/scripts/posters" ]; then cp -r "$GITHUB_WORKSPACE/scripts/posters" .; echo "posters: $(ls posters 2>/dev/null | wc -l) files"; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Удалить старую папку posters из data-ветки (было 920 MB)
-          rm -rf posters || true
           git add -A
           git commit -q -m "data: $(date -u +%F_%H:%M)" || echo "no changes"
           git push -f origin data
