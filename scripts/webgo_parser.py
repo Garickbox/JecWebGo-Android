@@ -208,6 +208,15 @@ async def process_section(session,cat_id,cat_name,existing_map):
 async def run_parser():
     print("📡 Парсинг rutor.info...")
     db = load_db()
+    # Миграция: старые локальные постеры 'posters/xxx.jpg' → '' для повторного enrich (URL вместо файла)
+    migrated = 0
+    for m in db:
+        p = m.get('poster', '')
+        if p.startswith('posters/'):
+            m['poster'] = ''
+            migrated += 1
+    if migrated:
+        print(f"🔄 Миграция постеров: {migrated} локальных → пусто (заполнятся URL из KP/TMDB)")
     existing_map = {info_hash(it['magnet']):i for i,it in enumerate(db) if it.get('magnet')}
     async with aiohttp.ClientSession() as session:
         sem = asyncio.Semaphore(CONCURRENT_SECTIONS)
@@ -541,7 +550,6 @@ def main():
         asyncio.run(run_parser())
         if KP_TOKEN: asyncio.run(run_enrich_kp())
         if TMDB_API_KEY: asyncio.run(run_enrich_tmdb())
-        asyncio.run(download_posters_step())
         save_meta()
     elif args.mode == 'parse': asyncio.run(run_parser())
     elif args.mode == 'kp' and KP_TOKEN: asyncio.run(run_enrich_kp())
