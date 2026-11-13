@@ -140,7 +140,8 @@ private fun PlayerScreenImpl(
     val libVLC = remember(hwMode) {
         LibVLC(context, arrayListOf(
             "--audio-time-stretch",
-            "--network-caching=10000",
+            "--network-caching=15000",
+            "--http-reconnect",
             "--no-drop-late-frames",
             "--no-skip-frames"
         ))
@@ -175,7 +176,7 @@ private fun PlayerScreenImpl(
         }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
-                MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing") }
+                MediaPlayer.Event.Playing -> { isPlaying = true; android.util.Log.d("JecWeb", "VLC Playing state=${mediaPlayer.state}") }
                 MediaPlayer.Event.Paused -> isPlaying = false
                 MediaPlayer.Event.Stopped -> isPlaying = false
                 MediaPlayer.Event.EndReached -> onBack()
@@ -238,9 +239,12 @@ private fun PlayerScreenImpl(
             if (isAvi) {
                 addOption(":network-caching=20000")
                 addOption(":demux=avformat")
+                addOption(":no-seektable")
             } else {
-                addOption(":network-caching=10000")
+                addOption(":network-caching=15000")
             }
+            addOption(":file-caching=15000")
+            addOption(":start-time=0")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
         }

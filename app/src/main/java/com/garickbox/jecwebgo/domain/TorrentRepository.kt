@@ -85,7 +85,16 @@ object TorrentRepository {
                 }
             }
             if (!found) {
-                android.util.Log.w("JecWeb", "addWithFile: no video found, fallback index=1")
+                android.util.Log.w("JecWeb", "addWithFile: no video in add resp, polling up to 40s")
+                val video = waitForVideo(hash, 40000L)
+                if (video != null) {
+                    firstIdx = video.id
+                    firstName = video.path.substringAfterLast("/")
+                    found = true
+                } else {
+                    android.util.Log.e("JecWeb", "addWithFile: no video after 40s, abort")
+                    return@withContext null
+                }
             }
             AddResult(hash, firstIdx, firstName)
         } catch (e: Exception) {
@@ -115,6 +124,29 @@ object TorrentRepository {
             val b = buildJsonObject { put("action","get"); put("hash",hash) }.toString()
             json.parseToJsonElement(post(b)).jsonObject
         } catch (e: Exception) { null }
+    }
+
+    /** Ждёт появления видеофайла в metadata (до timeoutMs), опрашивая getFiles каждую 1с. */
+    suspend fun waitForVideo(hash: String, timeoutMs: Long = 40000L): TorrentFile? = withContext(Dispatchers.IO) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var polls = 0
+        while (System.currentTimeMillis() < deadline) {
+            polls++
+            val files = getFiles(hash)
+            if (files.isNotEmpty()) {
+                val video = files.firstOrNull { f ->
+                    val ext = f.path.substringAfterLast(".", "").lowercase()
+                    ext in VIDEO_EXT_SET && f.length > 0
+                }
+                if (video != null) {
+                    android.util.Log.d("JecWeb", "waitForVideo: found ${video.path} len=${video.length} after ${polls}s")
+                    return@withContext video
+                }
+            }
+            Thread.sleep(1000)
+        }
+        android.util.Log.w("JecWeb", "waitForVideo: timeout ${timeoutMs}ms, no video")
+        null
     }
 
     suspend fun getFiles(hash: String): List<TorrentFile> = withContext(Dispatchers.IO) {
@@ -209,11 +241,13 @@ object TorrentRepository {
             try {
                 // GET Range 0-1 — считается чтением, TorrServer НЕ закрывает торрент по DisconnectTimeout
                 val req = Request.Builder().url(url).header("Range", "bytes=0-1").get().build()
-                val (code, len) = HttpClient.client.newCall(req).execute().use {
-                    Pair(it.code, it.header("Content-Range")?.substringAfter("/")?.toLongOrNull()
-                        ?: it.header("Content-Length")?.toLongOrNull() ?: 0L)
+                val (code, bytesRead) = HttpClient.client.newCall(req).execute().use {
+                    val body = it.body
+                    val n = if (body != null) body.bytes().size else 0
+                    Pair(it.code, n)
                 }
-                if (code in 200..299) return@withContext true
+                if (code in 200..299 && bytesRead >= 2) return@withContext true
+                android.util.Log.d("JecWeb", "waitReady: code=$code bytes=$bytesRead (need 2)")
             } catch (_: Exception) {}
             Thread.sleep(2000)
         }

@@ -25,12 +25,13 @@ object PlayActions {
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Ожидание потока...")
+            android.util.Log.d("JecWeb", "playPhone: file=${result.firstVideoName} idx=${result.firstVideoIndex}")
             val t0 = System.currentTimeMillis()
-            val ready = TorrentRepository.waitReady(result.hash, result.firstVideoIndex, 45000L)
+            val ready = TorrentRepository.waitReady(result.hash, result.firstVideoIndex, 15000L)
             val elapsed = System.currentTimeMillis() - t0
-            android.util.Log.d("JecWeb", "playPhone waitReady=$ready after ${elapsed}ms file=${result.firstVideoName}")
+            android.util.Log.d("JecWeb", "playPhone waitReady=$ready after ${elapsed}ms")
             if (!ready) {
-                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer не отдал поток за 45с")
+                com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer не отдал поток за 15с")
                 return@launch
             }
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем...")
