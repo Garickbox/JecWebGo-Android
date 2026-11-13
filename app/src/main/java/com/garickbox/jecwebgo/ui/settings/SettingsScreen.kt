@@ -1,6 +1,7 @@
 package com.garickbox.jecwebgo.ui.settings
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -67,7 +68,7 @@ fun SettingsScreen() {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
-                        .androidx.compose.foundation.clickable { s = s.copy(hw_mode = id) }
+                        .clickable { s = s.copy(hw_mode = id) }
                 ) {
                     RadioButton(selected = selected, onClick = { s = s.copy(hw_mode = id) })
                     Column {
