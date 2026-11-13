@@ -137,13 +137,9 @@ private fun PlayerScreenImpl(
     val libVLC = remember(hwMode) {
         LibVLC(context, arrayListOf(
             "--audio-time-stretch",
-            "--network-caching=60000",
-            "--file-caching=15000",
-            "--http-reconnect",
-            "--http-continuous",
+            "--network-caching=2000",
             "--no-drop-late-frames",
-            "--no-skip-frames",
-            "--verbose=2"
+            "--no-skip-frames"
         ))
     }
     val mediaPlayer = remember(libVLC) { MediaPlayer(libVLC) }
@@ -234,16 +230,9 @@ private fun PlayerScreenImpl(
                 "auto" -> setHWDecoderEnabled(true, false)
                 "sw" -> setHWDecoderEnabled(false, false)
             }
-            addOption(":network-caching=60000")
-            addOption(":file-caching=60000")
+            addOption(":network-caching=2000")
             addOption(":clock-jitter=0")
             addOption(":clock-synchro=0")
-            addOption(":start-time=0")
-            val isAvi = currentUrl.contains(".avi", ignoreCase = true) || currentTitle.contains(".avi", ignoreCase = true)
-            if (isAvi) {
-                addOption(":demux=avformat")
-                addOption(":no-seektable")
-            }
         }
         mediaPlayer.media = media
         mediaPlayer.play()

@@ -69,7 +69,7 @@ class TorrServerService : Service() {
                 put("TorrentsSavePath", realPath)
                 put("RemoveCacheOnDrop", true)
                 put("ConnectionsLimit", 50)
-                put("TorrentDisconnectTimeout", 1800)
+                put("TorrentDisconnectTimeout", 300)
             })
         }.toString()
 
