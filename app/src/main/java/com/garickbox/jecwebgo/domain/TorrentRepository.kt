@@ -3,6 +3,8 @@ package com.garickbox.jecwebgo.domain
 import com.garickbox.jecwebgo.data.network.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -172,7 +174,7 @@ object TorrentRepository {
         onProgress: (String) -> Unit = {}
     ): Boolean = withContext(Dispatchers.IO) {
         val deadline = System.currentTimeMillis() + timeoutMs
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO).launch {
             try { preload(hash, 30, 8) } catch (_: Exception) {}
         }
         var lastProgress = 0L
