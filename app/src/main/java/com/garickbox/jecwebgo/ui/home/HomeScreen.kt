@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -79,20 +80,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     }
 
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Главная", fontWeight = FontWeight.SemiBold)
-                        if (s.lastUpdate.isNotEmpty() && s.lastUpdate != "—")
-                            Text("Обновлено: ${s.lastUpdate}  ·  ${s.items.size} фильмов",
-                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-            )
-        }
-    ) { pad ->
+    Scaffold { pad ->
         PullToRefreshBox(
             isRefreshing = s.refreshing,
             onRefresh = { vm.refresh() },
@@ -144,51 +132,48 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
 
 @Composable
 private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().height(330.dp).clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
-        Column {
-            Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
-                val url = remember(g.poster) { posterUrl(g.poster) }
-                // placeholder ЗА постером (нет subcompose)
-                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                    Alignment.Center) { Text("🎬", fontSize = 32.sp) }
-                if (url.isNotBlank()) {
-                    AsyncImage(
-                        model = url, contentDescription = g.cleanTitle,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                // Badges поверх постера
-                if (g.rating > 0.0) {
-                    Box(Modifier.align(Alignment.TopStart).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFFFC107).copy(alpha = 0.95f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("★ %.1f".format(g.rating), fontSize = 10.sp,
-                            color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (g.count > 1) {
-                    Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("${g.count} разд.", fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (g.year.isNotBlank()) {
-                    Box(Modifier.align(Alignment.BottomStart).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text(g.year, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+    Card(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+            val url = remember(g.poster) { posterUrl(g.poster) }
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                Alignment.Center) { Text("🎬", fontSize = 32.sp) }
+            if (url.isNotBlank()) {
+                AsyncImage(
+                    model = url, contentDescription = g.cleanTitle,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            if (g.rating > 0.0) {
+                Box(Modifier.align(Alignment.TopStart).padding(6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFFFFC107).copy(alpha = 0.95f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text("★ %.1f".format(g.rating), fontSize = 10.sp,
+                        color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
-            Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp).height(36.dp)) {
+            if (g.count > 1) {
+                Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text("${g.count} разд.", fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(72.dp)
+                .background(Brush.verticalGradient(
+                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
+                )))
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(8.dp)) {
+                if (g.year.isNotBlank()) {
+                    Text(g.year, fontSize = 10.sp, color = Color.White.copy(alpha = 0.75f),
+                        fontWeight = FontWeight.Bold)
+                }
                 Text(g.cleanTitle, fontWeight = FontWeight.SemiBold,
-                    maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 12.sp)
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
+                    color = Color.White)
             }
         }
     }

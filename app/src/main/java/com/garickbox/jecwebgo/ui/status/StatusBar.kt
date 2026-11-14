@@ -26,6 +26,8 @@ fun StatusBar() {
     var jacAlive by remember { mutableStateOf<Boolean?>(null) }
     var posterAlive by remember { mutableStateOf<Boolean?>(null) }
 
+    var baseAgeHours by remember { mutableStateOf<Long?>(null) }
+
     LaunchedEffect(Unit) {
         while (true) {
             tsAlive = withContext(Dispatchers.IO) { TorrentRepository.isAlive() }
@@ -40,18 +42,39 @@ fun StatusBar() {
                     HttpClient.client.newCall(req).execute().use { it.code in 200..299 }
                 }.getOrDefault(false)
             }
+            baseAgeHours = withContext(Dispatchers.IO) {
+                try {
+                    val ms = com.garickbox.jecwebgo.data.network.DataRepository.cacheAge(ctx)
+                    if (ms == Long.MAX_VALUE) null else ms / (1000L * 60 * 60)
+                } catch (_: Exception) { null }
+            }
             delay(30_000)
         }
     }
 
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Dot("TorrServer", tsAlive)
         Dot("JacRed", jacAlive)
         Dot("Постеры", posterAlive)
+        BaseDot(baseAgeHours)
+    }
+}
+
+@Composable
+private fun BaseDot(ageHours: Long?) {
+    val color = when {
+        ageHours == null -> Color(0xFF9E9E9E)
+        ageHours < 24 -> Color(0xFF4CAF50)
+        ageHours < 24 * 7 -> Color(0xFFFFC107)
+        else -> Color(0xFFE53935)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text("База", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

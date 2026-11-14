@@ -15,19 +15,82 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.garickbox.jecwebgo.data.store.SettingsStore
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen() {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var s by remember { mutableStateOf(SettingsStore.load(ctx)) }
+    var dbCount by remember { mutableIntStateOf(0) }
+    var dbLastUpdate by remember { mutableStateOf("—") }
+    var dbRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        try {
+            val items = withContext(Dispatchers.IO) { com.garickbox.jecwebgo.data.network.DataRepository.loadCached(ctx) }
+            dbCount = items.size
+            val age = withContext(Dispatchers.IO) { com.garickbox.jecwebgo.data.network.DataRepository.cacheAge(ctx) }
+            if (age < Long.MAX_VALUE / 2) {
+                dbLastUpdate = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+                    .format(java.util.Date(System.currentTimeMillis() - age))
+            }
+        } catch (_: Exception) {}
+    }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Настройки", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)
 
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.padding(12.dp)) {
+                Text("📀 База данных", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(4.dp))
+                if (dbCount > 0) {
+                    Text("$dbCount фильмов · $dbLastUpdate",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("не загружена", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        if (dbRefreshing) return@Button
+                        dbRefreshing = true
+                        scope.launch {
+                            try {
+                                val items = withContext(Dispatchers.IO) {
+                                    com.garickbox.jecwebgo.data.network.DataRepository.refresh(ctx)
+                                }
+                                dbCount = items.size
+                                val age2 = withContext(Dispatchers.IO) { com.garickbox.jecwebgo.data.network.DataRepository.cacheAge(ctx) }
+                                if (age2 < Long.MAX_VALUE / 2) {
+                                    dbLastUpdate = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+                                        .format(java.util.Date(System.currentTimeMillis() - age2))
+                                }
+                                dbRefreshing = false
+                                Toast.makeText(ctx, "Обновлено: ${items.size}", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                dbRefreshing = false
+                                Toast.makeText(ctx, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    enabled = !dbRefreshing,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (dbRefreshing) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (dbRefreshing) "Обновление..." else "🔄 Обновить")
+                }
+            }
+        }
 
-        
         HorizontalDivider()
 
         Row(verticalAlignment = Alignment.CenterVertically) {

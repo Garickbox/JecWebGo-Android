@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -63,6 +64,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
+        try {
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            wic.hide(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } catch (_: Exception) {}
         TorrServerService.start(this)
         com.garickbox.jecwebgo.data.download.DownloadRepository.init(this)
         handleIntent(intent)
@@ -158,7 +165,7 @@ class MainActivity : ComponentActivity() {
                 val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(bottomBar = {
-                    if (current != "player") NavigationBar {
+                    if (current != "player") NavigationBar(modifier = Modifier.height(56.dp)) {
                         tabs.forEach { t ->
                             NavigationBarItem(
                                 selected = selectedTab == t.route,
@@ -170,7 +177,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 icon = {
-                                    Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(26.dp))
+                                    Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(22.dp))
                                 }
                             )
                         }
