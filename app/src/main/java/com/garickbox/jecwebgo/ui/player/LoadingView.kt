@@ -31,15 +31,15 @@ fun LoadingView(
     onCancel: () -> Unit
 ) {
     // Флаг: TMDB search уже выполнен для (title, loadingNonce). Не дублируем при пересоздании LoadingView.
-    var tmdbAttempted by rememberSaveable(title, loadingNonce) { mutableStateOf(false) }
+    val tmdbAttempted = rememberSaveable(title, loadingNonce) { mutableStateOf(false) }
 
     // TMDB search: получить URL постера + описание (один раз на nonce)
     LaunchedEffect(title, loadingNonce) {
-        if (title.isBlank() || tmdbAttempted) return@LaunchedEffect
+        if (title.isBlank() || tmdbAttempted.value) return@LaunchedEffect
         val needPoster = poster.isBlank()
         val needDesc = description.isBlank()
         if (!needPoster && !needDesc) return@LaunchedEffect
-        tmdbAttempted = true
+        tmdbAttempted.value = true
         try {
             val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
             if (info != null) {
