@@ -76,14 +76,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         try {
-            androidx.activity.enableEdgeToEdge(
-                statusBarStyle = androidx.activity.SystemBarStyle.auto(
-                    android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT
-                ),
-                navigationBarStyle = androidx.activity.SystemBarStyle.auto(
-                    android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT
-                )
-            )
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
             window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
