@@ -31,32 +31,9 @@ fun LoadingView(
     loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
-    // Local state — как в TmdbDetailsDialog. НЕ через PendingPlayer.updatePoster
-    // (иначе LoadingView пересоздаётся → AsyncImage не получает URL → постер не грузится).
-    var localPoster by remember(title) { mutableStateOf(poster) }
-    var localDesc by remember(title) { mutableStateOf(description) }
-
-    LaunchedEffect(title, loadingNonce) {
-        if (title.isBlank()) return@LaunchedEffect
-        if (localPoster.isNotBlank() && localDesc.isNotBlank()) return@LaunchedEffect
-        try {
-            val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
-            if (info != null) {
-                if (localPoster.isBlank() && info.posterUrl.isNotBlank()) {
-                    android.util.Log.d("JecWeb", "LoadingView: poster via TMDB -> $title")
-                    localPoster = info.posterUrl
-                }
-                if (localDesc.isBlank() && info.overview.isNotBlank()) {
-                    android.util.Log.d("JecWeb", "LoadingView: description via TMDB -> $title (${info.overview.length} chars)")
-                    localDesc = info.overview
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "LoadingView searchMovieInfo fail: ${e.message}")
-        }
-    }
-
-    val url = remember(localPoster) { PosterUtil.posterUrl(localPoster) }
+    // LoadingView — только рендеринг. searchMovieInfo живёт в PlayActions (живёт до конца).
+    // remember(poster) — при updatePoster → poster меняется → remember пересоздаётся → новый url.
+    val url = remember(poster) { PosterUtil.posterUrl(poster) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
@@ -97,8 +74,8 @@ fun LoadingView(
                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(6.dp))
-            if (localDesc.isNotBlank()) {
-                Text(localDesc, color = Color.White,
+            if (description.isNotBlank()) {
+                Text(description, color = Color.White,
                     fontSize = 13.sp, lineHeight = 17.sp,
                     maxLines = 20, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
