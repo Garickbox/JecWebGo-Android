@@ -64,7 +64,7 @@ object PlayActions {
 
     fun playHash(ctx: Context, scope: CoroutineScope, hash: String, title: String) {
         bgScope.launch {
-            ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT).show()
+            ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT)
             val video = findVideoFile(hash)
             if (video == null) {
                 ctx.toast("Видеофайл не найден", Toast.LENGTH_LONG)

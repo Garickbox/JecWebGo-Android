@@ -105,7 +105,7 @@ fun PlayerScreen(
             ctx.toast("Кодек не поддержан HW, переключаю на ${next.uppercase()}", Toast.LENGTH_LONG)
             effectiveMode = next
         } else {
-            ctx.toast("Ошибка воспроизведения", Toast.LENGTH_SHORT).show()
+            ctx.toast("Ошибка воспроизведения", Toast.LENGTH_SHORT)
             onBack()
         }
     }
