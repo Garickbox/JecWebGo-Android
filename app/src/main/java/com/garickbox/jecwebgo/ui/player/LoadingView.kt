@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.garickbox.jecwebgo.util.PosterUtil
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun LoadingView(
@@ -23,6 +24,20 @@ fun LoadingView(
     status: String,
     onCancel: () -> Unit
 ) {
+    // Если постера нет — запросить через TMDB и обновить через PendingPlayer
+    LaunchedEffect(title, poster) {
+        if (poster.isBlank() && title.isNotBlank()) {
+            try {
+                val found = com.garickbox.jecwebgo.data.network.TmdbRepository.searchPosterByTitle(title, "")
+                if (!found.isNullOrBlank()) {
+                    android.util.Log.d("JecWeb", "LoadingView: poster found via TMDB -> $title")
+                    PendingPlayer.updatePoster(found)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "LoadingView poster fail: ${e.message}")
+            }
+        }
+    }
     val url = PosterUtil.posterUrl(poster)
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {

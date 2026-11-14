@@ -38,6 +38,18 @@ object PlayActions {
                 fname = result.firstVideoName
                 android.util.Log.d("JecWeb", "playPhone: file=$fname idx=$idx hash=$hash")
             }
+            // ПРОГРЕВ: TorrServer должен набрать пиров ДО старта VLC,
+            // иначе первый play падает с EncounteredError (network-caching 15с не успевает)
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Прогрев торрента...")
+            scope.launch {
+                try {
+                    TorrentRepository.preloadFile(hash, idx, 15, 3)
+                    android.util.Log.d("JecWeb", "preloadFile done: hash=$hash idx=$idx")
+                } catch (e: Exception) {
+                    android.util.Log.e("JecWeb", "preloadFile fail: ${e.message}")
+                }
+            }
+            kotlinx.coroutines.delay(3000L)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем VLC...")
             openVlc(ctx, hash, idx, title, magnet, fname)
         }
