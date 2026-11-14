@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
                         pendingTabFromIntent = null
                     }
                 }
-                LaunchedEffect(playerRequest?.title) {
+                LaunchedEffect(playerRequest?.loadingNonce) {
                     val pr = playerRequest
                     if (pr != null && pr.title.isNotBlank()) nav.navigate("player") { launchSingleTop = true }
                 }
