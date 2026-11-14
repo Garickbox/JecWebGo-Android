@@ -66,6 +66,20 @@ class DownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        // Сохраняем файл как «не-pending», чтобы MediaStore не удалил его при убийстве
+        try {
+            val cur = DownloadRepository.active.value
+            val uriStr = cur?.existingUri
+            if (!uriStr.isNullOrBlank()) {
+                val uri = android.net.Uri.parse(uriStr)
+                if (MediaStoreWriter.exists(this, uri)) {
+                    MediaStoreWriter.finalizeFile(this, uri)
+                    android.util.Log.d("JecWeb", "onDestroy: finalizeFile ${cur?.request?.fileName}")
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "onDestroy finalize fail: ${e.message}")
+        }
         DownloadRepository.cancelled = true
         scope.cancel()
         super.onDestroy()

@@ -8,7 +8,12 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class PersistedDownload(val id: String, val request: DownloadRequest, val uri: String = "")
+data class PersistedDownload(
+    val id: String,
+    val request: DownloadRequest,
+    val uri: String = "",
+    val downloadedBytes: Long = 0L
+)
 
 object DownloadStateStore {
     private val json = Json { ignoreUnknownKeys = true }

@@ -33,18 +33,42 @@ object DownloadRepository {
         if (persisted.isNotEmpty()) {
             android.util.Log.d("JecWeb", "restoring ${persisted.size} interrupted downloads")
             _queue.value = persisted.map { p ->
-                DownloadItem(id = p.id, request = p.request, totalBytes = p.request.totalBytes,
+                var uri = p.uri.takeIf { it.isNotBlank() }
+                // Восстановление через MediaStore, если uri потерян или файл не доступен
+                if (uri != null && !MediaStoreWriter.exists(ctx, android.net.Uri.parse(uri))) {
+                    android.util.Log.w("JecWeb", "uri не доступен, ищем по имени: ${p.request.fileName}")
+                    uri = null
+                }
+                if (uri == null) {
+                    val parentRel = p.request.relPath.substringBeforeLast("/", "")
+                    val found = MediaStoreWriter.findByName(ctx, p.request.fileName, parentRel)
+                    if (found != null) {
+                        val size = MediaStoreWriter.getFileSize(ctx, found)
+                        android.util.Log.d("JecWeb", "recovered file: ${p.request.fileName} size=$size")
+                        uri = found.toString()
+                    }
+                }
+                DownloadItem(
+                    id = p.id,
+                    request = p.request,
+                    totalBytes = p.request.totalBytes,
+                    downloadedBytes = p.downloadedBytes,
                     status = DownloadItem.Status.QUEUED,
-                    existingUri = p.uri.takeIf { it.isNotBlank() })
+                    existingUri = uri
+                )
             }
             DownloadService.start(ctx)
         }
     }
 
-    private fun persist() {
+    private var _lastPersistMs = 0L
+    private fun persist(force: Boolean = false) {
         val ctx = appCtx ?: return
+        val now = System.currentTimeMillis()
+        if (!force && now - _lastPersistMs < 3000L) return
+        _lastPersistMs = now
         val items = (listOfNotNull(_active.value) + _queue.value).map {
-            PersistedDownload(it.id, it.request, it.existingUri ?: "")
+            PersistedDownload(it.id, it.request, it.existingUri ?: "", it.downloadedBytes)
         }
         DownloadStateStore.save(ctx, items)
     }
@@ -147,6 +171,7 @@ object DownloadRepository {
             totalBytes = if (total > 0) total else cur.totalBytes,
             speedBps = speed
         )
+        persist()
     }
 
     fun pause() {
