@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,22 +31,24 @@ fun LoadingView(
     loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
-    // TMDB search: получить URL постера + описание (один раз на nonce)
+    // Local state — как в TmdbDetailsDialog. НЕ через PendingPlayer.updatePoster
+    // (иначе LoadingView пересоздаётся → AsyncImage не получает URL → постер не грузится).
+    var localPoster by remember(title) { mutableStateOf(poster) }
+    var localDesc by remember(title) { mutableStateOf(description) }
+
     LaunchedEffect(title, loadingNonce) {
         if (title.isBlank()) return@LaunchedEffect
-        val needPoster = poster.isBlank()
-        val needDesc = description.isBlank()
-        if (!needPoster && !needDesc) return@LaunchedEffect
+        if (localPoster.isNotBlank() && localDesc.isNotBlank()) return@LaunchedEffect
         try {
             val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
             if (info != null) {
-                if (needPoster && info.posterUrl.isNotBlank()) {
+                if (localPoster.isBlank() && info.posterUrl.isNotBlank()) {
                     android.util.Log.d("JecWeb", "LoadingView: poster via TMDB -> $title")
-                    PendingPlayer.updatePoster(info.posterUrl)
+                    localPoster = info.posterUrl
                 }
-                if (needDesc && info.overview.isNotBlank()) {
+                if (localDesc.isBlank() && info.overview.isNotBlank()) {
                     android.util.Log.d("JecWeb", "LoadingView: description via TMDB -> $title (${info.overview.length} chars)")
-                    PendingPlayer.updateDescription(info.overview)
+                    localDesc = info.overview
                 }
             }
         } catch (e: Exception) {
@@ -51,7 +56,7 @@ fun LoadingView(
         }
     }
 
-    val url = remember(poster) { PosterUtil.posterUrl(poster) }
+    val url = remember(localPoster) { PosterUtil.posterUrl(localPoster) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
@@ -92,8 +97,8 @@ fun LoadingView(
                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(6.dp))
-            if (description.isNotBlank()) {
-                Text(description, color = Color.White,
+            if (localDesc.isNotBlank()) {
+                Text(localDesc, color = Color.White,
                     fontSize = 13.sp, lineHeight = 17.sp,
                     maxLines = 20, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
