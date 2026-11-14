@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.compose.SubcomposeAsyncImage
 import com.garickbox.jecwebgo.data.model.GroupedTorrent
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.domain.TorrentFile
@@ -115,7 +114,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
                     contentPadding = PaddingValues(bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) { items(s.items) { g -> GroupCard(g) { selected = g } } }
+                ) { items(s.items, key = { "${it.cleanTitle}|${it.year}|${it.count}" }) { g -> GroupCard(g) { selected = g } } }
             }
         }
         }
@@ -145,23 +144,20 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
 
 @Composable
 private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().height(330.dp).clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
+    Card(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
-                val url = posterUrl(g.poster)
-                val ph = @Composable {
-                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        Alignment.Center) { Text("🎬", fontSize = 32.sp) }
-                }
+                val url = remember(g.poster) { posterUrl(g.poster) }
+                // placeholder ЗА постером (нет subcompose)
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
+                    Alignment.Center) { Text("🎬", fontSize = 32.sp) }
                 if (url.isNotBlank()) {
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = url, contentDescription = g.cleanTitle,
                         modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        contentScale = ContentScale.Crop,
-                        loading = { ph() },
-                        error = { ph() }
+                        contentScale = ContentScale.Crop
                     )
-                } else { ph() }
+                }
                 // Badges поверх постера
                 if (g.rating > 0.0) {
                     Box(Modifier.align(Alignment.TopStart).padding(6.dp)

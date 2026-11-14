@@ -25,11 +25,20 @@ data class HomeState(
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
+    @Volatile private var cachedGroups: List<GroupedTorrent>? = null
+    @Volatile private var cachedFromHash: Int = 0
 
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
-            val grouped = group(DataRepository.load(getApplication()))
+            val raw = DataRepository.load(getApplication())
+            val key = raw.size
+            val grouped = cachedGroups?.takeIf { cachedFromHash == key } ?: run {
+                val g = group(raw)
+                cachedGroups = g
+                cachedFromHash = key
+                g
+            }
             _state.value = _state.value.copy(
                 items = grouped, loading = false,
                 error = if (grouped.isEmpty()) "База пуста. Обновите данные." else null
@@ -41,7 +50,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() {
         viewModelScope.launch {
             _state.value = _state.value.copy(refreshing = true, error = null)
-            val grouped = group(DataRepository.refresh(getApplication()))
+            val raw = DataRepository.refresh(getApplication())
+            val grouped = group(raw)
+            cachedGroups = grouped
+            cachedFromHash = raw.size
             _state.value = _state.value.copy(
                 items = grouped, refreshing = false,
                 error = if (grouped.isEmpty()) "Не удалось загрузить базу" else null
@@ -67,21 +79,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(lastUpdate = text)
     }
 
-    private fun cleanTitle(raw: String): String {
-        var t = raw.trim()
-        if (t.contains(" / ")) t = t.substringBefore(" / ").trim()
-        val p = t.indexOf(" ("); if (p > 0) t = t.substring(0, p).trim()
-        val b = t.indexOf(" ["); if (b > 0) t = t.substring(0, b).trim()
-        return t.ifBlank { raw }
-    }
-
-    private fun mediaType(category: String): String = when {
-        category.contains("сериал", true) -> "serial"
-        category.contains("Аниме", true) -> "anime"
-        category.contains("Мультипликация", true) -> "cartoon"
-        category.contains("Научно", true) || category.contains("Телевизор", true) -> "docu"
-        else -> "movie"
-    }
+    private fun cleanTitle(raw: String): String = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(raw)
+    private fun mediaType(category: String): String = com.garickbox.jecwebgo.util.TitleUtil.mediaType(category)
 
     private fun group(items: List<TorrentItem>): List<GroupedTorrent> {
         return items
