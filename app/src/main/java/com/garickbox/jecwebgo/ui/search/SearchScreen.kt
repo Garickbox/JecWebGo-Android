@@ -53,7 +53,15 @@ fun SearchScreen(
     var selectedGenre by remember { mutableStateOf<TmdbGenre?>(null) }
     var downloadFor by remember { mutableStateOf<SearchItem?>(null) }
     val onPlayPhone: (SearchItem) -> Unit = { item ->
-        PlayActions.playPhone(ctx, scope, item.magnet, item.title)
+        scope.launch {
+            val hash = com.garickbox.jecwebgo.util.MagnetUtil.hashOf(item.magnet)
+            val fromBase = try { com.garickbox.jecwebgo.domain.TorrentRepository.posterInfoByHash(ctx, hash) } catch (_: Exception) { null }
+            val p = fromBase?.poster?.takeIf { it.isNotBlank() } ?: ""
+            val d = fromBase?.description?.takeIf { it.isNotBlank() }
+                ?: try { com.garickbox.jecwebgo.domain.TorrentRepository.randomAnnouncement(ctx) } catch (_: Exception) { "🎬 Подключение к торренту..." }
+            android.util.Log.d("JecWeb", "onPlayPhone: hash=${hash.take(8)} base=${fromBase != null} poster=$p descLen=${d.length}")
+            PlayActions.playPhone(ctx, scope, item.magnet, item.title, p, d)
+        }
     }
     val onDownload: (SearchItem) -> Unit = { item -> downloadFor = item }
     val onBookmark: (SearchItem) -> Unit = { item ->

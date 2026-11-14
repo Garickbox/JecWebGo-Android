@@ -345,6 +345,38 @@ object TorrentRepository {
         false
     }
 
+    /** Ищет торрент в локальной базе (torrents.json) по hash из magnet. */
+    suspend fun posterInfoByHash(ctx: android.content.Context, hash: String): com.garickbox.jecwebgo.data.network.TorrentItem? =
+        withContext(Dispatchers.IO) {
+            if (hash.isBlank()) return@withContext null
+            try {
+                val all = com.garickbox.jecwebgo.data.network.DataRepository.loadCached(ctx)
+                val found = all.firstOrNull {
+                    com.garickbox.jecwebgo.util.MagnetUtil.hashOf(it.magnet).equals(hash, ignoreCase = true)
+                }
+                android.util.Log.d("JecWeb", "posterInfoByHash(${hash.take(8)}): ${if (found == null) "NOT_FOUND (10% fallback)" else "OK poster='${found.poster.take(30)}' descLen=${found.description.length}"}")
+                found
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "posterInfoByHash fail: ${e.message}")
+                null
+            }
+        }
+
+    /** Анонс для 10% (нет в базе): случайный фильм с описанием из KP. */
+    suspend fun randomAnnouncement(ctx: android.content.Context): String = withContext(Dispatchers.IO) {
+        try {
+            val all = com.garickbox.jecwebgo.data.network.DataRepository.loadCached(ctx)
+                .filter { it.description.isNotBlank() && it.poster.isNotBlank() && it.title.isNotBlank() }
+            if (all.isEmpty()) return@withContext "🎬 Подключение к торренту..."
+            val r = all.random()
+            val rating = if (r.rating > 0.0) " ★${"%.1f".format(r.rating)}" else ""
+            val year = if (r.year.isNotBlank()) " (${r.year})" else ""
+            "🎬 А пока посмотрите:\n\n${r.title}$year$rating\n\n${r.description}"
+        } catch (e: Exception) {
+            "🎬 Подключение к торренту..."
+        }
+    }
+
     fun streamM3U(hash: String, ip: String = "127.0.0.1") = "http://$ip:8090/stream?link=$hash&m3u"
     fun streamPlay(hash: String, ip: String = "127.0.0.1") = "http://$ip:8090/stream?link=$hash&index=1&play"
 }

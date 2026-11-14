@@ -55,6 +55,11 @@ fun LoadingView(
                     )
                 )
             )
+        } else {
+            // Placeholder: нет постера в базе (10% JacRed-эксклюзивы) — фирменная заглушка
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("🎬", fontSize = 96.sp, color = Color.White.copy(alpha = 0.25f))
+            }
         }
 
         Box(Modifier.fillMaxSize().padding(16.dp)) {

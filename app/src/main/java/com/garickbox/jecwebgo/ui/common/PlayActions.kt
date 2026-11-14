@@ -24,28 +24,6 @@ object PlayActions {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster, description)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
 
-            // ПАРАЛЛЕЛЬНО: TMDB search (постер+описание) + addWithFile
-            val tmdbDeferred = kotlinx.coroutines.CompletableDeferred<com.garickbox.jecwebgo.data.network.TmdbRepository.TmdbSearchInfo?>()
-            bgScope.launch {
-                try {
-                    val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
-                    if (info != null) {
-                        if (poster.isBlank() && info.posterUrl.isNotBlank()) {
-                            com.garickbox.jecwebgo.ui.player.PendingPlayer.updatePoster(info.posterUrl)
-                            android.util.Log.d("JecWeb", "playPhone: TMDB poster -> $title")
-                        }
-                        if (description.isBlank() && info.overview.isNotBlank()) {
-                            com.garickbox.jecwebgo.ui.player.PendingPlayer.updateDescription(info.overview)
-                            android.util.Log.d("JecWeb", "playPhone: TMDB desc -> $title (${info.overview.length})")
-                        }
-                    }
-                    tmdbDeferred.complete(info)
-                } catch (e: Exception) {
-                    android.util.Log.e("JecWeb", "playPhone TMDB fail: ${e.message}")
-                    tmdbDeferred.complete(null)
-                }
-            }
-
             val result = TorrentRepository.addWithFile(magnet)
             android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash} idx=${result?.firstVideoIndex}")
             val hash: String
@@ -78,10 +56,6 @@ object PlayActions {
                 }
             }
             kotlinx.coroutines.delay(3000L)
-            // Ждём TMDB (макс 15 сек), чтобы постер успел обновиться до openVlc
-            try {
-                kotlinx.coroutines.withTimeoutOrNull(15000L) { tmdbDeferred.await() }
-            } catch (_: Exception) {}
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Запускаем VLC...")
             openVlc(ctx, hash, idx, title, magnet, fname)
         }
