@@ -233,6 +233,21 @@ object DownloadRepository {
         }
     }
 
+    fun requeueForRetry(item: DownloadItem, delayMs: Long) {
+        _active.value = null
+        val pausedItem = item.copy(status = DownloadItem.Status.PAUSED)
+        _queue.update { q -> listOf(pausedItem) + q }
+        persist()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            kotlinx.coroutines.delay(delayMs)
+            _queue.update { q ->
+                q.map { if (it.id == item.id) it.copy(status = DownloadItem.Status.QUEUED) else it }
+            }
+            persist()
+        }
+        android.util.Log.d("JecWeb", "requeueForRetry ${item.request.fileName} in ${delayMs}ms")
+    }
+
     fun fail(item: DownloadItem, error: String) {
         _active.value = null
         paused = false

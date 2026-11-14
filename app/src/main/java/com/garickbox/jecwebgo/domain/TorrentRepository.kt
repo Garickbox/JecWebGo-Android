@@ -319,6 +319,70 @@ object TorrentRepository {
      * VLC сам буферизует после открытия (cache=60000).
      * БЕЗ preload — preload дропает пиров.
      */
+    suspend fun waitReadyForDownload(
+        hash: String,
+        index: Int,
+        timeoutMs: Long = 60000L,
+        onProgress: (attempt: Int, bytesGot: Long) -> Unit = { _, _ -> }
+    ): Boolean = withContext(Dispatchers.IO) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        val url = "$BASE/stream?link=$hash&index=$index&play"
+        val probe = okhttp3.OkHttpClient.Builder()
+            .connectTimeout(3, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        var attempt = 0
+        var lastStat = -1
+        while (System.currentTimeMillis() < deadline) {
+            attempt++
+            val stat = try {
+                get(hash)?.get("stat")?.jsonPrimitive?.intOrNull ?: -1
+            } catch (_: Exception) { -1 }
+            if (stat != lastStat) {
+                android.util.Log.d("JecWeb", "waitDl.stat=$stat attempt=$attempt")
+                lastStat = stat
+            }
+            if (stat in 0..2) {
+                onProgress(attempt, 0L)
+                kotlinx.coroutines.delay(1500L)
+                continue
+            }
+            try {
+                val req = Request.Builder().url(url).header("Range", "bytes=0-65535").build()
+                val (code, bytesGot) = probe.newCall(req).execute().use { resp ->
+                    val body = resp.body
+                    val n = if (body != null) {
+                        try {
+                            val stream = body.byteStream()
+                            val buf = ByteArray(65536)
+                            var total = 0L
+                            while (total < 65536) {
+                                val r = stream.read(buf, 0, (65536 - total).toInt())
+                                if (r <= 0) break
+                                total += r
+                            }
+                            runCatching { stream.close() }
+                            total
+                        } catch (_: Exception) { 0L }
+                    } else 0L
+                    Pair(resp.code, n)
+                }
+                onProgress(attempt, bytesGot)
+                if (code in 200..299 && bytesGot >= 65536L) {
+                    android.util.Log.d("JecWeb", "waitDl.OK stat=$stat bytes=$bytesGot attempt=$attempt")
+                    return@withContext true
+                }
+                android.util.Log.d("JecWeb", "waitDl.partial attempt=$attempt code=$code got=$bytesGot/65536")
+            } catch (e: Exception) {
+                onProgress(attempt, 0L)
+                android.util.Log.d("JecWeb", "waitDl.err attempt=$attempt: ${e.message}")
+            }
+            kotlinx.coroutines.delay(2000L)
+        }
+        android.util.Log.w("JecWeb", "waitDl.TIMEOUT ${timeoutMs}ms after $attempt attempts")
+        false
+    }
+
     suspend fun waitReadyReal(
         hash: String,
         index: Int,

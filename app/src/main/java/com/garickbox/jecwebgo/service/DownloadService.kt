@@ -106,28 +106,46 @@ class DownloadService : Service() {
     @RequiresApi(Build.VERSION_CODES.Q)
     private suspend fun process(item: DownloadItem) {
         DownloadRepository.cancelled = false
-        android.util.Log.d("JecWeb", "download start: ${item.request.fileName} idx=${item.request.fileIndex}")
+        android.util.Log.d("JecWeb", "dl.start.file=${item.request.fileName} idx=${item.request.fileIndex}")
 
-        // 1. Ждём готовности стрима (правильный index)
-        val ready = TorrentRepository.waitReady(item.request.hash, item.request.fileIndex, 30000L)
-        android.util.Log.d("JecWeb", "download waitReady=${ready}")
-        if (!ready) { DownloadRepository.fail(item, "torrent not ready"); return }
-
-        // 1b. Прогрев TorrServer (50MB × 6 потоков, без &play)
-        //     ускоряет sequential download — TorrServer качает с пиров параллельно
-        CoroutineScope(Dispatchers.IO).launch {
-            TorrentRepository.preload(item.request.hash, 50, 6)
-            android.util.Log.d("JecWeb", "preload done: 50MB")
-        }
-
-        // 2. Размер: из request (getFiles) или fallback на HEAD
+        // 1. Размер (ПЕРЕД waitReady — не тратить 60с если size=0)
         var totalBytes = item.request.totalBytes
         if (totalBytes <= 0) {
             totalBytes = getFileSize(item.request.hash, item.request.fileIndex)
-            android.util.Log.d("JecWeb", "download size fallback HEAD=$totalBytes")
+            android.util.Log.d("JecWeb", "dl.size.head=$totalBytes")
         }
-        if (totalBytes <= 0) { DownloadRepository.fail(item, "size 0"); return }
+        if (totalBytes <= 0) {
+            DownloadRepository.fail(item, "size 0")
+            return
+        }
         DownloadRepository.setTotal(totalBytes)
+
+        // 2. Ждём РЕАЛЬНОЙ готовности (64KB Range, не 2 байта)
+        //    Прогресс показывается в нотификации чтобы юзер видел "жив"
+        updateNotifMessage(item, "Ожидание пиров...")
+        val ready = TorrentRepository.waitReadyForDownload(
+            hash = item.request.hash,
+            index = item.request.fileIndex,
+            timeoutMs = 60000L
+        ) { attempt, bytes ->
+            val msg = when {
+                bytes >= 65536 -> "Готов: ${bytes / 1024}KB (попытка $attempt)"
+                bytes > 0 -> "Буфер: ${bytes / 1024}KB (попытка $attempt)"
+                else -> "Ожидание пиров (попытка $attempt)"
+            }
+            updateNotifMessage(item, msg)
+        }
+        android.util.Log.d("JecWeb", "dl.waitReady=$ready")
+
+        if (DownloadRepository.cancelled) {
+            android.util.Log.d("JecWeb", "dl.cancel_during_waitReady")
+            return
+        }
+        if (!ready) {
+            android.util.Log.e("JecWeb", "dl.not_ready requeue in 30s")
+            DownloadRepository.requeueForRetry(item, 30000L)
+            return
+        }
 
         // 3. Файл: resume существующего или создать новый
         val targetUri: android.net.Uri
@@ -137,12 +155,12 @@ class DownloadService : Service() {
             val exUri = android.net.Uri.parse(existingStr)
             if (MediaStoreWriter.exists(this, exUri)) {
                 val size = MediaStoreWriter.getFileSize(this, exUri)
-                if (size in 1..(totalBytes - 1)) {
+                // ИСПРАВЛЕНО: size in 1..totalBytes (было 1..totalBytes-1 → удалял уже скачанный файл)
+                if (size in 1..totalBytes) {
                     targetUri = exUri
                     startOffset = size
-                    android.util.Log.d("JecWeb", "RESUME from $startOffset/$totalBytes")
+                    android.util.Log.d("JecWeb", "dl.resume from=$startOffset/$totalBytes")
                 } else {
-                    // файл битый или полный — удалить и создать заново
                     MediaStoreWriter.delete(this, exUri)
                     val safeName = sanitize(item.request.fileName)
                     val safeRel = sanitizeRelPath(item.request.relPath.substringBeforeLast("/", ""))
@@ -150,6 +168,7 @@ class DownloadService : Service() {
                         DownloadRepository.fail(item, "create fail"); return
                     }
                     startOffset = 0L
+                    android.util.Log.d("JecWeb", "dl.recreate size=$size total=$totalBytes")
                 }
             } else {
                 val safeName = sanitize(item.request.fileName)
@@ -168,12 +187,11 @@ class DownloadService : Service() {
             startOffset = 0L
         }
 
-        // Сохранить uri активной загрузки (для resume после kill)
         DownloadRepository.setActiveUri(targetUri.toString())
         DownloadRepository.setTotal(totalBytes)
 
-        // 4. Скачать
-        updateNotif(item, startOffset, totalBytes)
+        // 4. Скачать (БЕЗ preload — TorrServer однопоточный)
+        updateNotif(item, startOffset, totalBytes, 0L)
         val ok = TorrentDownloader.download(
             ctx = this,
             hash = item.request.hash,
@@ -183,7 +201,7 @@ class DownloadService : Service() {
             startOffset = startOffset,
             onProgress = { dl, total, sp ->
                 DownloadRepository.updateProgress(dl, total, sp)
-                updateNotif(item, dl, total)
+                updateNotif(item, dl, total, sp)
             },
             isCancelled = { DownloadRepository.cancelled },
             isPaused = { DownloadRepository.paused }
@@ -191,12 +209,27 @@ class DownloadService : Service() {
         if (ok) {
             DownloadRepository.complete(this, item, targetUri.toString(), totalBytes)
             runCatching { TorrentRepository.rem(item.request.hash) }
-            updateNotif(item, totalBytes, totalBytes)
-            android.util.Log.d("JecWeb", "download complete: ${item.request.fileName}")
+            updateNotif(item, totalBytes, totalBytes, 0L)
+            android.util.Log.d("JecWeb", "dl.complete.file=${item.request.fileName}")
         } else {
-            DownloadRepository.fail(item, "cancelled/failed")
+            val cancelled = DownloadRepository.cancelled
+            val reason = if (cancelled) "cancelled" else "failed"
+            android.util.Log.e("JecWeb", "dl.end.file=${item.request.fileName} reason=$reason")
+            DownloadRepository.fail(item, reason)
         }
     }
+
+    private fun updateNotifMessage(item: DownloadItem, msg: String) {
+        try {
+            val nm = getSystemService(NotificationManager::class.java)
+            if (!nm.areNotificationsEnabled()) return
+            val title = item.request.title.ifBlank { "JecWeb загрузка" }
+            nm.notify(NOTIF_ID, buildNotif(title, msg, 0L, 0L))
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "updateNotifMessage fail: ${e.message}")
+        }
+    }
+
 
     private fun sanitizeRelPath(relPath: String): String {
         if (relPath.isBlank()) return ""
@@ -251,7 +284,7 @@ class DownloadService : Service() {
         return b.build()
     }
 
-    private fun updateNotif(item: DownloadItem, progress: Long, total: Long) {
+    private fun updateNotif(item: DownloadItem, progress: Long, total: Long, speed: Long = 0L) {
         try {
             val nm = getSystemService(NotificationManager::class.java)
             if (!nm.areNotificationsEnabled()) {
@@ -261,7 +294,7 @@ class DownloadService : Service() {
             val pct = if (total > 0) (progress * 100 / total).toInt() else 0
             val mbDone = progress / 1048576
             val mbTotal = total / 1048576
-            val spd = if (item.speedBps > 0) " · %.1f MB/s".format(item.speedBps / 1e6) else ""
+            val spd = if (speed > 0) " · %.1f MB/s".format(speed / 1e6) else ""
             val title = item.request.title.ifBlank { "JecWeb загрузка" }
             val text = "$pct% · $mbDone / $mbTotal MB$spd"
             android.util.Log.d("JecWeb", "notify: $title | $text | $progress/$total")
