@@ -28,13 +28,26 @@ fun AiSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ctx = LocalContext.current
     var input by remember { mutableStateOf("") }
+    val localView = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(Unit) {
+        try {
+            var c: android.content.Context? = localView.context
+            while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+            (c as? android.app.Activity)?.window?.let { w ->
+                val wic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+                wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } catch (_: Exception) {}
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().imePadding().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🤖 AI Помощник", style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))

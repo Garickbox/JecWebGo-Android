@@ -80,7 +80,7 @@ fun SearchScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
+    Column(Modifier.fillMaxSize().padding(top = 4.dp, start = 12.dp, end = 12.dp, bottom = 12.dp)) {
         OutlinedTextField(
             value = s.query,
             onValueChange = vm::onQuery,

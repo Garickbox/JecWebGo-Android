@@ -166,8 +166,13 @@ class MainActivity : ComponentActivity() {
                 }
                 val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
-                Scaffold(bottomBar = {
-                    if (current != "player") NavigationBar(modifier = Modifier.height(56.dp)) {
+                Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0), bottomBar = {
+                    if (current != "player") NavigationBar(
+                        modifier = Modifier.height(56.dp),
+                        containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                        tonalElevation = 0.dp,
+                        windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+                    ) {
                         tabs.forEach { t ->
                             NavigationBarItem(
                                 selected = selectedTab == t.route,
