@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -200,20 +202,24 @@ class MainActivity : ComponentActivity() {
                 }) { pad ->
                     Column(Modifier.padding(pad).fillMaxSize()) {
                         if (current == "home") StatusBar()
+                        var dragOffset by remember { mutableFloatStateOf(0f) }
                         NavHost(
                             navController = nav,
                             startDestination = "home",
                             modifier = Modifier.fillMaxSize()
+                                .offset { IntOffset(dragOffset.toInt(), 0) }
                                 .pointerInput(current) {
                                     var accumDx = 0f
                                     detectHorizontalDragGestures(
-                                        onDragStart = { accumDx = 0f },
+                                        onDragStart = { accumDx = 0f; dragOffset = 0f },
                                         onHorizontalDrag = { change, dragAmount ->
                                             accumDx += dragAmount
+                                            dragOffset = accumDx
                                             change.consume()
                                         },
                                         onDragEnd = {
-                                            if (kotlin.math.abs(accumDx) > 120f) {
+                                            dragOffset = 0f
+                                            if (kotlin.math.abs(accumDx) > 80f) {
                                                 val mainRoutes = listOf("home", "search", "downloads", "more")
                                                 val idx = mainRoutes.indexOf(current)
                                                 if (idx >= 0) {

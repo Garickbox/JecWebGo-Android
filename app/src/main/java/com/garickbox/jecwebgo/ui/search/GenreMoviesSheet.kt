@@ -19,6 +19,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import com.garickbox.jecwebgo.data.network.TmdbData
 import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.data.network.TmdbMovie
@@ -75,20 +78,25 @@ fun GenreMoviesSheet(
             color = MaterialTheme.colorScheme.background
         ) {
             Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 2.dp
                 ) {
-                    Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) {
-                        Text("✕", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDismiss) {
+                            Text("✕", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
-                Text("Популярное 2024-2026 · TMDB", fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(4.dp))
 
                 val movies = data?.byGenre(genre.id, 50) ?: emptyList()
 
@@ -123,47 +131,39 @@ fun GenreMoviesSheet(
 
 @Composable
 private fun MovieCard(movie: TmdbMovie, onClick: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth().height(320.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp)
-    ) {
-        Column {
-            Box(Modifier.fillMaxWidth().height(220.dp)) {
-                val url = TmdbRepository.posterUrl(movie)
-                if (url.isNotBlank()) {
-                    AsyncImage(model = url, contentDescription = movie.title,
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp)),
-                        contentScale = ContentScale.Crop)
-                } else {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { Text("🎬", fontSize = 32.sp) }
+    val mctx = LocalContext.current
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(10.dp)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+            val url = TmdbRepository.posterUrl(movie)
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)), Alignment.Center) {
+                Text("🎬", fontSize = 32.sp)
+            }
+            if (url.isNotBlank()) {
+                val req = remember(url) {
+                    coil.request.ImageRequest.Builder(mctx).data(url).size(400, 600).crossfade(false).build()
                 }
-                if (movie.rating > 0.0) {
-                    Box(Modifier.align(Alignment.TopStart).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(androidx.compose.ui.graphics.Color(0xFFFFC107).copy(alpha = 0.95f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text("★ ${"%.1f".format(movie.rating)}", fontSize = 10.sp,
-                            color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (movie.year.isNotBlank()) {
-                    Box(Modifier.align(Alignment.BottomStart).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                        Text(movie.year, fontSize = 10.sp, color = androidx.compose.ui.graphics.Color.White,
-                            fontWeight = FontWeight.Bold)
-                    }
+                AsyncImage(model = req, contentDescription = movie.title,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop)
+            }
+            if (movie.rating > 0.0) {
+                Box(Modifier.align(Alignment.TopStart).padding(6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFFFFC107).copy(alpha = 0.95f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text("★ ${"%.1f".format(movie.rating)}", fontSize = 10.sp,
+                        color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
-            Column(Modifier.padding(8.dp)) {
-                Text(movie.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
-                if (movie.genres.isNotEmpty()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(movie.genres.joinToString(", ").take(30), fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val scrimBrush = remember { Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))) }
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(72.dp).background(scrimBrush))
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(8.dp)) {
+                if (movie.year.isNotBlank()) {
+                    Text(movie.year, fontSize = 10.sp, color = Color.White.copy(alpha = 0.75f),
+                        fontWeight = FontWeight.Bold)
                 }
+                Text(movie.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, color = Color.White)
             }
         }
     }

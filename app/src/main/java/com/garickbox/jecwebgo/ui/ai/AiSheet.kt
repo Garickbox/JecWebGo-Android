@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.animation.AnimatedVisibility
@@ -72,7 +74,12 @@ fun AiSheet(
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            Surface(
+                modifier = Modifier.fillMaxSize().padding(4.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            ) {
                 Column(Modifier.fillMaxSize().imePadding().padding(start = 16.dp, end = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🤖 AI Помощник", style = MaterialTheme.typography.titleMedium,
