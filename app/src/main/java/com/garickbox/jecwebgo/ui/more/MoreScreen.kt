@@ -44,7 +44,7 @@ fun MoreScreen(nav: NavController) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(moreTiles) { tile ->
+            items(moreTiles, key = { it.route }) { tile ->
                 Card(
                     Modifier.fillMaxWidth().aspectRatio(1f).clickable {
                         nav.navigate(tile.route) { launchSingleTop = true }

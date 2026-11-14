@@ -58,7 +58,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf<GroupedTorrent?>(null) }
     var noNet by remember { mutableStateOf(false) }
-    var netCheckKey by remember { mutableStateOf(0) }
+    var netCheckKey by remember { mutableIntStateOf(0) }
     LaunchedEffect(netCheckKey) {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val net = cm.activeNetwork

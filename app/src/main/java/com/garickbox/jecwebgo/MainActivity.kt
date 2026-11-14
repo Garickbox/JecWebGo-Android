@@ -138,7 +138,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val nav = rememberNavController()
-                var searchResetKey by remember { mutableStateOf(0) }
+                var searchResetKey by remember { mutableIntStateOf(0) }
                 val playerRequest by PendingPlayer.data.collectAsState()
                 LaunchedEffect(pendingTabFromIntent) {
                     pendingTabFromIntent?.let { t ->

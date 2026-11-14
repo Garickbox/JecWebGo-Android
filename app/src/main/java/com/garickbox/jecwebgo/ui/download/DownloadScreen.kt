@@ -183,7 +183,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             if (history.isNotEmpty()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("Скачано (${history.size})", historyCollapsed) { historyCollapsed = !historyCollapsed } }
                 if (!historyCollapsed) {
-                    items(history) { h -> HistoryCard(h, fmt,
+                    items(history, key = { it.id }) { h -> HistoryCard(h, fmt,
                         onOpen = { vm.open(ctx, h) },
                         onDelete = { deleteDialogFor = h }
                     ) }

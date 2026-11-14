@@ -1,7 +1,9 @@
 package com.garickbox.jecwebgo.data.download
 
 import kotlinx.serialization.Serializable
+import androidx.compose.runtime.Immutable
 
+@Immutable
 @Serializable
 data class DownloadRequest(
     val hash: String,
@@ -13,6 +15,7 @@ data class DownloadRequest(
     val relPath: String = ""
 )
 
+@Immutable
 data class DownloadItem(
     val id: String,
     val request: DownloadRequest,
@@ -28,6 +31,7 @@ data class DownloadItem(
         get() = if (totalBytes <= 0L) 0f else (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
 }
 
+@Immutable
 data class DownloadedItem(
     val id: String,
     val title: String,

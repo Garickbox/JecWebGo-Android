@@ -59,7 +59,7 @@ fun AiSheet(
 
             if (s.messages.isNotEmpty()) {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 180.dp)) {
-                    items(s.messages) { msg ->
+                    items(s.messages, key = { "${it.role}:${it.text.take(40)}" }) { msg ->
                         Card(
                             Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             colors = CardDefaults.cardColors(
@@ -93,7 +93,7 @@ fun AiSheet(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(s.movies) { movie ->
+                    items(s.movies, key = { it.id }) { movie ->
                         Card(
                             Modifier.fillMaxWidth().combinedClickable(
                                 onClick = { onSearch(movie.title, "-1"); onDismiss() },

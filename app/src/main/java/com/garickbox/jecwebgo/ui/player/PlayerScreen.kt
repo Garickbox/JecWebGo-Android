@@ -432,7 +432,7 @@ private fun PlayerScreenImpl(
                                         "phone", mainTitle, logMagnet, hash,
                                         System.currentTimeMillis() / 1000, position, duration
                                     ))
-                                    android.util.Log.d("JecWeb", "ON_STOP save: pos=$position/$duration key=${localKey.ifBlank { hash }}")
+                                    android.util.Log.d("JecWeb", "ON_STOP save: pos=$position/$duration key=${localKey.ifBlank { hash }.take(8)}")
                                 } catch (_: Exception) {}
                             }
                         }
@@ -677,7 +677,7 @@ private fun PlayerScreenImpl(
                               else null
                     if (log != null && log.position > 60000 && duration > 0 && log.position < duration * 0.95) {
                         mediaPlayer.time = log.position
-                        android.util.Log.d("JecWeb", "resume from ${log.position}/${duration} key=${localKey.ifBlank { hash }}")
+                        android.util.Log.d("JecWeb", "resume from ${log.position}/${duration} key=${localKey.ifBlank { hash }.take(8)}")
                     } else if (log != null) {
                         android.util.Log.d("JecWeb", "resume skip: pos=${log.position} dur=$duration")
                     }
@@ -729,7 +729,7 @@ private fun PlayerScreenImpl(
                             "phone", mainTitle, logMagnet, hash,
                             System.currentTimeMillis() / 1000, position, duration
                         ))
-                        android.util.Log.d("JecWeb", "save pos $position/$duration key=${localKey.ifBlank { hash }}")
+                        android.util.Log.d("JecWeb", "save pos $position/$duration key=${localKey.ifBlank { hash }.take(8)}")
                     } catch (e: Exception) { }
                 }
             }
@@ -1399,7 +1399,7 @@ private fun PlayerScreenImpl(
                 Text("Файлы не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                    items(seriesList) { f ->
+                    items(seriesList, key = { it.id }) { f ->
                         val isCurrent = f.id == currentIdx
                         val fName = f.path.substringAfterLast("/")
                         Row(

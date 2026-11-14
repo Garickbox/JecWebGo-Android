@@ -25,7 +25,7 @@ object PlayActions {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
 
             val result = TorrentRepository.addWithFile(magnet)
-            android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash} idx=${result?.firstVideoIndex}")
+            android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash?.take(8)} idx=${result?.firstVideoIndex}")
             val hash: String
             val idx: Int
             val fname: String
@@ -37,12 +37,12 @@ object PlayActions {
                     com.garickbox.jecwebgo.ui.player.PendingPlayer.error("TorrServer недоступен")
                     return@launch
                 }
-                android.util.Log.w("JecWeb", "playPhone: addWithFile null, fallback hash=$hash idx=1")
+                android.util.Log.w("JecWeb", "playPhone: addWithFile null, fallback hash=${hash.take(8)} idx=1")
             } else {
                 hash = result.hash
                 idx = result.firstVideoIndex
                 fname = result.firstVideoName
-                android.util.Log.d("JecWeb", "playPhone: file=$fname idx=$idx hash=$hash")
+                android.util.Log.d("JecWeb", "playPhone: file=$fname idx=$idx hash=${hash.take(8)}")
             }
             // ПРОГРЕВ: TorrServer должен набрать пиров ДО старта VLC,
             // иначе первый play падает с EncounteredError (network-caching 15с не успевает)
@@ -50,7 +50,7 @@ object PlayActions {
             bgScope.launch {
                 try {
                     TorrentRepository.preloadFile(hash, idx, 15, 3)
-                    android.util.Log.d("JecWeb", "preloadFile done: hash=$hash idx=$idx")
+                    android.util.Log.d("JecWeb", "preloadFile done: hash=${hash.take(8)} idx=$idx")
                 } catch (e: Exception) {
                     android.util.Log.e("JecWeb", "preloadFile fail: ${e.message}")
                 }
@@ -108,7 +108,7 @@ object PlayActions {
         val base = "http://127.0.0.1:8090/stream?link=$hash&index=$index&play"
         val url = "$base&t=${System.currentTimeMillis()}"
         val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title)
-        android.util.Log.d("JecWeb", "openVlc file=$fileName hash=$hash idx=$index")
+        android.util.Log.d("JecWeb", "openVlc file=$fileName hash=${hash.take(8)} idx=$index")
         com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index, fileName)
     }
 }
