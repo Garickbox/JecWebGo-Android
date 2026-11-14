@@ -5,6 +5,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -84,6 +88,34 @@ object TmdbRepository {
 
     suspend fun load(ctx: Context): TmdbData? = withContext(Dispatchers.IO) {
         if (cacheAge(ctx) > MAX_AGE_MS) refresh(ctx) else loadCached(ctx)
+    }
+
+    private const val WORKER_BASE = "https://ai-jecweb.garickwot.workers.dev"
+
+    suspend fun searchPosterByTitle(title: String, year: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val clean = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title).trim()
+            if (clean.length < 2) return@withContext null
+            val q = java.net.URLEncoder.encode(clean, "UTF-8")
+            val y = year.take(4)
+            val url = "$WORKER_BASE/tmdb/search/movie?query=$q&year=$y&language=ru-RU"
+            val req = Request.Builder().url(url).build()
+            val text = client.newCall(req).execute().use { r ->
+                if (!r.isSuccessful) return@withContext null
+                r.body?.string().orEmpty()
+            }
+            val obj = json.parseToJsonElement(text).jsonObject
+            val results = obj["results"]?.jsonArray ?: return@withContext null
+            val first = results.firstOrNull()?.jsonObject ?: return@withContext null
+            val posterPath = first["poster_path"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
+            if (posterPath.isBlank()) return@withContext null
+            val tmdbUrl = "https://image.tmdb.org/t/p/w342$posterPath"
+            android.util.Log.d("JecWeb", "poster found: $clean -> $posterPath")
+            "$WORKER_BASE/img?url=" + java.net.URLEncoder.encode(tmdbUrl, "UTF-8")
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "searchPosterByTitle fail: ${e.message}")
+            null
+        }
     }
 
     fun posterUrl(movie: TmdbMovie): String =

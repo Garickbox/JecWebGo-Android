@@ -69,6 +69,8 @@ fun SearchScreen(
         )
     }
 
+    val posterCache = remember { mutableStateMapOf<Int, String?>() }
+    val posterLoading = remember { mutableStateMapOf<Int, Boolean>() }
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         OutlinedTextField(
@@ -91,7 +93,17 @@ fun SearchScreen(
             s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
             s.query.isBlank() && s.items.isEmpty() -> GenreGrid(onGenreClick = { g -> selectedGenre = g })
             else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(s.items) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
+                items(s.items) { item ->
+                    LaunchedEffect(item.sid) {
+                        if (item.sid > 0 && posterCache[item.sid] == null && posterLoading[item.sid] != true) {
+                            posterLoading[item.sid] = true
+                            val url = com.garickbox.jecwebgo.data.network.TmdbRepository.searchPosterByTitle(item.title, item.relased)
+                            posterCache[item.sid] = url
+                            posterLoading[item.sid] = false
+                        }
+                    }
+                    SearchCard(item, posterUrl = posterCache[item.sid], onPlayPhone, onDownload, onBookmark)
+                }
             }
         }
     }
@@ -114,21 +126,43 @@ fun SearchScreen(
 }
 
 @Composable
-fun SearchCard(item: SearchItem, onPlayPhone: (SearchItem) -> Unit, onDownload: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
+fun SearchCard(item: SearchItem, posterUrl: String?, onPlayPhone: (SearchItem) -> Unit, onDownload: (SearchItem) -> Unit, onBookmark: (SearchItem) -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(12.dp)) {
-            Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (item.relased.isNotBlank()) Text("📅 ${item.relased}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (item.quality > 0) Text("${item.quality}p", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                if (item.videotype.isNotBlank()) Text(item.videotype.uppercase(), fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("📦 ${item.sizeName}", fontSize = 12.sp)
-                Text("🔼 ${item.sid}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                Text("🔽 ${item.pir}", fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.Top) {
+                Box(
+                    Modifier.size(80.dp, 120.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!posterUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = posterUrl,
+                            contentDescription = item.title,
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Text("🎬", fontSize = 32.sp)
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (item.relased.isNotBlank()) Text("📅 ${item.relased}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (item.quality > 0) Text("${item.quality}p", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        if (item.videotype.isNotBlank()) Text(item.videotype.uppercase(), fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("📦 ${item.sizeName}", fontSize = 11.sp)
+                        Text("🔼 ${item.sid}", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        Text("🔽 ${item.pir}", fontSize = 11.sp)
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(
