@@ -7,6 +7,8 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
@@ -15,6 +17,14 @@ class JecWebApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .respectCacheHeaders(false)
+            .callFactory(
+                OkHttpClient.Builder()
+                    .callTimeout(30, TimeUnit.SECONDS)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(15, TimeUnit.SECONDS)
+                    .build()
+            )
             .diskCache {
                 DiskCache.Builder()
                     .directory(filesDir.resolve("image_cache"))
