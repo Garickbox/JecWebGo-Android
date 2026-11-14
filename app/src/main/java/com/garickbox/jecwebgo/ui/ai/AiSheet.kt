@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,11 +64,14 @@ fun AiSheet(
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                Column(Modifier.fillMaxSize().imePadding().padding(16.dp)) {
+                Column(Modifier.fillMaxSize().imePadding().padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🤖 AI Помощник", style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                 TextButton(onClick = { vm.clear() }) { Text("Очистить") }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Закрыть", tint = MaterialTheme.colorScheme.onSurface)
+                }
             }
 
             if (s.descText.isNotEmpty()) {

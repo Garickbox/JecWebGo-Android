@@ -49,6 +49,7 @@ fun SearchScreen(
     }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var showAi by remember { mutableStateOf(false) }
     var selectedGenre by remember { mutableStateOf<TmdbGenre?>(null) }
     var downloadFor by remember { mutableStateOf<SearchItem?>(null) }
@@ -88,9 +89,9 @@ fun SearchScreen(
             placeholder = { Text("Поиск фильмов и сериалов…") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { vm.search() }),
+            keyboardActions = KeyboardActions(onSearch = { vm.search(); keyboard?.hide() }),
             trailingIcon = {
-                IconButton(onClick = vm::search) { Icon(Icons.Filled.Search, "search") }
+                IconButton(onClick = { vm.search(); keyboard?.hide() }) { Icon(Icons.Filled.Search, "search") }
             },
             shape = RoundedCornerShape(12.dp)
         )

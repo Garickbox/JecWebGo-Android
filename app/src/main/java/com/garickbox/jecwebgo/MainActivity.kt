@@ -164,6 +164,11 @@ class MainActivity : ComponentActivity() {
                 val current = entry?.destination?.route ?: "home"
                 LaunchedEffect(current) {
                     updatePipForRoute(current)
+                    try {
+                        val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                        wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                        wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    } catch (_: Exception) {}
                 }
                 val selectedTab = if (current in moreRoutes) "more" else current
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
