@@ -34,7 +34,7 @@ class AiViewModel : ViewModel() {
         val text = userText.trim()
         if (text.isEmpty()) return
         _state.update { it.copy(
-            messages = _state.value.messages + UiMessage("user", text),
+            messages = it.messages + UiMessage("user", text),
             loading = true
         ) }
         viewModelScope.launch {
@@ -59,22 +59,22 @@ class AiViewModel : ViewModel() {
                     _state.update { it.copy(
                         loading = false,
                         chips = action.chips.ifEmpty { AiRepository.randomGenres(6) },
-                        messages = _state.value.messages + UiMessage("assistant", "Выбери жанр:"),
-                        history = _state.value.history + ChatMessage("user", text)
+                        messages = it.messages + UiMessage("assistant", "Выбери жанр:"),
+                        history = it.history + ChatMessage("user", text)
                     ) }
                 }
                 "ask" -> {
                     _state.update { it.copy(
                         loading = false,
-                        messages = _state.value.messages + UiMessage("assistant", action.question),
-                        history = _state.value.history + ChatMessage("user", text) + ChatMessage("assistant", action.question)
+                        messages = it.messages + UiMessage("assistant", action.question),
+                        history = it.history + ChatMessage("user", text) + ChatMessage("assistant", action.question)
                     ) }
                 }
                 "search" -> {
                     _state.update { it.copy(
                         loading = false,
-                        messages = _state.value.messages + UiMessage("assistant", "Ищу: ${action.search_query}"),
-                        history = _state.value.history + ChatMessage("user", text) + ChatMessage("assistant", action.search_query)
+                        messages = it.messages + UiMessage("assistant", "Ищу: ${action.search_query}"),
+                        history = it.history + ChatMessage("user", text) + ChatMessage("assistant", action.search_query)
                     ) }
                 }
                 else -> _state.update { it.copy(loading = false) }
