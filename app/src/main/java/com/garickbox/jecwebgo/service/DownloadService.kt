@@ -31,6 +31,7 @@ class DownloadService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     @Volatile private var running = false
+    @Volatile private var lastNotifyPct: Int = -1
     private var idleTicks = 0
 
     override fun onCreate() {
@@ -298,10 +299,9 @@ class DownloadService : Service() {
             val title = item.request.title.ifBlank { "JecWeb загрузка" }
             val text = "$pct% · $mbDone / $mbTotal MB$spd"
             // Логируем только при смене pct (было 300+ строк на 2 ГБ файл)
-            @Volatile var lastPct: Int = -1
-            if (pct != lastPct) {
+            if (pct != lastNotifyPct) {
                 android.util.Log.d("JecWeb", "notify: $title | $text")
-                lastPct = pct
+                lastNotifyPct = pct
             }
             nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
         } catch (e: Exception) {

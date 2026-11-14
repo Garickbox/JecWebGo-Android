@@ -799,7 +799,7 @@ private fun PlayerScreenImpl(
 
     fun openSeriesSheet() {
         if (hash.isBlank()) {
-            Toast.makeText(context, "Нет данных о сериях")
+            context.toast("Нет данных о сериях")
             return
         }
         loadingSeries = true

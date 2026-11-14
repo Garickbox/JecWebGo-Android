@@ -42,6 +42,7 @@ import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.util.MagnetUtil
 import kotlinx.coroutines.launch
 import com.garickbox.jecwebgo.util.TitleUtil
+import com.garickbox.jecwebgo.util.toast
 import java.net.URLEncoder
 
 private fun posterUrl(poster: String): String {
@@ -236,7 +237,7 @@ private fun DetailsDialog(
                         totalBytes = f.length
                     ))
                 }
-                android.widget.Toast.makeText(ctx, "В очередь: ${picked.size}", android.widget.Toast.LENGTH_SHORT).show()
+                ctx.toast("В очередь: ${picked.size}")
                 pickerFor = null
                 onClose()
             }
@@ -314,7 +315,7 @@ private fun DetailsDialog(
                                     filesFor = got
                                     loadingFiles = false
                                     if (got.isEmpty()) {
-                                        android.widget.Toast.makeText(ctx, "TorrServer не отдал файлы (нет пиров?)", android.widget.Toast.LENGTH_LONG).show()
+                                        ctx.toast("TorrServer не отдал файлы (нет пиров?)", android.widget.Toast.LENGTH_LONG)
                                     }
                                 }
                             }, modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp)) {

@@ -67,7 +67,7 @@ object PlayActions {
             ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT).show()
             val video = findVideoFile(hash)
             if (video == null) {
-                Toast.makeText(ctx, "Видеофайл не найден", Toast.LENGTH_LONG)
+                ctx.toast("Видеофайл не найден", Toast.LENGTH_LONG)
                 return@launch
             }
             val ready = TorrentRepository.waitReady(hash, video.id, 30000L)
