@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.garickbox.jecwebgo.domain.SearchRepository
 import com.garickbox.jecwebgo.domain.model.SearchItem
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -16,7 +17,7 @@ class SearchViewModel(app: android.app.Application) : androidx.lifecycle.Android
     val state: StateFlow<SearchState> = _state.asStateFlow()
     fun reset() { _state.value = SearchState() }
 
-    fun onQuery(q: String) { _state.value = _state.value.copy(query = q) }
+    fun onQuery(q: String) { _state.update { it.copy(query = q) } }
     fun search() {
         val q = _state.value.query.trim()
         if (q.length < 2) return

@@ -1,6 +1,7 @@
 package com.garickbox.jecwebgo.ui.player
 
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -33,14 +34,14 @@ object PendingPlayer {
         )
     }
     fun updateStatus(msg: String) {
-        _data.value = _data.value?.copy(status = msg)
+        _data.update { it?.copy(status = msg) }
     }
     fun updatePoster(url: String) {
-        _data.value = _data.value?.copy(poster = url)
+        _data.update { it?.copy(poster = url) }
     }
     fun updateDescription(text: String) {
         if (text.isBlank()) return
-        _data.value = _data.value?.copy(description = text)
+        _data.update { it?.copy(description = text) }
     }
     fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "", localKey: String = "") {
         _data.value = _data.value?.copy(
@@ -50,7 +51,7 @@ object PendingPlayer {
         ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, fileName = fileName, localKey = localKey)
     }
     fun error(msg: String) {
-        _data.value = _data.value?.copy(loading = false, error = msg)
+        _data.update { it?.copy(loading = false, error = msg) }
     }
     fun consume() { _data.value = null }
 }

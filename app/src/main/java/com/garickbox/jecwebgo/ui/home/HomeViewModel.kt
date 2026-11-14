@@ -7,6 +7,7 @@ import com.garickbox.jecwebgo.data.model.GroupedTorrent
 import com.garickbox.jecwebgo.data.network.DataRepository
 import com.garickbox.jecwebgo.data.network.TorrentItem
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -38,7 +39,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 val t0 = System.currentTimeMillis()
-                _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
+                _state.update { it.copy(loading = it.items.isEmpty()) }
                 val raw = DataRepository.load(getApplication())
                 val key = raw.size
                 android.util.Log.d("JecWeb", "HomeVM: raw=$key cache=${cachedGroups?.size} cachedKey=$cachedFromHash")
@@ -72,7 +73,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         loadingInProgress = true
         viewModelScope.launch {
             try {
-                _state.value = _state.value.copy(refreshing = true, error = null)
+                _state.update { it.copy(refreshing = true, error = null) }
                 val raw = DataRepository.refresh(getApplication())
                 val grouped = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { group(raw) }
                 cachedGroups = grouped

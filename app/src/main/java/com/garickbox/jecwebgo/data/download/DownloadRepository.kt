@@ -6,6 +6,7 @@ import com.garickbox.jecwebgo.data.store.DownloadStateStore
 import com.garickbox.jecwebgo.data.store.PersistedDownload
 import com.garickbox.jecwebgo.service.DownloadService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -75,7 +76,7 @@ object DownloadRepository {
 
     fun enqueue(ctx: Context, request: DownloadRequest): String {
         val id = UUID.randomUUID().toString()
-        _queue.value = _queue.value + DownloadItem(id = id, request = request, totalBytes = request.totalBytes)
+        _queue.update { it + DownloadItem(id = id, request = request, totalBytes = request.totalBytes) }
         persist()
         DownloadService.start(ctx)
         return id
@@ -100,7 +101,7 @@ object DownloadRepository {
     }
 
     fun removeGroupFromQueue(groupKey: String) {
-        _queue.value = _queue.value.filter { groupKeyOf(it) != groupKey }
+        _queue.update { q -> q.filter { groupKeyOf(it) != groupKey } }
         persist()
     }
 
@@ -114,17 +115,17 @@ object DownloadRepository {
     }
 
     fun removeFromQueue(id: String) {
-        _queue.value = _queue.value.filter { it.id != id }
+        _queue.update { q -> q.filter { it.id != id } }
         persist()
     }
 
     fun pauseQueueItem(id: String) {
-        _queue.value = _queue.value.map { if (it.id == id) it.copy(status = DownloadItem.Status.PAUSED) else it }
+        _queue.update { q -> q.map { if (it.id == id) it.copy(status = DownloadItem.Status.PAUSED) else it } }
         persist()
     }
 
     fun resumeQueueItem(id: String) {
-        _queue.value = _queue.value.map { if (it.id == id) it.copy(status = DownloadItem.Status.QUEUED) else it }
+        _queue.update { q -> q.map { if (it.id == id) it.copy(status = DownloadItem.Status.QUEUED) else it } }
         persist()
     }
 
@@ -144,7 +145,7 @@ object DownloadRepository {
 
     fun next(): DownloadItem? {
         val n = _queue.value.firstOrNull { it.status != DownloadItem.Status.PAUSED } ?: return null
-        _queue.value = _queue.value.filter { it.id != n.id }
+        _queue.update { q -> q.filter { it.id != n.id } }
         paused = false
         cancelled = false
         val item = n.copy(status = DownloadItem.Status.ACTIVE, totalBytes = n.request.totalBytes)
@@ -205,7 +206,7 @@ object DownloadRepository {
             id = item.id, title = item.request.title, fileName = item.request.fileName,
             uri = uri, sizeBytes = size, completedAt = System.currentTimeMillis()
         )
-        _history.value = listOf(newItem) + _history.value
+        _history.update { listOf(newItem) + it }
         persist()
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             DownloadHistoryStore.save(ctx, _history.value)
@@ -213,7 +214,7 @@ object DownloadRepository {
     }
 
     fun removeHistory(ctx: Context, id: String) {
-        _history.value = _history.value.filter { it.id != id }
+        _history.update { h -> h.filter { it.id != id } }
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             DownloadHistoryStore.save(ctx, _history.value)
         }
