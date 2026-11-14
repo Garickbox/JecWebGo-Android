@@ -177,8 +177,14 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(playerRequest?.loadingNonce) {
                     val pr = playerRequest
-                    if (pr != null && pr.title.isNotBlank() && nav.currentDestination?.route != "player") {
-                        nav.navigate("player") { launchSingleTop = true }
+                    if (pr != null && pr.title.isNotBlank()
+                        && nav.graph != null
+                        && nav.currentDestination?.route != "player") {
+                        try {
+                            nav.navigate("player") { launchSingleTop = true }
+                        } catch (e: Exception) {
+                            android.util.Log.e("JecWeb", "nav.navigate(player) fail: ${e.message}")
+                        }
                     }
                 }
                 val entry by nav.currentBackStackEntryAsState()

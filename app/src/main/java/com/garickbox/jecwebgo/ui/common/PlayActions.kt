@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.util.toast
 
 object PlayActions {
     // Singleton scope — живёт с процессом, не отменяется уходом Composable из composition.
@@ -63,15 +64,15 @@ object PlayActions {
 
     fun playHash(ctx: Context, scope: CoroutineScope, hash: String, title: String) {
         bgScope.launch {
-            Toast.makeText(ctx, "Загрузка торрента…", Toast.LENGTH_SHORT).show()
+            ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT).show()
             val video = findVideoFile(hash)
             if (video == null) {
-                Toast.makeText(ctx, "Видеофайл не найден", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "Видеофайл не найден", Toast.LENGTH_LONG)
                 return@launch
             }
             val ready = TorrentRepository.waitReady(hash, video.id, 30000L)
             if (!ready) {
-                Toast.makeText(ctx, "Торрент не готов за 30с", Toast.LENGTH_LONG).show()
+                ctx.toast("Торрент не готов за 30с", Toast.LENGTH_LONG)
                 return@launch
             }
             openVlc(ctx, hash, video.id, title, "", video.path.substringAfterLast("/"))

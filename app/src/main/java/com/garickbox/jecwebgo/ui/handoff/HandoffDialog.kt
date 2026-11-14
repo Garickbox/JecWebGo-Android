@@ -21,6 +21,7 @@ import com.garickbox.jecwebgo.ui.home.FilePickerDialog
 import com.garickbox.jecwebgo.util.BencodeTorrent
 import com.garickbox.jecwebgo.util.TitleUtil
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun HandoffDialog(
@@ -82,7 +83,7 @@ fun HandoffDialog(
                         totalBytes = f.length
                     ))
                 }
-                Toast.makeText(ctx, "В очередь: ${picked.size}", Toast.LENGTH_SHORT).show()
+                ctx.toast("В очередь: ${picked.size}")
                 onDismiss()
             }
         )

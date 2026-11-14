@@ -26,6 +26,7 @@ import com.garickbox.jecwebgo.ui.common.PlayActions
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun HistoryScreen(onBack: () -> Unit = {}) {
@@ -97,7 +98,7 @@ private fun HistoryScreenBody() {
                             OutlinedButton(onClick = {
                                 scope.launch {
                                     BookmarkStore.addRaw(ctx, p.title, p.magnet)
-                                    Toast.makeText(ctx, "В закладки: ${p.title}", Toast.LENGTH_SHORT).show()
+                                    ctx.toast("В закладки: ${p.title}")
                                 }
                             }, modifier = Modifier.weight(1f).height(38.dp), contentPadding = PaddingValues(0.dp)) { Text("🔖", fontSize = 15.sp) }
                             OutlinedButton(onClick = { scope.launch { PlayLogStore.removeAt(ctx, playlog.size - 1 - idx); reload() } },

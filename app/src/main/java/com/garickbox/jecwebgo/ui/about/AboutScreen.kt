@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garickbox.jecwebgo.data.network.DataRepository
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.util.toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +80,7 @@ fun AboutScreen(onBack: () -> Unit = {}) {
                     scope.launch {
                         val items = DataRepository.refresh(ctx)
                         refreshing = false
-                        Toast.makeText(ctx, if (items.isNotEmpty()) "Обновлено: ${items.size} записей" else "Не удалось", Toast.LENGTH_SHORT).show()
+                        ctx.toast(if (items.isNotEmpty()) "Обновлено: ${items.size} записей" else "Не удалось")
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),

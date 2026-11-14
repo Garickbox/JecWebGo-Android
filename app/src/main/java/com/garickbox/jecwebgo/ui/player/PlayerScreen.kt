@@ -76,6 +76,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun PlayerScreen(
@@ -101,10 +102,10 @@ fun PlayerScreen(
             else -> null
         }
         if (next != null) {
-            Toast.makeText(ctx, "Кодек не поддержан HW, переключаю на ${next.uppercase()}", Toast.LENGTH_LONG).show()
+            ctx.toast("Кодек не поддержан HW, переключаю на ${next.uppercase()}", Toast.LENGTH_LONG)
             effectiveMode = next
         } else {
-            Toast.makeText(ctx, "Ошибка воспроизведения", Toast.LENGTH_SHORT).show()
+            ctx.toast("Ошибка воспроизведения", Toast.LENGTH_SHORT).show()
             onBack()
         }
     }
@@ -217,6 +218,7 @@ private fun PlayerScreenImpl(
     var loadingSeries by remember { mutableStateOf(false) }
     var firstFrameReady by remember { mutableStateOf(false) }
     var bufferingPct by remember { mutableIntStateOf(0) }
+    var vlcErrorCount by remember { mutableIntStateOf(0) }
     var playbackRate by remember { mutableFloatStateOf(1.0f) }
     var aspectIndex by remember { mutableIntStateOf(0) }
     var speedMenuSheet by remember { mutableStateOf(false) }
@@ -330,7 +332,7 @@ private fun PlayerScreenImpl(
         }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
-                MediaPlayer.Event.Playing -> { isPlaying = true; activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); android.util.Log.d("JecWeb", "VLC Playing") }
+                MediaPlayer.Event.Playing -> { isPlaying = true; vlcErrorCount = 0; activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); android.util.Log.d("JecWeb", "VLC Playing") }
                 MediaPlayer.Event.Paused -> {
                     isPlaying = false
                     activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -396,9 +398,19 @@ private fun PlayerScreenImpl(
                     if (bufferingPct % 10 == 0) android.util.Log.d("JecWeb", "VLC buffering $bufferingPct%")
                 }
                 MediaPlayer.Event.EncounteredError -> {
-                    android.util.Log.e("JecWeb", "VLC EncounteredError")
+                    vlcErrorCount++
+                    android.util.Log.e("JecWeb", "VLC EncounteredError #$vlcErrorCount")
                     firstFrameReady = false
-                    onError()
+                    if (vlcErrorCount >= 3) {
+                        android.util.Log.e("JecWeb", "VLC fail 3x — onError")
+                        onError()
+                    } else {
+                        // retry: stop+play через 2с, но без сброса pos/duration
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                            kotlinx.coroutines.delay(2000L)
+                            reloadKey++
+                        }
+                    }
                 }
             }
         }
@@ -498,12 +510,12 @@ private fun PlayerScreenImpl(
 
     fun prevSeries() {
         val idx = seriesList.indexOfFirst { it.id == currentIdx }
-        if (idx > 0) gotoSeries(idx - 1) else Toast.makeText(context, "Первая серия", Toast.LENGTH_SHORT).show()
+        if (idx > 0) gotoSeries(idx - 1) else context.toast("Первая серия")
     }
 
     fun nextSeries() {
         val idx = seriesList.indexOfFirst { it.id == currentIdx }
-        if (idx >= 0 && idx + 1 < seriesList.size) gotoSeries(idx + 1) else Toast.makeText(context, "Последняя серия", Toast.LENGTH_SHORT).show()
+        if (idx >= 0 && idx + 1 < seriesList.size) gotoSeries(idx + 1) else context.toast("Последняя серия")
     }
 
     LaunchedEffect(sleepTimerEndMs) {
@@ -524,7 +536,7 @@ private fun PlayerScreenImpl(
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
         TouchBlockerService.stop(context)
-        Toast.makeText(context, "🌙 Таймер сна: пауза", Toast.LENGTH_LONG).show()
+        context.toast("🌙 Таймер сна: пауза", Toast.LENGTH_LONG)
         delay(500L)
         val act = activity ?: context.findActivity()
         android.util.Log.d("JecWeb", "sleep timer: activity=$act")
@@ -787,7 +799,7 @@ private fun PlayerScreenImpl(
 
     fun openSeriesSheet() {
         if (hash.isBlank()) {
-            Toast.makeText(context, "Нет данных о сериях", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Нет данных о сериях")
             return
         }
         loadingSeries = true
@@ -836,7 +848,7 @@ private fun PlayerScreenImpl(
                                 } catch (_: Exception) {}
                                 if (TouchBlockerService.isEnabled(context)) {
                                     TouchBlockerService.start(context)
-                                    Toast.makeText(context, "🔒 Блокировка активна", Toast.LENGTH_SHORT).show()
+                                    context.toast("🔒 Блокировка активна")
                                     android.util.Log.d("JecWeb", "TouchBlocker started")
                                 } else {
                                     restrictedSettingsDialog = true

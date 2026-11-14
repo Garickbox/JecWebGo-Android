@@ -297,7 +297,12 @@ class DownloadService : Service() {
             val spd = if (speed > 0) " · %.1f MB/s".format(speed / 1e6) else ""
             val title = item.request.title.ifBlank { "JecWeb загрузка" }
             val text = "$pct% · $mbDone / $mbTotal MB$spd"
-            android.util.Log.d("JecWeb", "notify: $title | $text | $progress/$total")
+            // Логируем только при смене pct (было 300+ строк на 2 ГБ файл)
+            @Volatile var lastPct: Int = -1
+            if (pct != lastPct) {
+                android.util.Log.d("JecWeb", "notify: $title | $text")
+                lastPct = pct
+            }
             nm.notify(NOTIF_ID, buildNotif(title, text, progress, total))
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "updateNotif fail: ${e.message}")

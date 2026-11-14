@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.domain.model.SearchItem
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun SearchScreen(
@@ -68,7 +69,7 @@ fun SearchScreen(
     val onBookmark: (SearchItem) -> Unit = { item ->
         scope.launch {
             BookmarkStore.add(ctx, item)
-            Toast.makeText(ctx, "В закладки: ${item.title}", Toast.LENGTH_SHORT).show()
+            ctx.toast("В закладки: ${item.title}")
         }
     }
 

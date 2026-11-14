@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit = {}) {
@@ -83,10 +84,10 @@ private fun SettingsScreenBody() {
                                         .format(java.util.Date(System.currentTimeMillis() - age2))
                                 }
                                 dbRefreshing = false
-                                Toast.makeText(ctx, "Обновлено: ${items.size}", Toast.LENGTH_SHORT).show()
+                                ctx.toast("Обновлено: ${items.size}")
                             } catch (e: Exception) {
                                 dbRefreshing = false
-                                Toast.makeText(ctx, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                ctx.toast("Ошибка: ${e.message}")
                             }
                         }
                     },
@@ -167,7 +168,7 @@ private fun SettingsScreenBody() {
         HorizontalDivider()
         Button(onClick = {
             SettingsStore.save(ctx, s)
-            Toast.makeText(ctx, "Сохранено", Toast.LENGTH_SHORT).show()
+            ctx.toast("Сохранено")
         }, modifier = Modifier.fillMaxWidth()) { Text("Сохранить") }
     }
 }

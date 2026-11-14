@@ -17,6 +17,7 @@ import com.garickbox.jecwebgo.domain.TorrentRepository
 import com.garickbox.jecwebgo.ui.home.FilePickerDialog
 import com.garickbox.jecwebgo.util.TitleUtil
 import kotlinx.coroutines.delay
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun DownloadFromMagnetFlow(
@@ -94,7 +95,7 @@ fun DownloadFromMagnetFlow(
                         relPath = f.path
                     ))
                 }
-                Toast.makeText(ctx, "В очередь: ${picked.size}", Toast.LENGTH_SHORT).show()
+                ctx.toast("В очередь: ${picked.size}")
                 onDismiss()
             }
         )
