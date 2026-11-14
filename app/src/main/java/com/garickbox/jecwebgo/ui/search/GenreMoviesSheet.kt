@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import com.garickbox.jecwebgo.data.network.TmdbData
 import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.data.network.TmdbMovie
