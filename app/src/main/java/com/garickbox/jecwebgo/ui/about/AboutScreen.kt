@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen() {
+fun AboutScreen(onBack: () -> Unit = {}) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
@@ -36,7 +36,7 @@ fun AboutScreen() {
 
     Scaffold(
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-        topBar = { TopAppBar(title = { Text("О приложении", fontWeight = FontWeight.SemiBold) }) }
+        topBar = { com.garickbox.jecwebgo.ui.common.SubScreenTopBar("О приложении", onBack) }
     ) { pad ->
         Column(
             Modifier.fillMaxSize().padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),

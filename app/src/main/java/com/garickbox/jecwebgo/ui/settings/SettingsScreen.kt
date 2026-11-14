@@ -7,6 +7,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.background
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.sp
@@ -21,7 +23,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onBack: () -> Unit = {}) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        SubScreenTopBar("Настройки", onBack)
+        SettingsScreenBody()
+    }
+}
+
+@Composable
+private fun SettingsScreenBody() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var s by remember { mutableStateOf(SettingsStore.load(ctx)) }

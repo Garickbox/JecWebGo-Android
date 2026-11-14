@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.background
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,7 +20,15 @@ import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import com.garickbox.jecwebgo.ui.common.PlayActions
 
 @Composable
-fun BookmarksScreen() {
+fun BookmarksScreen(onBack: () -> Unit = {}) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        SubScreenTopBar("Метки", onBack)
+        BookmarksScreenBody()
+    }
+}
+
+@Composable
+private fun BookmarksScreenBody() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<Bookmark>>(emptyList()) }

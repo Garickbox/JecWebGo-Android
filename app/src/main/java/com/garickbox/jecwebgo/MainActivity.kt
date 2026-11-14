@@ -240,12 +240,18 @@ class MainActivity : ComponentActivity() {
                                 StatusBar()
                             }
                         }
+                        if (inSubroute && subRoute != "player") {
+                            androidx.compose.material3.Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {}
+                        }
                         NavHost(nav, "empty", Modifier.fillMaxSize()) {
                             composable("empty") {}
-                            composable("history") { HistoryScreen() }
-                            composable("bookmarks") { BookmarksScreen() }
-                            composable("settings") { SettingsScreen() }
-                            composable("about") { AboutScreen() }
+                            composable("history") { HistoryScreen(onBack = { nav.popBackStack() }) }
+                            composable("bookmarks") { BookmarksScreen(onBack = { nav.popBackStack() }) }
+                            composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
+                            composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
                             composable("player") {
                                 val pr = playerRequest
                                 if (pr == null) {
