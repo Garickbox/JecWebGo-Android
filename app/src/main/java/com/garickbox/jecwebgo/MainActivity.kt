@@ -177,7 +177,9 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(playerRequest?.loadingNonce) {
                     val pr = playerRequest
-                    if (pr != null && pr.title.isNotBlank()) nav.navigate("player") { launchSingleTop = true }
+                    if (pr != null && pr.title.isNotBlank() && nav.currentDestination?.route != "player") {
+                        nav.navigate("player") { launchSingleTop = true }
+                    }
                 }
                 val entry by nav.currentBackStackEntryAsState()
                 val subRoute = entry?.destination?.route
@@ -247,13 +249,6 @@ class MainActivity : ComponentActivity() {
                                 StatusBar()
                             }
                         }
-                        if (inSubroute && subRoute != "player") {
-                            androidx.compose.material3.Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = androidx.compose.material3.MaterialTheme.colorScheme.background
-                            ) {}
-                        }
-                        if (inSubroute) {
                         NavHost(nav, "empty", Modifier.fillMaxSize()) {
                             composable("empty") {}
                             composable("history") { HistoryScreen(onBack = { nav.popBackStack() }) }
@@ -303,7 +298,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
-                        }
                         }
                     }
                 }
