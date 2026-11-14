@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo.data.model
 
 import com.garickbox.jecwebgo.data.network.TorrentItem
 
+@androidx.compose.runtime.Immutable
 data class GroupedTorrent(
     val cleanTitle: String,
     val year: String,
@@ -11,6 +12,7 @@ data class GroupedTorrent(
     val description: String,
     val director: String,
     val actors: String,
+    val mediaType: String = "movie",
     val items: List<TorrentItem>
 ) {
     val count: Int get() = items.size

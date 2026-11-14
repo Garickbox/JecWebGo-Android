@@ -127,6 +127,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     description = withDesc.description,
                     director = withDesc.director,
                     actors = withDesc.actors,
+                    mediaType = mediaType(withPoster.category),
                     items = list.sortedByDescending { it.seeds }
                 )
             }

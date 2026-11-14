@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         try {
+            window.statusBarColor = android.graphics.Color.parseColor("#0A0A0A")
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
             val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
             wic.hide(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
@@ -183,7 +184,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }) { pad ->
-                    Column(Modifier.padding(pad).fillMaxSize()) {
+                    Column(Modifier.padding(pad).fillMaxSize().statusBarsPadding()) {
                         if (current != "player") StatusBar()
                         NavHost(nav, "home", Modifier.fillMaxSize()) {
                             composable("home") { HomeScreen(onOpenSearch = { q ->

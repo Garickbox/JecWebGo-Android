@@ -28,6 +28,7 @@ object DoubleOrEmptySerializer : KSerializer<Double> {
     override fun serialize(encoder: Encoder, value: Double) { encoder.encodeDouble(value) }
 }
 
+@androidx.compose.runtime.Immutable
 @Serializable
 data class TorrentItem(
     val title: String = "",

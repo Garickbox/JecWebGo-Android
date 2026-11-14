@@ -138,11 +138,37 @@ private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
                 Alignment.Center) { Text("🎬", fontSize = 32.sp) }
             if (url.isNotBlank()) {
+                val ctx2 = LocalContext.current
+                val req = remember(url) {
+                    coil.request.ImageRequest.Builder(ctx2)
+                        .data(url)
+                        .size(400, 600)
+                        .crossfade(false)
+                        .build()
+                }
                 AsyncImage(
-                    model = url, contentDescription = g.cleanTitle,
+                    model = req, contentDescription = g.cleanTitle,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
                     contentScale = ContentScale.Crop
                 )
+            }
+            if (g.mediaType != "movie" && g.mediaType.isNotBlank()) {
+                val label = when (g.mediaType) {
+                    "serial" -> "СЕРИАЛ"
+                    "anime" -> "АНИМЕ"
+                    "cartoon" -> "МУЛЬТ"
+                    "docu" -> "ДОК"
+                    else -> ""
+                }
+                if (label.isNotBlank()) {
+                    Box(Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.92f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text(label, fontSize = 9.sp,
+                            color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             if (g.rating > 0.0) {
                 Box(Modifier.align(Alignment.TopStart).padding(6.dp)
@@ -162,10 +188,11 @@ private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                 }
             }
+            val scrimBrush = remember {
+                Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f)))
+            }
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(72.dp)
-                .background(Brush.verticalGradient(
-                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
-                )))
+                .background(scrimBrush))
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(8.dp)) {
                 if (g.year.isNotBlank()) {
                     Text(g.year, fontSize = 10.sp, color = Color.White.copy(alpha = 0.75f),
