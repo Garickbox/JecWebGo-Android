@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,10 +53,23 @@ fun LoadingView(
             AsyncImage(
                 model = url, contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop, alpha = 0.25f
+                contentScale = ContentScale.Crop
+            )
+            // Градиент снизу для читаемости текста (постер полностью виден сверху)
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.35f),
+                            Color.Transparent,
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.75f),
+                            Color.Black.copy(alpha = 0.95f)
+                        )
+                    )
+                )
             )
         }
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
 
         Box(Modifier.fillMaxSize().padding(16.dp)) {
             CircularProgressIndicator(
