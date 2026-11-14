@@ -16,17 +16,20 @@ data class PlayerRequest(
     val status: String = "",
     val error: String? = null,
     val fileName: String = "",
-    val localKey: String = ""
+    val localKey: String = "",
+    val loadingNonce: Long = 0L
 )
 
 object PendingPlayer {
     private val _data = MutableStateFlow<PlayerRequest?>(null)
     val data: StateFlow<PlayerRequest?> = _data.asStateFlow()
 
+    private val _loadingNonce = java.util.concurrent.atomic.AtomicLong(0L)
     fun openLoading(title: String, poster: String, description: String = "") {
         _data.value = PlayerRequest(
             title = title, poster = poster, description = description,
-            loading = true, status = "Подключение..."
+            loading = true, status = "Подключение...",
+            loadingNonce = _loadingNonce.incrementAndGet()
         )
     }
     fun updateStatus(msg: String) {

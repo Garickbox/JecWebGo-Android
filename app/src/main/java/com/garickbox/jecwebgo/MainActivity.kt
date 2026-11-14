@@ -203,6 +203,7 @@ class MainActivity : ComponentActivity() {
                                         description = pr.description,
                                         poster = pr.poster,
                                         status = pr.status,
+                                        loadingNonce = pr.loadingNonce,
                                         onCancel = {
                                             PendingPlayer.consume()
                                             nav.popBackStack()

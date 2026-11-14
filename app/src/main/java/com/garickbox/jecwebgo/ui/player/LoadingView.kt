@@ -23,31 +23,40 @@ fun LoadingView(
     description: String,
     poster: String,
     status: String,
+    loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
-    // Если постера ИЛИ описания нет — запросить через TMDB (search), обновить через PendingPlayer
-    LaunchedEffect(title, poster, description) {
-        if (title.isNotBlank() && (poster.isBlank() || description.isBlank())) {
-            try {
-                val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
-                if (info != null) {
-                    if (poster.isBlank() && info.posterUrl.isNotBlank()) {
-                        android.util.Log.d("JecWeb", "LoadingView: poster via TMDB -> $title")
-                        PendingPlayer.updatePoster(info.posterUrl)
-                    }
-                    if (description.isBlank() && info.overview.isNotBlank()) {
-                        android.util.Log.d("JecWeb", "LoadingView: description via TMDB -> $title (${info.overview.length} chars)")
-                        PendingPlayer.updateDescription(info.overview)
-                    }
-                } else {
-                    android.util.Log.w("JecWeb", "LoadingView: TMDB returned null for $title")
+    // Ключ: title + loadingNonce (меняется только при новом openLoading).
+    // Не используем poster/description в ключе — иначе updatePoster/updateDescription
+    // рестартят LaunchedEffect и корутина отменяется до применения результата.
+    LaunchedEffect(title, loadingNonce) {
+        if (title.isBlank()) return@LaunchedEffect
+        val needPoster = poster.isBlank()
+        val needDesc = description.isBlank()
+        if (!needPoster && !needDesc) return@LaunchedEffect
+        try {
+            val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
+            if (info != null) {
+                if (needPoster && info.posterUrl.isNotBlank()) {
+                    android.util.Log.d("JecWeb", "LoadingView: poster via TMDB -> $title")
+                    PendingPlayer.updatePoster(info.posterUrl)
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("JecWeb", "LoadingView searchMovieInfo fail: ${e.message}")
+                if (needDesc && info.overview.isNotBlank()) {
+                    android.util.Log.d("JecWeb", "LoadingView: description via TMDB -> $title (${info.overview.length} chars)")
+                    PendingPlayer.updateDescription(info.overview)
+                }
+            } else {
+                android.util.Log.w("JecWeb", "LoadingView: TMDB returned null for $title")
             }
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            android.util.Log.d("JecWeb", "LoadingView: cancelled (new nonce)")
+            throw ce
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "LoadingView searchMovieInfo fail: ${e.message}")
         }
     }
     val url = PosterUtil.posterUrl(poster)
+    android.util.Log.d("JecWeb", "LoadingView.render: poster='${poster.take(60)}' url='${url.take(80)}'")
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
