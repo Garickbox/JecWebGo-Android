@@ -89,10 +89,11 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
         val groupKeys = remember(queueGroups) { queueGroups.keys.toList() }
         LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (active != null) {
+            val a = active
+            if (a != null) {
                 item { SectionTitle("Сейчас качается", activeCollapsed) { activeCollapsed = !activeCollapsed } }
                 if (!activeCollapsed) item { ActiveCard(
-                    item = active!!,
+                    item = a,
                     onPause = { DownloadRepository.pause() },
                     onResume = { DownloadRepository.resume() },
                     onCancel = { DownloadRepository.cancel() },
@@ -436,14 +437,5 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     }
 }
 
-private fun formatSize(b: Long): String = when {
-    b >= 1L shl 30 -> "%.2f GB".format(b / 1073741824.0)
-    b >= 1L shl 20 -> "%.0f MB".format(b / 1048576.0)
-    b >= 1024 -> "%.0f KB".format(b / 1024.0)
-    else -> "$b B"
-}
-private fun formatSpeed(bps: Long): String = when {
-    bps >= 1048576 -> "%.1f MB/s".format(bps / 1048576.0)
-    bps >= 1024 -> "%.0f KB/s".format(bps / 1024.0)
-    else -> "$bps B/s"
-}
+private fun formatSize(b: Long): String = com.garickbox.jecwebgo.util.Helpers.formatSize(b)
+private fun formatSpeed(bps: Long): String = com.garickbox.jecwebgo.util.Helpers.formatSpeed(bps)

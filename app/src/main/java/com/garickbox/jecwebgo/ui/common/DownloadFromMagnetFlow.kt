@@ -58,13 +58,14 @@ fun DownloadFromMagnetFlow(
         loading = false
     }
 
-    if (error != null) {
+    val errText = error
+    if (errText != null) {
         Dialog(onDismissRequest = onDismiss) {
             Card(Modifier.fillMaxWidth().padding(8.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("Ошибка", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text(error!!, fontSize = 13.sp)
+                    Text(errText, fontSize = 13.sp)
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Закрыть") }
                 }
@@ -73,14 +74,15 @@ fun DownloadFromMagnetFlow(
         return
     }
 
-    if (pickerHash != null) {
+    val pHash = pickerHash
+    if (pHash != null) {
         FilePickerDialog(
             title = title,
             files = files,
             loading = false,
             onDismiss = onDismiss,
             onConfirm = { picked ->
-                val h = pickerHash!!
+                val h = pHash
                 picked.forEach { f ->
                     DownloadRepository.enqueue(ctx, DownloadRequest(
                         hash = h,

@@ -178,9 +178,4 @@ fun FilePickerDialog(
     }
 }
 
-private fun formatSize(b: Long): String = when {
-    b >= 1L shl 30 -> "%.2f GB".format(b / 1073741824.0)
-    b >= 1L shl 20 -> "%.0f MB".format(b / 1048576.0)
-    b >= 1024 -> "%.0f KB".format(b / 1024.0)
-    else -> "$b B"
-}
+private fun formatSize(b: Long): String = com.garickbox.jecwebgo.util.Helpers.formatSize(b)
