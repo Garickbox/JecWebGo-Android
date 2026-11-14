@@ -327,6 +327,18 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    private fun getDisplayName(uri: android.net.Uri): String? {
+        return try {
+            contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && c.moveToFirst()) c.getString(idx) else null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "getDisplayName fail: ${e.message}")
+            null
+        }
+    }
+
     private fun handleIntent(intent: Intent?) {
         val openTab = intent?.getStringExtra("open_tab")
         if (openTab != null) {
@@ -349,6 +361,32 @@ class MainActivity : ComponentActivity() {
                 handoffTorrent = bytes
                 handoffTitle = data.lastPathSegment?.removeSuffix(".torrent") ?: "Torrent"
             } catch (_: Exception) {}
+            return
+        }
+
+        // Открытие видео извне (файловый менеджер, Telegram, браузер и т.д.)
+        val mime = intent.type ?: try { contentResolver.getType(data) } catch (_: Exception) { null } ?: ""
+        if ((scheme == "content" || scheme == "file") && mime.startsWith("video/")) {
+            val fileName = getDisplayName(data) ?: data.lastPathSegment?.substringAfterLast("/") ?: "Video"
+            try {
+                if (scheme == "content") {
+                    contentResolver.takePersistableUriPermission(
+                        data, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    android.util.Log.d("JecWeb", "video intent: persistable OK")
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("JecWeb", "video intent: no persistable (${e.message})")
+            }
+            android.util.Log.d("JecWeb", "video intent: uri=$data mime=$mime name=$fileName")
+            com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(
+                url = data.toString(),
+                title = fileName,
+                hash = "",
+                currentIndex = 1,
+                fileName = fileName
+            )
+            return
         }
     }
 }
