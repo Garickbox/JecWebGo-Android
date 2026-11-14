@@ -35,6 +35,10 @@ object PendingPlayer {
     fun updatePoster(url: String) {
         _data.value = _data.value?.copy(poster = url)
     }
+    fun updateDescription(text: String) {
+        if (text.isBlank()) return
+        _data.value = _data.value?.copy(description = text)
+    }
     fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "", localKey: String = "") {
         _data.value = _data.value?.copy(
             url = url, title = title, hash = hash,

@@ -118,6 +118,35 @@ object TmdbRepository {
         }
     }
 
+    data class TmdbSearchInfo(val posterUrl: String, val overview: String)
+
+    suspend fun searchMovieInfo(title: String, year: String): TmdbSearchInfo? = withContext(Dispatchers.IO) {
+        try {
+            val clean = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title).trim()
+            if (clean.length < 2) return@withContext null
+            val q = java.net.URLEncoder.encode(clean, "UTF-8")
+            val y = year.take(4)
+            val url = "$WORKER_BASE/tmdb/search/movie?query=$q&year=$y&language=ru-RU"
+            val req = Request.Builder().url(url).build()
+            val text = client.newCall(req).execute().use { r ->
+                if (!r.isSuccessful) return@withContext null
+                r.body?.string().orEmpty()
+            }
+            val obj = json.parseToJsonElement(text).jsonObject
+            val results = obj["results"]?.jsonArray ?: return@withContext null
+            val first = results.firstOrNull()?.jsonObject ?: return@withContext null
+            val posterPath = first["poster_path"]?.jsonPrimitive?.contentOrNull ?: ""
+            val overview = first["overview"]?.jsonPrimitive?.contentOrNull ?: ""
+            val tmdbUrl = if (posterPath.isBlank()) "" else "https://image.tmdb.org/t/p/w342$posterPath"
+            val posterWorkerUrl = if (tmdbUrl.isBlank()) "" else "$WORKER_BASE/img?url=" + java.net.URLEncoder.encode(tmdbUrl, "UTF-8")
+            android.util.Log.d("JecWeb", "searchMovieInfo: $clean poster=${if(posterWorkerUrl.isBlank()) "none" else "yes"} overviewLen=${overview.length}")
+            TmdbSearchInfo(posterWorkerUrl, overview)
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "searchMovieInfo fail: ${e.message}")
+            null
+        }
+    }
+
     fun posterUrl(movie: TmdbMovie): String =
         if (movie.poster_file.isBlank()) "" else POSTER_BASE + movie.poster_file
 }
