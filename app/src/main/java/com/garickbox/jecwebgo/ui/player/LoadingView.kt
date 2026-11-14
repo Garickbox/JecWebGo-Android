@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import coil.request.ErrorResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,9 +31,9 @@ fun LoadingView(
     loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
-    // Ключ: title + loadingNonce (меняется только при новом openLoading).
-    // Не используем poster/description в ключе — иначе updatePoster/updateDescription
-    // рестартят LaunchedEffect и корутина отменяется до применения результата.
+    val ctx = LocalContext.current
+
+    // TMDB search: получить URL постера + описание (один раз на nonce)
     LaunchedEffect(title, loadingNonce) {
         if (title.isBlank()) return@LaunchedEffect
         val needPoster = poster.isBlank()
@@ -48,36 +50,39 @@ fun LoadingView(
                     android.util.Log.d("JecWeb", "LoadingView: description via TMDB -> $title (${info.overview.length} chars)")
                     PendingPlayer.updateDescription(info.overview)
                 }
-            } else {
-                android.util.Log.w("JecWeb", "LoadingView: TMDB returned null for $title")
             }
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            android.util.Log.d("JecWeb", "LoadingView: cancelled (new nonce)")
-            throw ce
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "LoadingView searchMovieInfo fail: ${e.message}")
         }
     }
+
     val url = PosterUtil.posterUrl(poster)
-    val ctx = LocalContext.current
+
+    // Prefetch в кеш Coil (LaunchedEffect(url) не отменяется при recompose)
+    LaunchedEffect(url) {
+        if (url.isBlank()) return@LaunchedEffect
+        try {
+            android.util.Log.d("JecWeb", "LoadingView.prefetch START: ${url.take(80)}")
+            val req = ImageRequest.Builder(ctx).data(url).build()
+            val result = ctx.imageLoader.execute(req)
+            when (result) {
+                is SuccessResult -> android.util.Log.d("JecWeb", "LoadingView.prefetch OK: ${url.take(60)}")
+                is ErrorResult -> android.util.Log.e("JecWeb", "LoadingView.prefetch ERR: ${result.throwable.message}")
+                else -> android.util.Log.d("JecWeb", "LoadingView.prefetch: ${result::class.simpleName}")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "LoadingView.prefetch fail: ${e.message}")
+        }
+    }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
-            key(url) {
-                val req = remember(url) {
-                    android.util.Log.d("JecWeb", "LoadingView.REQ url=${url.take(100)}")
-                    coil.request.ImageRequest.Builder(ctx)
-                        .data(url)
-                        .crossfade(200)
-                        .build()
-                }
-                AsyncImage(
-                    model = req, contentDescription = title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onSuccess = { android.util.Log.d("JecWeb", "LoadingView.OK url=${url.take(80)}") },
-                    onError = { android.util.Log.e("JecWeb", "LoadingView.ERR ${it.result.throwable.message}") }
-                )
-            }
+            AsyncImage(
+                model = url, contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                onSuccess = { android.util.Log.d("JecWeb", "LoadingView.OK url=${url.take(80)}") },
+                onError = { android.util.Log.e("JecWeb", "LoadingView.ERR ${it.result.throwable.message}") }
+            )
             // Градиент снизу для читаемости текста (постер полностью виден сверху)
             Box(
                 Modifier.fillMaxSize().background(
