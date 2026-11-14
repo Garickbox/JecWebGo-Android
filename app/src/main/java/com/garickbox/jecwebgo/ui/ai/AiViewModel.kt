@@ -9,6 +9,7 @@ import com.garickbox.jecwebgo.domain.AiRepository
 import com.garickbox.jecwebgo.domain.model.AiMovie
 import com.garickbox.jecwebgo.domain.model.ChatMessage
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -32,51 +33,51 @@ class AiViewModel : ViewModel() {
     fun send(userText: String, ctx: Context? = null) {
         val text = userText.trim()
         if (text.isEmpty()) return
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             messages = _state.value.messages + UiMessage("user", text),
             loading = true
-        )
+        ) }
         viewModelScope.launch {
             val action = AiRepository.chat(text, _state.value.history)
             when (action.action) {
                 "tmdb_discover" -> {
-                    _state.value = _state.value.copy(loading = false)
+                    _state.update { it.copy(loading = false) }
                     if (ctx != null) {
                         recommendFresh(ctx, action.year, tmdbGenreId(action.genre ?: ""))
                     }
                 }
                 "recommend" -> {
                     // AI вернул рекомендованные названия — но мы их игнорируем и запрашиваем TMDB
-                    _state.value = _state.value.copy(loading = false)
+                    _state.update { it.copy(loading = false) }
                     if (ctx != null) {
                         recommendFresh(ctx, action.year, null)
                     } else {
-                        _state.value = _state.value.copy(movies = action.movies)
+                        _state.update { it.copy(movies = action.movies) }
                     }
                 }
                 "chips" -> {
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         loading = false,
                         chips = action.chips.ifEmpty { AiRepository.randomGenres(6) },
                         messages = _state.value.messages + UiMessage("assistant", "Выбери жанр:"),
                         history = _state.value.history + ChatMessage("user", text)
-                    )
+                    ) }
                 }
                 "ask" -> {
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         loading = false,
                         messages = _state.value.messages + UiMessage("assistant", action.question),
                         history = _state.value.history + ChatMessage("user", text) + ChatMessage("assistant", action.question)
-                    )
+                    ) }
                 }
                 "search" -> {
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         loading = false,
                         messages = _state.value.messages + UiMessage("assistant", "Ищу: ${action.search_query}"),
                         history = _state.value.history + ChatMessage("user", text) + ChatMessage("assistant", action.search_query)
-                    )
+                    ) }
                 }
-                else -> _state.value = _state.value.copy(loading = false)
+                else -> _state.update { it.copy(loading = false) }
             }
         }
     }
@@ -97,7 +98,7 @@ class AiViewModel : ViewModel() {
      */
     fun recommendFresh(ctx: Context, year: Int?, genreId: Int?) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true, movies = emptyList(), chips = emptyList())
+            _state.update { it.copy(loading = true, movies = emptyList(), chips = emptyList()) }
             try {
                 val seen: Set<Int> = loadSeenIds(ctx)
                 val accumulated: MutableList<AiMovie> = mutableListOf()
@@ -119,7 +120,7 @@ class AiViewModel : ViewModel() {
                     val currentYear: Int = LocalDate.now().year
                     val targetYear: Int = year ?: currentYear
                     val fresh: List<AiMovie> = AiRepository.discoverMovies(targetYear, 1, genreId).take(10)
-                    _state.value = _state.value.copy(loading = false, movies = fresh)
+                    _state.update { it.copy(loading = false, movies = fresh) }
                     if (fresh.isNotEmpty()) {
                         val ids: List<Int> = fresh.map { movie: AiMovie -> movie.id }
                         saveSeenIds(ctx, ids)
@@ -127,10 +128,10 @@ class AiViewModel : ViewModel() {
                 } else {
                     val ids: List<Int> = final.map { movie: AiMovie -> movie.id }
                     saveSeenIds(ctx, ids)
-                    _state.value = _state.value.copy(loading = false, movies = final)
+                    _state.update { it.copy(loading = false, movies = final) }
                 }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(loading = false)
+                _state.update { it.copy(loading = false) }
             }
         }
     }
@@ -176,15 +177,15 @@ class AiViewModel : ViewModel() {
     }
 
     fun describe(title: String) {
-        _state.value = _state.value.copy(descTitle = title, descText = "Загрузка...", loading = true)
+        _state.update { it.copy(descTitle = title, descText = "Загрузка...", loading = true) }
         viewModelScope.launch {
             val text = AiRepository.describe(title)
-            _state.value = _state.value.copy(descText = text, loading = false)
+            _state.update { it.copy(descText = text, loading = false) }
         }
     }
 
     fun clearDesc() {
-        _state.value = _state.value.copy(descTitle = "", descText = "")
+        _state.update { it.copy(descTitle = "", descText = "") }
     }
 
     fun clear() { _state.value = AiState() }
