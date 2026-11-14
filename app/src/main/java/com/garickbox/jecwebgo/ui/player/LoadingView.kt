@@ -28,8 +28,6 @@ fun LoadingView(
     loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
-    val ctx = LocalContext.current
-
     // TMDB search: получить URL постера + описание (один раз на nonce)
     LaunchedEffect(title, loadingNonce) {
         if (title.isBlank()) return@LaunchedEffect
