@@ -9,13 +9,18 @@ import com.garickbox.jecwebgo.data.store.PlayLogEntry
 import com.garickbox.jecwebgo.domain.TorrentFile
 import com.garickbox.jecwebgo.domain.TorrentRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 object PlayActions {
+    // Singleton scope — живёт с процессом, не отменяется уходом Composable из composition.
+    // Иначе addWithFile / preloadFile / delay(3000) обрываются после nav.navigate("player").
+    private val bgScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val VIDEO_EXT = setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
 
     fun playPhone(ctx: Context, scope: CoroutineScope, magnet: String, title: String, poster: String = "", description: String = "") {
-        scope.launch {
+        bgScope.launch {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster, description)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
             val result = TorrentRepository.addWithFile(magnet)
@@ -41,7 +46,7 @@ object PlayActions {
             // ПРОГРЕВ: TorrServer должен набрать пиров ДО старта VLC,
             // иначе первый play падает с EncounteredError (network-caching 15с не успевает)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Прогрев торрента...")
-            scope.launch {
+            bgScope.launch {
                 try {
                     TorrentRepository.preloadFile(hash, idx, 15, 3)
                     android.util.Log.d("JecWeb", "preloadFile done: hash=$hash idx=$idx")
@@ -56,7 +61,7 @@ object PlayActions {
     }
 
     fun playHash(ctx: Context, scope: CoroutineScope, hash: String, title: String) {
-        scope.launch {
+        bgScope.launch {
             Toast.makeText(ctx, "Загрузка торрента…", Toast.LENGTH_SHORT).show()
             val video = findVideoFile(hash)
             if (video == null) {
