@@ -76,9 +76,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         try {
+            androidx.activity.enableEdgeToEdge(
+                statusBarStyle = androidx.activity.SystemBarStyle.auto(
+                    android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT
+                ),
+                navigationBarStyle = androidx.activity.SystemBarStyle.auto(
+                    android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT
+                )
+            )
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
             val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
             wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -186,6 +200,7 @@ class MainActivity : ComponentActivity() {
                 }
                 var pendingSearch by remember { mutableStateOf<String?>(null) }
                 LaunchedEffect(subRoute, pagerState.currentPage) {
+                    android.util.Log.d("JecWeb", "UI: subRoute=$subRoute inSubroute=$inSubroute page=${pagerState.currentPage} current=$current")
                     updatePipForRoute(subRoute ?: "empty")
                     try {
                         val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
@@ -246,6 +261,7 @@ class MainActivity : ComponentActivity() {
                                 color = androidx.compose.material3.MaterialTheme.colorScheme.background
                             ) {}
                         }
+                        if (inSubroute) {
                         NavHost(nav, "empty", Modifier.fillMaxSize()) {
                             composable("empty") {}
                             composable("history") { HistoryScreen(onBack = { nav.popBackStack() }) }
@@ -295,6 +311,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
+                        }
                         }
                     }
                 }
@@ -390,6 +407,7 @@ class MainActivity : ComponentActivity() {
                 wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                 wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             } catch (_: Exception) {}
+            updatePipForRoute(if (MainState.currentRoute == "player") "player" else "empty")
         }
     }
 

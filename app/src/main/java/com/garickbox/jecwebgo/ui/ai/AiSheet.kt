@@ -62,6 +62,11 @@ fun AiSheet(
                         android.view.WindowManager.LayoutParams.MATCH_PARENT
                     )
                     androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                    if (android.os.Build.VERSION.SDK_INT >= 28) {
+                        w.attributes = w.attributes.apply {
+                            layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                        }
+                    }
                 } catch (_: Exception) {}
                 val wic = WindowCompat.getInsetsController(w, w.decorView)
                 wic.hide(WindowInsetsCompat.Type.systemBars())
