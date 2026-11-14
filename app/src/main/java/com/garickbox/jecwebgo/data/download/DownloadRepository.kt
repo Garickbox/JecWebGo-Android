@@ -87,16 +87,27 @@ object DownloadRepository {
 
     fun moveGroupInQueue(groupKey: String, neighborKey: String) {
         if (groupKey == neighborKey || groupKey.isBlank() || neighborKey.isBlank()) return
-        val q = _queue.value.toMutableList()
-        val groupIdx = q.indices.filter { groupKeyOf(q[it]) == groupKey }
-        val neighIdx = q.indices.filter { groupKeyOf(q[it]) == neighborKey }
-        if (groupIdx.isEmpty() || neighIdx.isEmpty()) return
-        val groupItems = groupIdx.map { q[it] }
-        val neighItems = neighIdx.map { q[it] }
-        val allIdx = (groupIdx + neighIdx).sorted()
-        val combined = if (groupIdx.first() < neighIdx.first()) groupItems + neighItems else neighItems + groupItems
-        allIdx.forEachIndexed { i, idx -> q[idx] = combined[i] }
-        _queue.value = q
+        _queue.update { cur ->
+            val q = cur.toMutableList()
+            val groupIdx = q.indices.filter { groupKeyOf(q[it]) == groupKey }
+            val neighIdx = q.indices.filter { groupKeyOf(q[it]) == neighborKey }
+            if (groupIdx.isEmpty() || neighIdx.isEmpty()) return@update cur
+            val groupFirst = groupIdx.first()
+            val groupLast = groupIdx.last()
+            val neighFirst = neighIdx.first()
+            val neighLast = neighIdx.last()
+            val adjacent = (groupLast + 1 == neighFirst) || (neighLast + 1 == groupFirst)
+            if (!adjacent) {
+                android.util.Log.w("JecWeb", "moveGroupInQueue: blocks not adjacent")
+                return@update cur
+            }
+            val groupItems = groupIdx.map { q[it] }
+            val neighItems = neighIdx.map { q[it] }
+            val allIdx = (groupIdx + neighIdx).sorted()
+            val combined = if (groupFirst < neighFirst) neighItems + groupItems else groupItems + neighItems
+            allIdx.forEachIndexed { i, idx -> q[idx] = combined[i] }
+            q.toList()
+        }
         persist()
     }
 
@@ -106,11 +117,13 @@ object DownloadRepository {
     }
 
     fun moveInQueue(from: Int, to: Int) {
-        val q = _queue.value.toMutableList()
-        if (from !in q.indices || to !in q.indices || from == to) return
-        val item = q.removeAt(from)
-        q.add(to, item)
-        _queue.value = q
+        _queue.update { cur ->
+            val q = cur.toMutableList()
+            if (from !in q.indices || to !in q.indices || from == to) return@update cur
+            val item = q.removeAt(from)
+            q.add(to, item)
+            q.toList()
+        }
         persist()
     }
 

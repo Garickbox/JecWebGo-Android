@@ -86,7 +86,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
         val queueGroups = remember(queue) {
             queue.groupBy { DownloadRepository.groupKeyOf(it) }
         }
-        val groupKeys = remember(queueGroups) { queueGroups.keys.toList() }
+        val groupKeys = remember(queue) { queue.map { DownloadRepository.groupKeyOf(it) }.distinct() }
         LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val a = active
@@ -108,7 +108,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                 item { Spacer(Modifier.height(8.dp)); SectionTitle("В очереди (${queueActive.size})", queueCollapsed) { queueCollapsed = !queueCollapsed } }
                 if (!queueCollapsed) {
                     val g = queueActive.groupBy { DownloadRepository.groupKeyOf(it) }
-                    val keys = g.keys.toList()
+                    val keys = queueActive.map { DownloadRepository.groupKeyOf(it) }.distinct()
                     itemsIndexed(keys) { gIdx, key ->
                         val items = g[key] ?: emptyList()
                         if (items.isEmpty()) return@itemsIndexed
