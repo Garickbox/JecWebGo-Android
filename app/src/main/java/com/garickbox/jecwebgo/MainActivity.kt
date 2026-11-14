@@ -227,6 +227,7 @@ class MainActivity : ComponentActivity() {
                                         fileName = pr.fileName,
                                         poster = pr.poster,
                                         description = pr.description,
+                                        localKey = pr.localKey,
                                         onBack = {
                                             PendingPlayer.consume()
                                             nav.popBackStack()

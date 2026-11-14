@@ -15,7 +15,8 @@ data class PlayerRequest(
     val loading: Boolean = false,
     val status: String = "",
     val error: String? = null,
-    val fileName: String = ""
+    val fileName: String = "",
+    val localKey: String = ""
 )
 
 object PendingPlayer {
@@ -31,12 +32,12 @@ object PendingPlayer {
     fun updateStatus(msg: String) {
         _data.value = _data.value?.copy(status = msg)
     }
-    fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "") {
+    fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "", localKey: String = "") {
         _data.value = _data.value?.copy(
             url = url, title = title, hash = hash,
-            currentIndex = currentIndex, fileName = fileName,
+            currentIndex = currentIndex, fileName = fileName, localKey = localKey,
             loading = false, error = null
-        ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, fileName = fileName)
+        ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, fileName = fileName, localKey = localKey)
     }
     fun error(msg: String) {
         _data.value = _data.value?.copy(loading = false, error = msg)

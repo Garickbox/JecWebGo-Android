@@ -28,7 +28,8 @@ class DownloadViewModel : ViewModel() {
             title = item.title,
             hash = "",
             currentIndex = 1,
-            fileName = item.fileName
+            fileName = item.fileName,
+            localKey = item.uri
         )
         android.util.Log.d("JecWeb", "local play: ${item.uri} file=${item.fileName}")
     }

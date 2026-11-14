@@ -86,6 +86,7 @@ fun PlayerScreen(
     fileName: String = "",
     poster: String = "",
     description: String = "",
+    localKey: String = "",
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -118,6 +119,7 @@ fun PlayerScreen(
             poster = poster,
             description = description,
             hwMode = effectiveMode,
+            localKey = localKey,
             onBack = onBack,
             onError = { fallback() }
         )
@@ -135,6 +137,7 @@ private fun PlayerScreenImpl(
     poster: String,
     description: String,
     hwMode: String,
+    localKey: String,
     onBack: () -> Unit,
     onError: () -> Unit
 ) {
@@ -414,13 +417,15 @@ private fun PlayerScreenImpl(
                 Lifecycle.Event.ON_STOP -> {
                     backgroundedAt = System.currentTimeMillis()
                     if (!PipState.isInPip.value) {
-                        if (hash.isNotBlank() && position > 1000 && duration > 0) {
+                        val logMagnet = if (localKey.isNotBlank()) localKey else ""
+                        if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 1000 && duration > 0) {
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                 try {
                                     PlayLogStore.add(context, PlayLogEntry(
-                                        "phone", mainTitle, "", hash,
+                                        "phone", mainTitle, logMagnet, hash,
                                         System.currentTimeMillis() / 1000, position, duration
                                     ))
+                                    android.util.Log.d("JecWeb", "ON_STOP save: pos=$position/$duration key=${localKey.ifBlank { hash }}")
                                 } catch (_: Exception) {}
                             }
                         }
@@ -659,10 +664,15 @@ private fun PlayerScreenImpl(
             scope.launch {
                 delay(1500)
                 try {
-                    val log = PlayLogStore.list(context).firstOrNull { it.hash == hash }
+                    val list = PlayLogStore.list(context)
+                    val log = if (localKey.isNotBlank()) list.firstOrNull { it.magnet == localKey }
+                              else if (hash.isNotBlank()) list.firstOrNull { it.hash == hash }
+                              else null
                     if (log != null && log.position > 60000 && duration > 0 && log.position < duration * 0.95) {
                         mediaPlayer.time = log.position
-                        android.util.Log.d("JecWeb", "resume from ${log.position}/${duration}")
+                        android.util.Log.d("JecWeb", "resume from ${log.position}/${duration} key=${localKey.ifBlank { hash }}")
+                    } else if (log != null) {
+                        android.util.Log.d("JecWeb", "resume skip: pos=${log.position} dur=$duration")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("JecWeb", "resume err: ${e.message}")
@@ -702,16 +712,17 @@ private fun PlayerScreenImpl(
 
     // Сохраняем позицию каждые 20с
     LaunchedEffect(isPlaying) {
-        if (isPlaying && hash.isNotBlank()) {
+        if (isPlaying && (hash.isNotBlank() || localKey.isNotBlank())) {
             while (true) {
                 delay(20000)
-                if (position > 60000 && duration > 0) {
+                val logMagnet = if (localKey.isNotBlank()) localKey else ""
+                if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 60000 && duration > 0) {
                     try {
                         PlayLogStore.add(context, PlayLogEntry(
-                            "phone", mainTitle, "", hash,
+                            "phone", mainTitle, logMagnet, hash,
                             System.currentTimeMillis() / 1000, position, duration
                         ))
-                        android.util.Log.d("JecWeb", "save pos $position/$duration")
+                        android.util.Log.d("JecWeb", "save pos $position/$duration key=${localKey.ifBlank { hash }}")
                     } catch (e: Exception) { }
                 }
             }
