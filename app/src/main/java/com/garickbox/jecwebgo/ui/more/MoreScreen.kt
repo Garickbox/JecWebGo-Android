@@ -34,6 +34,7 @@ private val moreTiles = listOf(
 @Composable
 fun MoreScreen(nav: NavController) {
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(title = { Text("Ещё", fontWeight = FontWeight.SemiBold) })
         }

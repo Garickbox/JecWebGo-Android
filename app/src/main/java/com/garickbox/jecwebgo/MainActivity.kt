@@ -66,7 +66,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
         try {
-            window.statusBarColor = android.graphics.Color.parseColor("#0A0A0A")
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
             val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
             wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -336,6 +337,17 @@ class MainActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPip, newConfig)
         com.garickbox.jecwebgo.ui.player.PipState.isInPip.value = isInPip
         android.util.Log.d("JecWeb", "PiP mode=$isInPip")
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            try {
+                val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

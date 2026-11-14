@@ -41,6 +41,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     var historyCollapsed by remember { mutableStateOf(false) }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(title = {
                 Column {

@@ -80,7 +80,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
     }
 
 
-    Scaffold { pad ->
+    Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)) { pad ->
         PullToRefreshBox(
             isRefreshing = s.refreshing,
             onRefresh = { vm.refresh() },
