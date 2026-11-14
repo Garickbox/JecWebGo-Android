@@ -4,6 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,14 +59,25 @@ fun LoadingView(
         }
     }
     val url = PosterUtil.posterUrl(poster)
-    android.util.Log.d("JecWeb", "LoadingView.render: poster='${poster.take(60)}' url='${url.take(80)}'")
+    val ctx = LocalContext.current
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
-            AsyncImage(
-                model = url, contentDescription = title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            key(url) {
+                val req = remember(url) {
+                    android.util.Log.d("JecWeb", "LoadingView.REQ url=${url.take(100)}")
+                    coil.request.ImageRequest.Builder(ctx)
+                        .data(url)
+                        .crossfade(200)
+                        .build()
+                }
+                AsyncImage(
+                    model = req, contentDescription = title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    onSuccess = { android.util.Log.d("JecWeb", "LoadingView.OK url=${url.take(80)}") },
+                    onError = { android.util.Log.e("JecWeb", "LoadingView.ERR ${it.result.throwable.message}") }
+                )
+            }
             // Градиент снизу для читаемости текста (постер полностью виден сверху)
             Box(
                 Modifier.fillMaxSize().background(
