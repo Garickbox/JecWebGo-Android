@@ -171,7 +171,7 @@ private fun PlayerScreenImpl(
         onDispose {
             activity?.let {
                 val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
-                wic.show(WindowInsetsCompat.Type.systemBars())
+                wic.hide(WindowInsetsCompat.Type.systemBars())
             }
         }
     }

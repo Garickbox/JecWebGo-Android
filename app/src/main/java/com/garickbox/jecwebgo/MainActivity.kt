@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
             window.statusBarColor = android.graphics.Color.parseColor("#0A0A0A")
             androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
             val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-            wic.hide(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } catch (_: Exception) {}
         TorrServerService.start(this)
@@ -185,8 +185,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }) { pad ->
-                    Column(Modifier.padding(pad).fillMaxSize().statusBarsPadding()) {
-                        if (current != "player") StatusBar()
+                    Column(Modifier.padding(pad).fillMaxSize()) {
+                        if (current == "home") StatusBar()
                         NavHost(nav, "home", Modifier.fillMaxSize()) {
                             composable("home") { HomeScreen(onOpenSearch = { q ->
                                 pendingSearch = q
