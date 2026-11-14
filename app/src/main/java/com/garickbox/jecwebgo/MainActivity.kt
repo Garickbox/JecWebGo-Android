@@ -146,8 +146,9 @@ class MainActivity : ComponentActivity() {
                         pendingTabFromIntent = null
                     }
                 }
-                LaunchedEffect(playerRequest) {
-                    if (playerRequest != null) nav.navigate("player") { launchSingleTop = true }
+                LaunchedEffect(playerRequest?.title) {
+                    val pr = playerRequest
+                    if (pr != null && pr.title.isNotBlank()) nav.navigate("player") { launchSingleTop = true }
                 }
                 val entry by nav.currentBackStackEntryAsState()
                 val current = entry?.destination?.route ?: "home"

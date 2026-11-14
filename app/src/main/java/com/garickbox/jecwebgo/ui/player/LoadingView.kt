@@ -6,6 +6,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,12 +30,16 @@ fun LoadingView(
     loadingNonce: Long = 0L,
     onCancel: () -> Unit
 ) {
+    // Флаг: TMDB search уже выполнен для (title, loadingNonce). Не дублируем при пересоздании LoadingView.
+    var tmdbAttempted by rememberSaveable(title, loadingNonce) { mutableStateOf(false) }
+
     // TMDB search: получить URL постера + описание (один раз на nonce)
     LaunchedEffect(title, loadingNonce) {
-        if (title.isBlank()) return@LaunchedEffect
+        if (title.isBlank() || tmdbAttempted) return@LaunchedEffect
         val needPoster = poster.isBlank()
         val needDesc = description.isBlank()
         if (!needPoster && !needDesc) return@LaunchedEffect
+        tmdbAttempted = true
         try {
             val info = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
             if (info != null) {
