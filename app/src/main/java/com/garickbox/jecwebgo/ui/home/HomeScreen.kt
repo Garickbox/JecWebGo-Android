@@ -65,7 +65,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
         val caps = if (net != null) cm.getNetworkCapabilities(net) else null
         noNet = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true
     }
-    LaunchedEffect(Unit) { if (s.items.isEmpty() && !s.loading) vm.load() }
+    android.util.Log.d("JecWeb", "HomeScreen: loading=${s.loading} items=${s.items.size} err=${s.error}")
 
     val homeLifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current
     DisposableEffect(homeLifecycle) {
@@ -144,7 +144,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
 
 @Composable
 private fun GroupCard(g: GroupedTorrent, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
+    Card(Modifier.fillMaxWidth().height(330.dp).clickable { onClick() }, shape = RoundedCornerShape(10.dp)) {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
                 val url = remember(g.poster) { posterUrl(g.poster) }

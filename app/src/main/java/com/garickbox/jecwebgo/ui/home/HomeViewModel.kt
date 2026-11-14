@@ -27,38 +27,67 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<HomeState> = _state.asStateFlow()
     @Volatile private var cachedGroups: List<GroupedTorrent>? = null
     @Volatile private var cachedFromHash: Int = 0
+    @Volatile private var loadingInProgress: Boolean = false
 
     fun load() {
+        if (loadingInProgress) {
+            android.util.Log.d("JecWeb", "HomeVM: load() skipped (already in progress)")
+            return
+        }
+        loadingInProgress = true
         viewModelScope.launch {
-            _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
-            val raw = DataRepository.load(getApplication())
-            val key = raw.size
-            val grouped = cachedGroups?.takeIf { cachedFromHash == key } ?: run {
-                val g = group(raw)
-                cachedGroups = g
-                cachedFromHash = key
-                g
+            try {
+                val t0 = System.currentTimeMillis()
+                _state.value = _state.value.copy(loading = _state.value.items.isEmpty())
+                val raw = DataRepository.load(getApplication())
+                val key = raw.size
+                android.util.Log.d("JecWeb", "HomeVM: raw=$key cache=${cachedGroups?.size} cachedKey=$cachedFromHash")
+                val grouped = cachedGroups?.takeIf { cachedFromHash == key } ?: run {
+                    android.util.Log.d("JecWeb", "HomeVM: computing group() on Default for $key items")
+                    val g = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { group(raw) }
+                    cachedGroups = g
+                    cachedFromHash = key
+                    g
+                }
+                android.util.Log.d("JecWeb", "HomeVM: grouped=${grouped.size} in ${System.currentTimeMillis() - t0}ms")
+                _state.value = _state.value.copy(
+                    items = grouped, loading = false,
+                    error = if (grouped.isEmpty()) "База пуста. Обновите данные." else null
+                )
+                updateDateFromMeta()
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "HomeVM load fail: ${e.message}")
+                _state.value = _state.value.copy(loading = false, error = e.message)
+            } finally {
+                loadingInProgress = false
             }
-            _state.value = _state.value.copy(
-                items = grouped, loading = false,
-                error = if (grouped.isEmpty()) "База пуста. Обновите данные." else null
-            )
-            updateDateFromMeta()
         }
     }
 
     fun refresh() {
+        if (loadingInProgress) {
+            android.util.Log.d("JecWeb", "HomeVM: refresh() skipped (load in progress)")
+            return
+        }
+        loadingInProgress = true
         viewModelScope.launch {
-            _state.value = _state.value.copy(refreshing = true, error = null)
-            val raw = DataRepository.refresh(getApplication())
-            val grouped = group(raw)
-            cachedGroups = grouped
-            cachedFromHash = raw.size
+            try {
+                _state.value = _state.value.copy(refreshing = true, error = null)
+                val raw = DataRepository.refresh(getApplication())
+                val grouped = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { group(raw) }
+                cachedGroups = grouped
+                cachedFromHash = raw.size
             _state.value = _state.value.copy(
                 items = grouped, refreshing = false,
                 error = if (grouped.isEmpty()) "Не удалось загрузить базу" else null
             )
             updateDateFromMeta()
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "HomeVM refresh fail: ${e.message}")
+                _state.value = _state.value.copy(refreshing = false, error = e.message)
+            } finally {
+                loadingInProgress = false
+            }
         }
     }
 
