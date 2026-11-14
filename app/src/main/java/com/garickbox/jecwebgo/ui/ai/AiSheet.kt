@@ -16,8 +16,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun AiSheet(
     onDismiss: () -> Unit,
@@ -25,29 +35,34 @@ fun AiSheet(
     vm: AiViewModel = viewModel()
 ) {
     val s by vm.state.collectAsState()
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val ctx = LocalContext.current
     var input by remember { mutableStateOf("") }
-    val localView = androidx.compose.ui.platform.LocalView.current
-    LaunchedEffect(Unit) {
-        try {
-            var c: android.content.Context? = localView.context
-            while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
-            (c as? android.app.Activity)?.window?.let { w ->
-                val wic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
-                wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        } catch (_: Exception) {}
-    }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
-    ModalBottomSheet(
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(16.dp)) {
+        val dialogWindowProvider = LocalView.current.parent as? DialogWindowProvider
+        DisposableEffect(Unit) {
+            dialogWindowProvider?.window?.let { w ->
+                val wic = WindowCompat.getInsetsController(w, w.decorView)
+                wic.hide(WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+            onDispose { }
+        }
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it })
+        ) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                Column(Modifier.fillMaxSize().imePadding().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🤖 AI Помощник", style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
@@ -157,6 +172,8 @@ fun AiSheet(
                     Text("▶")
                 }
             }
+        }
+        }
         }
     }
 }
