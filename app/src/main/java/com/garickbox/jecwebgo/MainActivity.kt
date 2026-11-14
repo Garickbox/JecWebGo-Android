@@ -23,7 +23,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -152,11 +157,14 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val nav = rememberNavController()
+                val pagerState = rememberPagerState(pageCount = { tabs.size })
+                val scope = rememberCoroutineScope()
                 var searchResetKey by remember { mutableIntStateOf(0) }
                 val playerRequest by PendingPlayer.data.collectAsState()
                 LaunchedEffect(pendingTabFromIntent) {
                     pendingTabFromIntent?.let { t ->
-                        nav.navigate(t) { launchSingleTop = true; popUpTo("home") { inclusive = false } }
+                        val idx = tabs.indexOfFirst { it.route == t }
+                        if (idx >= 0) pagerState.animateScrollToPage(idx)
                         pendingTabFromIntent = null
                     }
                 }
@@ -165,33 +173,39 @@ class MainActivity : ComponentActivity() {
                     if (pr != null && pr.title.isNotBlank()) nav.navigate("player") { launchSingleTop = true }
                 }
                 val entry by nav.currentBackStackEntryAsState()
-                val current = entry?.destination?.route ?: "home"
-                LaunchedEffect(current) {
-                    updatePipForRoute(current)
+                val subRoute = entry?.destination?.route
+                val inSubroute = subRoute != null && subRoute != "empty"
+                val pagerRoute = tabs.getOrNull(pagerState.currentPage)?.route ?: "home"
+                val current = if (inSubroute) (subRoute ?: "home") else pagerRoute
+                val selectedTab = when {
+                    !inSubroute -> pagerRoute
+                    subRoute == "player" -> pagerRoute
+                    subRoute in moreRoutes -> "more"
+                    else -> subRoute ?: pagerRoute
+                }
+                var pendingSearch by remember { mutableStateOf<String?>(null) }
+                LaunchedEffect(subRoute, pagerState.currentPage) {
+                    updatePipForRoute(subRoute ?: "empty")
                     try {
                         val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                         wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                         wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     } catch (_: Exception) {}
                 }
-                val selectedTab = if (current in moreRoutes) "more" else current
-                var pendingSearch by remember { mutableStateOf<String?>(null) }
                 Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0), bottomBar = {
-                    if (current != "player") NavigationBar(
+                    if (subRoute != "player") NavigationBar(
                         modifier = Modifier.height(56.dp),
                         containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
                         tonalElevation = 0.dp,
                         windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
                     ) {
-                        tabs.forEach { t ->
+                        tabs.forEachIndexed { idx, t ->
                             NavigationBarItem(
                                 selected = selectedTab == t.route,
                                 onClick = {
                                     if (t.route == "search") searchResetKey++
-                                    if (current != t.route) nav.navigate(t.route) {
-                                        popUpTo("home")
-                                        launchSingleTop = true
-                                    }
+                                    if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                    scope.launch { pagerState.animateScrollToPage(idx) }
                                 },
                                 icon = {
                                     Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(22.dp))
@@ -200,76 +214,33 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }) { pad ->
-                    Column(Modifier.padding(pad).fillMaxSize()) {
-                        if (current == "home") StatusBar()
-                        var dragOffset by remember { mutableFloatStateOf(0f) }
-                        NavHost(
-                            navController = nav,
-                            startDestination = "home",
-                            modifier = Modifier.fillMaxSize()
-                                .offset { IntOffset(dragOffset.toInt(), 0) }
-                                .pointerInput(current) {
-                                    var accumDx = 0f
-                                    detectHorizontalDragGestures(
-                                        onDragStart = { accumDx = 0f; dragOffset = 0f },
-                                        onHorizontalDrag = { change, dragAmount ->
-                                            accumDx += dragAmount
-                                            dragOffset = accumDx
-                                            change.consume()
-                                        },
-                                        onDragEnd = {
-                                            dragOffset = 0f
-                                            if (kotlin.math.abs(accumDx) > 80f) {
-                                                val mainRoutes = listOf("home", "search", "downloads", "more")
-                                                val idx = mainRoutes.indexOf(current)
-                                                if (idx >= 0) {
-                                                    if (accumDx < 0 && idx < mainRoutes.size - 1) {
-                                                        nav.navigate(mainRoutes[idx + 1]) { popUpTo("home"); launchSingleTop = true }
-                                                    } else if (accumDx > 0 && idx > 0) {
-                                                        nav.navigate(mainRoutes[idx - 1]) { popUpTo("home"); launchSingleTop = true }
-                                                    }
-                                                }
-                                            }
-                                            accumDx = 0f
-                                        }
-                                    )
-                                },
-                            enterTransition = {
-                                androidx.compose.animation.slideInHorizontally(
-                                    initialOffsetX = { it },
-                                    animationSpec = androidx.compose.animation.core.tween(220)
+                    Box(Modifier.padding(pad).fillMaxSize()) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            beyondViewportPageCount = 1
+                        ) { page ->
+                            when (page) {
+                                0 -> HomeScreen(onOpenSearch = { q ->
+                                    pendingSearch = q
+                                    scope.launch { pagerState.animateScrollToPage(1) }
+                                })
+                                1 -> SearchScreen(
+                                    pendingQuery = pendingSearch,
+                                    onQueryConsumed = { pendingSearch = null },
+                                    resetKey = searchResetKey
                                 )
-                            },
-                            exitTransition = {
-                                androidx.compose.animation.slideOutHorizontally(
-                                    targetOffsetX = { -it / 3 },
-                                    animationSpec = androidx.compose.animation.core.tween(220)
-                                )
-                            },
-                            popEnterTransition = {
-                                androidx.compose.animation.slideInHorizontally(
-                                    initialOffsetX = { -it / 3 },
-                                    animationSpec = androidx.compose.animation.core.tween(220)
-                                )
-                            },
-                            popExitTransition = {
-                                androidx.compose.animation.slideOutHorizontally(
-                                    targetOffsetX = { it },
-                                    animationSpec = androidx.compose.animation.core.tween(220)
-                                )
+                                2 -> DownloadScreen()
+                                3 -> MoreScreen(nav)
                             }
-                        ) {
-                            composable("home") { HomeScreen(onOpenSearch = { q ->
-                                pendingSearch = q
-                                nav.navigate("search") { popUpTo("search"); launchSingleTop = true }
-                            }) }
-                            composable("search") { SearchScreen(
-                                pendingQuery = pendingSearch,
-                                onQueryConsumed = { pendingSearch = null },
-                                resetKey = searchResetKey
-                            ) }
-                            composable("downloads") { DownloadScreen() }
-                            composable("more") { MoreScreen(nav) }
+                        }
+                        if (!inSubroute && pagerState.currentPage == 0) {
+                            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                                StatusBar()
+                            }
+                        }
+                        NavHost(nav, "empty", Modifier.fillMaxSize()) {
+                            composable("empty") {}
                             composable("history") { HistoryScreen() }
                             composable("bookmarks") { BookmarksScreen() }
                             composable("settings") { SettingsScreen() }
