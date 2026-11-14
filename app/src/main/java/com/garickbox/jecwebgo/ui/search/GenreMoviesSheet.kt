@@ -1,5 +1,6 @@
 package com.garickbox.jecwebgo.ui.search
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,20 +79,20 @@ fun GenreMoviesSheet(
         ) {
             Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(12.dp),
-                    tonalElevation = 2.dp
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                        Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f))
-                        IconButton(onClick = onDismiss) {
-                            Text("✕", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                            Text("✕", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
