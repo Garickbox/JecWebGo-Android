@@ -56,7 +56,7 @@ fun StatusBar() {
 
     Row(
         Modifier.fillMaxWidth()
-            .padding(horizontal = 8.dp, top = 2.dp, bottom = 2.dp)
+            .padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 2.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Color.Black.copy(alpha = 0.35f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
