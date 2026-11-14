@@ -52,6 +52,15 @@ fun AiSheet(
         val dialogWindowProvider = LocalView.current.parent as? DialogWindowProvider
         DisposableEffect(Unit) {
             dialogWindowProvider?.window?.let { w ->
+                try {
+                    w.statusBarColor = android.graphics.Color.TRANSPARENT
+                    w.navigationBarColor = android.graphics.Color.TRANSPARENT
+                    w.setLayout(
+                        android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                        android.view.WindowManager.LayoutParams.MATCH_PARENT
+                    )
+                    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                } catch (_: Exception) {}
                 val wic = WindowCompat.getInsetsController(w, w.decorView)
                 wic.hide(WindowInsetsCompat.Type.systemBars())
                 wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -64,7 +73,7 @@ fun AiSheet(
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                Column(Modifier.fillMaxSize().imePadding().padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                Column(Modifier.fillMaxSize().imePadding().padding(start = 16.dp, end = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("🤖 AI Помощник", style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))

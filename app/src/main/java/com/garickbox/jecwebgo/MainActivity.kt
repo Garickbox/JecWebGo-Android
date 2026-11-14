@@ -23,6 +23,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -198,7 +200,59 @@ class MainActivity : ComponentActivity() {
                 }) { pad ->
                     Column(Modifier.padding(pad).fillMaxSize()) {
                         if (current == "home") StatusBar()
-                        NavHost(nav, "home", Modifier.fillMaxSize()) {
+                        NavHost(
+                            navController = nav,
+                            startDestination = "home",
+                            modifier = Modifier.fillMaxSize()
+                                .pointerInput(current) {
+                                    var accumDx = 0f
+                                    detectHorizontalDragGestures(
+                                        onDragStart = { accumDx = 0f },
+                                        onHorizontalDrag = { change, dragAmount ->
+                                            accumDx += dragAmount
+                                            change.consume()
+                                        },
+                                        onDragEnd = {
+                                            if (kotlin.math.abs(accumDx) > 120f) {
+                                                val mainRoutes = listOf("home", "search", "downloads", "more")
+                                                val idx = mainRoutes.indexOf(current)
+                                                if (idx >= 0) {
+                                                    if (accumDx < 0 && idx < mainRoutes.size - 1) {
+                                                        nav.navigate(mainRoutes[idx + 1]) { popUpTo("home"); launchSingleTop = true }
+                                                    } else if (accumDx > 0 && idx > 0) {
+                                                        nav.navigate(mainRoutes[idx - 1]) { popUpTo("home"); launchSingleTop = true }
+                                                    }
+                                                }
+                                            }
+                                            accumDx = 0f
+                                        }
+                                    )
+                                },
+                            enterTransition = {
+                                androidx.compose.animation.slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = androidx.compose.animation.core.tween(220)
+                                )
+                            },
+                            exitTransition = {
+                                androidx.compose.animation.slideOutHorizontally(
+                                    targetOffsetX = { -it / 3 },
+                                    animationSpec = androidx.compose.animation.core.tween(220)
+                                )
+                            },
+                            popEnterTransition = {
+                                androidx.compose.animation.slideInHorizontally(
+                                    initialOffsetX = { -it / 3 },
+                                    animationSpec = androidx.compose.animation.core.tween(220)
+                                )
+                            },
+                            popExitTransition = {
+                                androidx.compose.animation.slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = androidx.compose.animation.core.tween(220)
+                                )
+                            }
+                        ) {
                             composable("home") { HomeScreen(onOpenSearch = { q ->
                                 pendingSearch = q
                                 nav.navigate("search") { popUpTo("search"); launchSingleTop = true }

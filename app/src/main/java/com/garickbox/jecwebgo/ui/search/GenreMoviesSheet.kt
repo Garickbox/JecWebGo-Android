@@ -24,7 +24,6 @@ import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.data.network.TmdbMovie
 import com.garickbox.jecwebgo.data.network.TmdbRepository
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenreMoviesSheet(
     genre: TmdbGenre,
@@ -32,7 +31,6 @@ fun GenreMoviesSheet(
     onSearch: (title: String) -> Unit
 ) {
     val ctx = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var data by remember { mutableStateOf<TmdbData?>(null) }
     var loading by remember { mutableStateOf(true) }
     var detailsMovie by remember { mutableStateOf<TmdbMovie?>(null) }
@@ -47,41 +45,75 @@ fun GenreMoviesSheet(
         TmdbDetailsDialog(m, onDismiss = { detailsMovie = null }, onSearch = onSearch)
     }
 
-    ModalBottomSheet(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp)) {
-            Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Text("Популярное 2024-2026 · TMDB", fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(10.dp))
-
-            val movies = data?.byGenre(genre.id, 50) ?: emptyList()
-
-            when {
-                loading -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                movies.isEmpty() -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("База TMDB ещё не готова", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Первый прогон раз в неделю", fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val dialogWindowProvider = androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            dialogWindowProvider?.window?.let { w ->
+                try {
+                    w.statusBarColor = android.graphics.Color.TRANSPARENT
+                    w.navigationBarColor = android.graphics.Color.TRANSPARENT
+                    w.setLayout(
+                        android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                        android.view.WindowManager.LayoutParams.MATCH_PARENT
+                    )
+                    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                } catch (_: Exception) {}
+                val wic = androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
+                wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+            onDispose { }
+        }
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f))
+                    IconButton(onClick = onDismiss) {
+                        Text("✕", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp),
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(movies) { movie ->
-                        MovieCard(movie) { detailsMovie = movie }
+                Text("Популярное 2024-2026 · TMDB", fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+
+                val movies = data?.byGenre(genre.id, 50) ?: emptyList()
+
+                when {
+                    loading -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    movies.isEmpty() -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("База TMDB ещё не готова", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Первый прогон раз в неделю", fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    else -> LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(movies) { movie ->
+                            MovieCard(movie) { detailsMovie = movie }
+                        }
                     }
                 }
             }
