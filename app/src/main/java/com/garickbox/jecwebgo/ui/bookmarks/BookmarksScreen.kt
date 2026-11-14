@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.ui.common.SubScreenTopBar
 import com.garickbox.jecwebgo.data.store.Bookmark
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
