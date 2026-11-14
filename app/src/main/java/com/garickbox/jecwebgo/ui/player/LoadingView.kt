@@ -57,32 +57,13 @@ fun LoadingView(
         }
     }
 
-    val url = PosterUtil.posterUrl(poster)
-
-    // Prefetch в кеш Coil (LaunchedEffect(url) не отменяется при recompose)
-    LaunchedEffect(url) {
-        if (url.isBlank()) return@LaunchedEffect
-        try {
-            android.util.Log.d("JecWeb", "LoadingView.prefetch START: ${url.take(80)}")
-            val req = ImageRequest.Builder(ctx).data(url).build()
-            val result = ctx.imageLoader.execute(req)
-            when (result) {
-                is SuccessResult -> android.util.Log.d("JecWeb", "LoadingView.prefetch OK: ${url.take(60)}")
-                is ErrorResult -> android.util.Log.e("JecWeb", "LoadingView.prefetch ERR: ${result.throwable.message}")
-                else -> android.util.Log.d("JecWeb", "LoadingView.prefetch: ${result::class.simpleName}")
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "LoadingView.prefetch fail: ${e.message}")
-        }
-    }
+    val url = remember(poster) { PosterUtil.posterUrl(poster) }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (url.isNotBlank()) {
             AsyncImage(
                 model = url, contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                onSuccess = { android.util.Log.d("JecWeb", "LoadingView.OK url=${url.take(80)}") },
-                onError = { android.util.Log.e("JecWeb", "LoadingView.ERR ${it.result.throwable.message}") }
+                contentScale = ContentScale.Crop
             )
             // Градиент снизу для читаемости текста (постер полностью виден сверху)
             Box(
