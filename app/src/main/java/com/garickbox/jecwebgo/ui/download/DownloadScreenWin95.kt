@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo.ui.download
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -846,6 +847,7 @@ private fun EmptySectionWin95(icon: String, text: String) {
 // ACTIVE CARD
 // ═══════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActiveCardWin95(
     item: DownloadItem,
@@ -943,6 +945,7 @@ private fun ActiveCardWin95(
 // FOLDER CARD (раскрывающаяся папка или одиночный файл)
 // ═══════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderCardWin95(
     group: QueueGroup,
@@ -1118,6 +1121,7 @@ private fun HorizontalDividerWin95() {
 // HISTORY ROW (компактная)
 // ═══════════════════════════════════════════════════════════
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryRowWin95(
     item: com.garickbox.jecwebgo.data.download.DownloadedItem,
