@@ -62,7 +62,7 @@ private fun HistoryScreenBody() {
 
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
 
-    LazyColumn(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (searches.isNotEmpty()) {
             item { Text("Запросы", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
             itemsIndexed(searches) { idx, h ->

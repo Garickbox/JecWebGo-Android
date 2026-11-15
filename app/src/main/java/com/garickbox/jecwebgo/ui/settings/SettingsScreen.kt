@@ -52,7 +52,7 @@ private fun SettingsScreenBody() {
         } catch (_: Exception) {}
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Настройки", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)

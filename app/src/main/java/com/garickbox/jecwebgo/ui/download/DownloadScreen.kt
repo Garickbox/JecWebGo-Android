@@ -89,6 +89,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
         }
         val groupKeys = remember(queue) { queue.map { DownloadRepository.groupKeyOf(it) }.distinct() }
         LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp),
+            contentPadding = PaddingValues(bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val a = active
             if (a != null) {

@@ -43,7 +43,7 @@ fun GenreGrid(onGenreClick: (TmdbGenre) -> Unit) {
         if (data != null && data.genres.isNotEmpty()) genres = data.genres
     }
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxSize().padding(vertical = 8.dp)) {
         Text(
             "Жанры · популярное 2024-2026",
             style = MaterialTheme.typography.titleSmall,
@@ -51,11 +51,12 @@ fun GenreGrid(onGenreClick: (TmdbGenre) -> Unit) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            modifier = Modifier.fillMaxWidth(),
+            columns = GridCells.Adaptive(minSize = 90.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 72.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            userScrollEnabled = false
+            userScrollEnabled = true
         ) {
             items(genres) { g ->
                 Card(

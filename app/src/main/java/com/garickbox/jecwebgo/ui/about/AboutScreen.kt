@@ -40,7 +40,7 @@ fun AboutScreen(onBack: () -> Unit = {}) {
         topBar = { com.garickbox.jecwebgo.ui.common.SubScreenTopBar("О приложении", onBack) }
     ) { pad ->
         Column(
-            Modifier.fillMaxSize().padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(pad).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(24.dp))

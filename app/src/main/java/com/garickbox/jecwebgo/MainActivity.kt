@@ -221,7 +221,7 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxWidth()
                                 .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
                         ) {
                             NavigationBar(
                                 modifier = Modifier.height(56.dp),

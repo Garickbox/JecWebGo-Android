@@ -40,8 +40,9 @@ fun MoreScreen(nav: NavController) {
         }
     ) { pad ->
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(minSize = 160.dp),
             modifier = Modifier.fillMaxSize().padding(pad).padding(16.dp),
+            contentPadding = PaddingValues(bottom = 72.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
