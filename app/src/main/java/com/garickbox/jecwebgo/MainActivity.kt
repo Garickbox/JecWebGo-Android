@@ -46,7 +46,7 @@ import androidx.navigation.compose.rememberNavController
 import com.garickbox.jecwebgo.service.TorrServerService
 import com.garickbox.jecwebgo.ui.about.AboutScreen
 import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
-import com.garickbox.jecwebgo.ui.download.DownloadScreen
+import com.garickbox.jecwebgo.ui.download.DownloadScreenWin95
 import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
 import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
                                     onQueryConsumed = { pendingSearch = null },
                                     resetKey = searchResetKey
                                 )
-                                2 -> DownloadScreen()
+                                2 -> DownloadScreenWin95()
                                 3 -> MoreScreen(nav)
                             }
                         }
