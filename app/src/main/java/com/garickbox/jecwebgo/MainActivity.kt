@@ -45,12 +45,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.garickbox.jecwebgo.service.TorrServerService
 import com.garickbox.jecwebgo.ui.about.AboutScreen
-import com.garickbox.jecwebgo.ui.bookmarks.BookmarksScreen
 import com.garickbox.jecwebgo.ui.download.DownloadScreenWin95
 import com.garickbox.jecwebgo.ui.common.win95.Win95BottomBar
 import com.garickbox.jecwebgo.ui.common.win95.Win95Tab
 import com.garickbox.jecwebgo.ui.handoff.HandoffDialog
-import com.garickbox.jecwebgo.ui.history.HistoryScreen
 import com.garickbox.jecwebgo.ui.home.HomeScreen
 import com.garickbox.jecwebgo.ui.player.PendingPlayer
 import com.garickbox.jecwebgo.ui.player.ErrorView
@@ -82,7 +80,7 @@ val tabs = listOf(
     Tab("downloads", "Загрузки", Icons.Filled.Download)
 )
 
-private val moreRoutes = setOf("history", "bookmarks", "settings", "about")
+private val moreRoutes = setOf("settings", "about")
 
 object MainState {
     @Volatile var currentRoute: String = "home"
@@ -288,10 +286,8 @@ class MainActivity : ComponentActivity() {
                         }
                         NavHost(nav, "empty", Modifier.fillMaxSize()) {
                             composable("empty") {}
-                            composable("history") { HistoryScreen(onBack = { nav.popBackStack() }) }
-                            composable("bookmarks") { BookmarksScreen(onBack = { nav.popBackStack() }) }
                             composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }, bottomBarHeight = 56.dp) }
-                            composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
+                            composable("about") { AboutScreen(onBack = { nav.popBackStack() }, bottomBarHeight = 56.dp) }
                             composable("player") {
                                 val pr = playerRequest
                                 if (pr == null) {

@@ -43,6 +43,11 @@ object PlayLogStore {
         Unit
     }
 
+    suspend fun clear(ctx: Context) = withContext(Dispatchers.IO) {
+        try { file(ctx).writeText("[]") } catch (_: Exception) {}
+        Unit
+    }
+
     suspend fun removeAt(ctx: Context, index: Int) = withContext(Dispatchers.IO) {
         val cur = list(ctx).toMutableList()
         if (index in cur.indices) {

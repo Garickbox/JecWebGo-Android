@@ -142,13 +142,15 @@ fun DownloadScreenWin95(
                 onSelect = { currentTab = it }
             )
 
-            // ═══ TOOLBAR ═══
-            Win95Toolbar(
-                search = state.search,
-                onSearchChange = { vm.onSearch(it) },
-                filter = state.filter,
-                onFilterChange = { vm.onFilter(it) }
-            )
+            // ═══ TOOLBAR (только на downloads) ═══
+            if (currentTab == "downloads") {
+                Win95Toolbar(
+                    search = state.search,
+                    onSearchChange = { vm.onSearch(it) },
+                    filter = state.filter,
+                    onFilterChange = { vm.onFilter(it) }
+                )
+            }
 
             // ═══ SELECTION PANEL (условно) ═══
             if (state.selection.isNotEmpty()) {
@@ -165,8 +167,8 @@ fun DownloadScreenWin95(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (currentTab) {
                     "downloads" -> DownloadContentWin95(state, vm, ctx)
-                    "history" -> Win95PlaceholderTab("История", "Будет в CP-C8c", "🕐")
-                    "marks" -> Win95PlaceholderTab("Метки", "Будет в CP-C8c", "🔖")
+                    "history" -> HistoryTabWin95()
+                    "marks" -> MarksTabWin95()
                     else -> DownloadContentWin95(state, vm, ctx)
                 }
             }
