@@ -94,7 +94,7 @@ fun AllActorsDialog(
 
 @Composable
 private fun DialogActorTile(actor: TmdbActor, onClick: () -> Unit) {
-    val url = TmdbRepository.actorPhotoUrl(actor.profile_file)
+    val url = remember(actor.id) { TmdbRepository.actorPhotoUrl(actor.profile_file) }
     Column(
         Modifier.aspectRatio(0.68f).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally

@@ -31,7 +31,7 @@ fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String
         Card(Modifier.fillMaxWidth().padding(8.dp).heightIn(max = 720.dp)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Box(Modifier.fillMaxWidth().height(280.dp)) {
-                    val url = TmdbRepository.posterUrl(movie)
+                    val url = remember(movie.id) { TmdbRepository.posterUrl(movie) }
                     if (url.isNotBlank()) {
                         AsyncImage(model = url, contentDescription = movie.title,
                             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
@@ -128,7 +128,7 @@ fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String
                                             .background(MaterialTheme.colorScheme.surfaceVariant),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val photoUrl = TmdbRepository.actorPhotoUrl(c.profile_file)
+                                        val photoUrl = remember(c.id) { TmdbRepository.actorPhotoUrl(c.profile_file) }
                                         if (photoUrl.isNotBlank()) {
                                             AsyncImage(model = photoUrl, contentDescription = c.name,
                                                 modifier = Modifier.fillMaxSize().clip(CircleShape),

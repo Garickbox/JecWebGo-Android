@@ -161,7 +161,7 @@ fun GenreGrid(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 userScrollEnabled = false
             ) {
-                items(genres) { g ->
+                items(genres, key = { it.id }) { g ->
                     TileCard(emoji = g.emoji, name = g.name) { onGenreClick(g) }
                 }
             }

@@ -248,7 +248,7 @@ private fun DetailsDialog(
         Card(Modifier.fillMaxWidth().padding(8.dp)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Box(Modifier.fillMaxWidth().height(240.dp)) {
-                    val url = posterUrl(g.poster)
+                    val url = remember(g.poster) { posterUrl(g.poster) }
                     if (url.isNotBlank()) {
                         AsyncImage(model = url, contentDescription = g.cleanTitle,
                             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)

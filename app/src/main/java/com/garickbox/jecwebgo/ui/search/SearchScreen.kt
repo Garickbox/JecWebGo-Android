@@ -131,7 +131,7 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 72.dp)
                 ) {
-                    items(s.items) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
+                    items(s.items, key = { it.sid }) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
                 }
             }
         }
