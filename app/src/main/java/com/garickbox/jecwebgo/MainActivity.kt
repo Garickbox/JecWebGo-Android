@@ -353,14 +353,13 @@ class MainActivity : ComponentActivity() {
     private fun setupPip() {
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             try {
+                // НЕ ставим setAutoEnterEnabled вообще — default = false.
+                // PiP только явно через enterPictureInPictureMode() в onUserLeaveHint.
                 val params = android.app.PictureInPictureParams.Builder()
                     .setAspectRatio(android.util.Rational(16, 9))
                     .build()
-                if (android.os.Build.VERSION.SDK_INT >= 31) {
-                    params.setAutoEnterEnabled(false)
-                }
                 setPictureInPictureParams(params)
-                android.util.Log.d("JecWeb", "PiP configured: autoEnter=false ALWAYS")
+                android.util.Log.d("JecWeb", "PiP configured: default autoEnter=false")
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "setupPip fail: ${e.message}")
             }
