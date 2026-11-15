@@ -12,15 +12,61 @@ POSTERS_DIR = "posters_tmdb"
 ACTORS_DIR = "posters_actors"
 JSON_FILE = "tmdb_movies.json"
 
-# Discover для новых популярных (2023+)
 YEARS = [2023, 2024, 2025, 2026]
 
-# Актёры
-ACTOR_MIN_YEAR = 1980          # фильтр фильмографий
-ACTOR_FILMS_LIMIT = 30         # фильмов на актёра
-ACTOR_MIN_MOVIES = 3           # минимум фильмов в базе для кандидата
-TOP_ACTORS_LIMIT = 500         # всего актёров с фото
-POPULAR_PEOPLE_PAGES = 20      # 1000 популярных для верификации
+ACTOR_MIN_YEAR = 1980
+ACTOR_FILMS_LIMIT = 30
+ACTOR_MIN_MOVIES_ORIGIN = 2   # для origin-кандидатов
+TOP_ACTORS_LIMIT = 800        # после фильтра на фото
+POPULAR_PEOPLE_PAGES = 20     # 1000 popular
+
+# ═══ 150 curated легенд ═══
+LEGEND_NAMES = [
+    # Экшен 80-90х (40)
+    "Jean-Claude Van Damme", "Arnold Schwarzenegger", "Sylvester Stallone",
+    "Bruce Willis", "Dolph Lundgren", "Steven Seagal", "Jackie Chan",
+    "Chuck Norris", "Jet Li", "Jean Reno", "Mel Gibson", "Danny Glover",
+    "Kurt Russell", "Wesley Snipes", "Michael Douglas", "Chow Yun-fat",
+    "Sammo Hung", "Donnie Yen", "Michelle Yeoh", "Cynthia Rothrock",
+    "Sigourney Weaver", "Linda Hamilton", "Milla Jovovich", "Nicolas Cage",
+    "John Travolta", "Christian Slater", "Keanu Reeves", "Tommy Lee Jones",
+    "Pierce Brosnan", "Sean Connery", "Roger Moore", "Timothy Dalton",
+    "Harrison Ford", "Mark Hamill", "Carrie Fisher", "Patrick Swayze",
+    "Kevin Costner", "Denzel Washington", "Tom Cruise", "Alec Baldwin",
+    # Драма (30)
+    "Robert De Niro", "Al Pacino", "Joe Pesci", "Anthony Hopkins",
+    "Morgan Freeman", "Tom Hanks", "Jack Nicholson", "Dustin Hoffman",
+    "Robin Williams", "Brad Pitt", "Edward Norton", "Kevin Spacey",
+    "Russell Crowe", "Hugh Jackman", "Christian Bale", "Gary Oldman",
+    "Daniel Day-Lewis", "Liam Neeson", "Ralph Fiennes", "Ben Kingsley",
+    "Ian McKellen", "Michael Caine", "Judi Dench", "Meryl Streep",
+    "Cate Blanchett", "Nicole Kidman", "Julia Roberts", "Jodie Foster",
+    "Glenn Close", "Kathy Bates",
+    # Комедия (20)
+    "Jim Carrey", "Adam Sandler", "Mike Myers", "Eddie Murphy",
+    "Steve Martin", "Bill Murray", "Rowan Atkinson", "Ben Stiller",
+    "Will Ferrell", "Jack Black", "John Cleese", "Chevy Chase",
+    "Dan Aykroyd", "Rick Moranis", "Steve Carell", "Kevin Hart",
+    "Sacha Baron Cohen", "Russell Brand", "Zach Galifianakis", "Owen Wilson",
+    # Современные (30)
+    "Leonardo DiCaprio", "Cillian Murphy", "Matt Damon", "Ben Affleck",
+    "Johnny Depp", "Ryan Reynolds", "Ryan Gosling", "Chris Evans",
+    "Chris Hemsworth", "Robert Downey Jr.", "Mark Ruffalo", "Jeremy Renner",
+    "Scarlett Johansson", "Chris Pratt", "Dwayne Johnson", "Vin Diesel",
+    "Jason Statham", "Tom Hardy", "Jake Gyllenhaal", "Michael Fassbender",
+    "Idris Elba", "Benedict Cumberbatch", "Tom Hiddleston", "Oscar Isaac",
+    "Pedro Pascal", "Paul Rudd", "Will Smith", "Samuel L. Jackson",
+    "Timothée Chalamet", "Joaquin Phoenix",
+    # Актрисы (30)
+    "Angelina Jolie", "Natalie Portman", "Kate Winslet", "Kristen Stewart",
+    "Jennifer Lawrence", "Anne Hathaway", "Emma Stone", "Emma Watson",
+    "Charlize Theron", "Uma Thurman", "Cameron Diaz", "Drew Barrymore",
+    "Halle Berry", "Zoe Saldana", "Karen Gillan", "Elizabeth Olsen",
+    "Brie Larson", "Gal Gadot", "Margot Robbie", "Florence Pugh",
+    "Anya Taylor-Joy", "Jenna Ortega", "Millie Bobby Brown", "Zendaya",
+    "Saoirse Ronan", "Sydney Sweeney", "Daisy Ridley", "Lupita Nyong'o",
+    "Danai Gurira", "Tilda Swinton",
+]
 
 GENRES = [
     {"id": 28,    "name": "Боевик",         "emoji": "💥"},
@@ -78,9 +124,7 @@ async def fetch_details(session, movie_id):
             if r.status != 200: return None
             data = await r.json()
             credits = data.get("credits", {})
-            # ВСЕ id актёров (не только top-15) — для byActorId
             cast_ids = [c.get("id", 0) for c in credits.get("cast", []) if c.get("id", 0) > 0]
-            # Топ-15 с деталями (фото, character)
             cast_details = []
             for c in credits.get("cast", [])[:15]:
                 cast_details.append({
@@ -142,11 +186,31 @@ async def fetch_details(session, movie_id):
         print(f"  details err {movie_id}: {e}")
         return None
 
+async def search_person(session, name):
+    """Возвращает (id, name, profile_path) первого совпадения или None."""
+    enc = name.replace(" ", "%20")
+    url = f"{TMDB_BASE}/search/person?query={enc}&language=en-US&page=1&api_key={TMDB_API_KEY}"
+    try:
+        async with session.get(url, timeout=15) as r:
+            if r.status != 200: return None
+            data = await r.json()
+            results = data.get("results", [])
+            if not results: return None
+            p = results[0]
+            return {
+                "id": p.get("id", 0),
+                "name": p.get("name", name),
+                "profile_path": p.get("profile_path") or "",
+            }
+    except Exception as e:
+        print(f"  search_person err {name}: {e}")
+        return None
+
 async def fetch_person_credits(session, person_id):
-    """Полная фильмография актёра: cast-only, 1980+, не voice, sorted by rating."""
+    """Полная фильмография: cast-only, 1980+, не voice, sorted by rating."""
     url = f"{TMDB_BASE}/person/{person_id}/movie_credits?language=ru-RU&api_key={TMDB_API_KEY}"
     try:
-        async with session.get(url, timeout=20) as r:
+        async with session.get(url, timeout=25) as r:
             if r.status != 200: return []
             data = await r.json()
             cast = data.get("cast", [])
@@ -180,7 +244,7 @@ async def download_poster(session, poster_path, movie_id):
         img.save(f"{POSTERS_DIR}/{movie_id}.webp", "WEBP", quality=78, method=6)
         return True
     except Exception as e:
-        print(f"  PIL fail {movie_id}: {e}"); return False
+        return False
 
 async def download_actor_photo(session, profile_path, person_id):
     if not profile_path: return False
@@ -194,19 +258,26 @@ async def download_actor_photo(session, profile_path, person_id):
         img.save(f"{ACTORS_DIR}/{person_id}.webp", "WEBP", quality=78, method=6)
         return True
     except Exception as e:
-        print(f"  actor PIL fail {person_id}: {e}"); return False
+        return False
 
 async def fetch_popular_people(session):
-    """Только для верификации «это реально известный человек» — не для фильтра."""
-    out = set()
+    """Возвращает dict{id: {id, name, popularity, profile_path}}."""
+    out = {}
     for page in range(1, POPULAR_PEOPLE_PAGES + 1):
-        url = f"{TMDB_BASE}/person/popular?language=ru-RU&page={page}&api_key={TMDB_API_KEY}"
+        url = f"{TMDB_BASE}/person/popular?language=en-US&page={page}&api_key={TMDB_API_KEY}"
         try:
             async with session.get(url, timeout=15) as r:
                 if r.status != 200: continue
                 data = await r.json()
                 for p in data.get("results", []):
-                    out.add(p.get("id", 0))
+                    pid = p.get("id", 0)
+                    if pid > 0 and pid not in out:
+                        out[pid] = {
+                            "id": pid,
+                            "name": p.get("name", ""),
+                            "popularity": float(p.get("popularity", 0) or 0),
+                            "profile_path": p.get("profile_path") or "",
+                        }
         except Exception as e:
             print(f"  popular err p{page}: {e}")
     return out
@@ -217,10 +288,11 @@ async def main():
     os.makedirs(POSTERS_DIR, exist_ok=True)
     os.makedirs(ACTORS_DIR, exist_ok=True)
     all_movies = {}
+    t_start = datetime.now()
 
     async with aiohttp.ClientSession() as session:
-        # ═══ 1. Discover (18 жанров × 4 года) ═══
-        print("🔍 Discover по 18 жанрам × 4 года × 3 страницы...")
+        # ═══ 1. Discover origin ═══
+        print("🔍 [1/10] Discover 18 жанров × 4 года...")
         for g in GENRES:
             results = await fetch_discover(session, g["id"])
             print(f"  {g['name']}: {len(results)}")
@@ -229,8 +301,8 @@ async def main():
                     all_movies[m["id"]] = m
         print(f"📊 Origin фильмов: {len(all_movies)}")
 
-        # ═══ 2. Details для origin ═══
-        print("📥 Детали origin...")
+        # ═══ 2. Details origin ═══
+        print("📥 [2/10] Details origin...")
         sem = asyncio.Semaphore(15)
         async def enrich(mid):
             async with sem:
@@ -239,7 +311,7 @@ async def main():
         await asyncio.gather(*[enrich(mid) for mid in list(all_movies.keys())])
 
         # ═══ 3. Постеры origin ═══
-        print("🖼️ Постеры origin...")
+        print("🖼️ [3/10] Постеры origin...")
         sem2 = asyncio.Semaphore(12)
         async def dl(mid):
             async with sem2:
@@ -249,68 +321,124 @@ async def main():
         ok_count = sum(1 for v in poster_ok.values() if v)
         print(f"✅ Постеров origin: {ok_count}/{len(all_movies)}")
 
-        # ═══ 4. Агрегация актёров из origin ═══
-        print("🎭 Агрегация актёров из origin...")
-        actor_stats = {}
+        # ═══ 4. Собираем кандидатов ═══
+        print("🎭 [4/10] Сбор кандидатов...")
+        candidates = {}  # id -> {id, name, profile_path, origin_in_popular, popularity}
+
+        # 4a. Legend whitelist через /search/person
+        print(f"  Whitelist: {len(LEGEND_NAMES)} имён через /search/person...")
+        sem_legend = asyncio.Semaphore(10)
+        async def find_legend(name):
+            async with sem_legend:
+                return await search_person(session, name)
+        legend_results = await asyncio.gather(*[find_legend(n) for n in LEGEND_NAMES])
+        for p in legend_results:
+            if p and p["id"] > 0:
+                candidates[p["id"]] = {
+                    "id": p["id"], "name": p["name"], "profile_path": p["profile_path"],
+                    "is_legend": True, "is_popular": False, "popularity": 0.0,
+                }
+        print(f"    → найдено в whitelist: {len(candidates)}")
+
+        # 4b. Popular (1000)
+        print(f"  Popular: {POPULAR_PEOPLE_PAGES} страниц...")
+        popular = await fetch_popular_people(session)
+        print(f"    → popular: {len(popular)}")
+        for pid, p in popular.items():
+            if pid not in candidates:
+                candidates[pid] = {
+                    "id": pid, "name": p["name"], "profile_path": p["profile_path"],
+                    "is_legend": False, "is_popular": True, "popularity": p["popularity"],
+                }
+            else:
+                candidates[pid]["is_popular"] = True
+                candidates[pid]["popularity"] = p["popularity"]
+
+        # 4c. Актёры из origin (movie_count>=2)
+        print(f"  Origin-актёры (movie_count>={ACTOR_MIN_MOVIES_ORIGIN})...")
+        origin_actor_count = {}
         for mid, m in all_movies.items():
             d = m.get("_details", {})
             if not d: continue
             for c in d.get("cast_details", []):
                 aid = c.get("id", 0)
                 if aid == 0: continue
-                if aid not in actor_stats:
-                    actor_stats[aid] = {
-                        "name": c["name"],
-                        "profile_path": c["profile_path"],
-                        "movie_count": 0,
-                        "ratings": [],
-                        "votes": [],
-                    }
-                actor_stats[aid]["movie_count"] += 1
-                r = float(m.get("vote_average", 0) or 0)
-                if r > 0: actor_stats[aid]["ratings"].append(r)
-                v = int(m.get("vote_count", 0) or 0)
-                if v > 0: actor_stats[aid]["votes"].append(v)
+                origin_actor_count[aid] = origin_actor_count.get(aid, 0) + 1
+        added_origin = 0
+        for aid, count in origin_actor_count.items():
+            if count < ACTOR_MIN_MOVIES_ORIGIN: continue
+            if aid in candidates: continue
+            # имя из cast_details
+            name, prof = "", ""
+            for mid, m in all_movies.items():
+                d = m.get("_details", {})
+                if not d: continue
+                for c in d.get("cast_details", []):
+                    if c.get("id") == aid:
+                        name, prof = c.get("name", ""), c.get("profile_path", "")
+                        break
+                if name: break
+            if not name: continue
+            candidates[aid] = {
+                "id": aid, "name": name, "profile_path": prof,
+                "is_legend": False, "is_popular": False, "popularity": 0.0,
+            }
+            added_origin += 1
+        print(f"    → добавлено origin: {added_origin}")
+        print(f"📊 Всего кандидатов: {len(candidates)}")
 
-        # ═══ 5. Верификация через /person/popular (нужна для «известности») ═══
-        print(f"🎭 Верификация через popular ({POPULAR_PEOPLE_PAGES} страниц)...")
-        popular_ids = await fetch_popular_people(session)
-        print(f"  Популярных: {len(popular_ids)}")
+        # ═══ 5. Фильмографии ВСЕХ кандидатов ═══
+        print(f"🎬 [5/10] Фильмографии {len(candidates)} кандидатов (1980+, cast-only, no voice)...")
+        credits_by_actor = {}
+        sem_cred = asyncio.Semaphore(20)
+        async def fetch_cred(aid):
+            async with sem_cred:
+                credits_by_actor[aid] = await fetch_person_credits(session, aid)
+        await asyncio.gather(*[fetch_cred(aid) for aid in candidates.keys()])
 
-        # ═══ 6. Кандидаты: movie_count >= ACTOR_MIN_MOVIES, есть фото ═══
-        candidates = []
-        for aid, s in actor_stats.items():
-            if s["movie_count"] < ACTOR_MIN_MOVIES: continue
-            if not s["profile_path"]: continue  # обязательно фото
-            avg_r = sum(s["ratings"]) / len(s["ratings"]) if s["ratings"] else 0
-            votes_total = sum(s["votes"])
-            in_popular = 1 if aid in popular_ids else 0
-            candidates.append({
+        # ═══ 6. Пересчёт score по РЕАЛЬНОЙ фильмографии ═══
+        print("📊 [6/10] Пересчёт score по фильмографии...")
+        valid_candidates = []
+        for aid, c in candidates.items():
+            credits = credits_by_actor.get(aid, [])
+            if not credits: continue
+            # профиль должен быть (из origin / popular / search)
+            if not c["profile_path"]: continue
+            ratings = [float(cr.get("vote_average") or 0) for cr in credits if (cr.get("vote_average") or 0) > 0]
+            votes = [int(cr.get("vote_count") or 0) for cr in credits if (cr.get("vote_count") or 0) > 0]
+            avg_r = sum(ratings) / len(ratings) if ratings else 0
+            votes_total = sum(votes)
+            valid_candidates.append({
                 "id": aid,
-                "name": s["name"],
-                "profile_path": s["profile_path"],
-                "movie_count": s["movie_count"],
+                "name": c["name"],
+                "profile_path": c["profile_path"],
+                "movie_count": len(credits),
                 "avg_rating": round(avg_r, 1),
                 "votes_total": votes_total,
-                "in_popular": in_popular,
+                "is_legend": c["is_legend"],
+                "is_popular": c["is_popular"],
+                "popularity": c["popularity"],
             })
-        print(f"  Кандидатов (movie_count>={ACTOR_MIN_MOVIES}, есть фото): {len(candidates)}")
+        print(f"    → с фильмографией и фото: {len(valid_candidates)}")
 
-        # ═══ 7. Score: БЕЗ popularity, С votes_total + popular boost ═══
-        max_count = max((c["movie_count"] for c in candidates), default=1)
-        for c in candidates:
+        # Score: movie_count*0.4 + avg_rating*0.3 + votes_total*0.3 + boost легенд/popular
+        max_count = max((c["movie_count"] for c in valid_candidates), default=1)
+        for c in valid_candidates:
             c["score"] = round(
                 (c["movie_count"] / max_count) * 100 * 0.4
                 + c["avg_rating"] * 0.3
                 + min(c["votes_total"] / 10000.0, 50) * 0.3
-                + c["in_popular"] * 15,   # boost для «сегодняшних» звёзд
+                + (15 if c["is_legend"] else 0)
+                + (10 if c["is_popular"] else 0),
                 2
             )
-        top_actors = sorted(candidates, key=lambda x: -x["score"])[:TOP_ACTORS_LIMIT]
-        print(f"🎭 Топ-{TOP_ACTORS_LIMIT} актёров отобрано (из {len(candidates)})")
 
-        # ═══ 8. Фото 500 актёров ═══
-        print(f"📸 Фото {len(top_actors)} актёров (w185)...")
+        # ═══ 7. Top-800 ═══
+        top_actors = sorted(valid_candidates, key=lambda x: -x["score"])[:TOP_ACTORS_LIMIT]
+        print(f"🎭 [7/10] Top-{len(top_actors)} актёров отобрано")
+
+        # ═══ 8. Фото top-800 ═══
+        print(f"📸 [8/10] Фото {len(top_actors)} актёров (w185)...")
         sem3 = asyncio.Semaphore(10)
         async def dl_actor(a):
             async with sem3:
@@ -319,23 +447,16 @@ async def main():
         actor_ok = dict(actor_results)
         for a in top_actors:
             a["profile_file"] = f"{a['id']}.webp" if actor_ok.get(a["id"]) else ""
-        # Убираем актёров без фото
         top_actors = [a for a in top_actors if a["profile_file"]]
         actor_ok_count = len(top_actors)
-        print(f"✅ Фото актёров: {actor_ok_count}")
+        print(f"✅ Фото: {actor_ok_count}")
 
-        # ═══ 9. Фильмографии 500 актёров ═══
-        print(f"🎬 Фильмографии {len(top_actors)} актёров (cast-only, 1980+, не voice)...")
-        credits_by_actor = {}
-        sem_credits = asyncio.Semaphore(15)
-        async def fetch_cred(a):
-            async with sem_credits:
-                credits_by_actor[a["id"]] = await fetch_person_credits(session, a["id"])
-        await asyncio.gather(*[fetch_cred(a) for a in top_actors])
-
-        # ═══ 10. Новые фильмы (нет в origin) ═══
+        # ═══ 9. Новые фильмы из фильмографий ═══
+        print("🆕 [9/10] Новые фильмы из фильмографий...")
+        top_actor_ids = {a["id"] for a in top_actors}
         new_ids = set()
-        for aid, credits in credits_by_actor.items():
+        for aid in top_actor_ids:
+            credits = credits_by_actor.get(aid, [])
             for c in credits:
                 mid = c.get("id")
                 if mid and mid not in all_movies:
@@ -350,10 +471,9 @@ async def main():
                         "genre_ids": c.get("genre_ids", []),
                         "_from_credits": True,
                     }
-        print(f"🆕 Новых фильмов из фильмографий: {len(new_ids)}")
+        print(f"    → новых фильмов: {len(new_ids)}")
 
-        # ═══ 11. Details для новых ═══
-        print("📥 Детали новых фильмов...")
+        print("📥 [9b/10] Details новых фильмов...")
         sem_new = asyncio.Semaphore(15)
         async def enrich_new(mid):
             async with sem_new:
@@ -361,8 +481,7 @@ async def main():
                 if d: all_movies[mid]["_details"] = d
         await asyncio.gather(*[enrich_new(mid) for mid in new_ids])
 
-        # ═══ 12. Постеры новых ═══
-        print("🖼️ Постеры новых...")
+        print("🖼️ [9c/10] Постеры новых фильмов...")
         sem_new_p = asyncio.Semaphore(12)
         async def dl_new(mid):
             async with sem_new_p:
@@ -370,8 +489,8 @@ async def main():
         new_poster_results = await asyncio.gather(*[dl_new(mid) for mid in new_ids])
         poster_ok.update(dict(new_poster_results))
 
-    # ═══ Формирование JSON ═══
-    print("📦 Формирование JSON...")
+    # ═══ 10. JSON ═══
+    print("📦 [10/10] Формирование JSON...")
     top_actor_ids = {a["id"] for a in top_actors}
     movies_out = []
     for mid, m in all_movies.items():
@@ -418,6 +537,8 @@ async def main():
         "movie_count": a["movie_count"],
         "avg_rating": a["avg_rating"],
         "votes_total": a["votes_total"],
+        "is_legend": a["is_legend"],
+        "is_popular": a["is_popular"],
     } for a in top_actors]
 
     data = {
@@ -429,9 +550,17 @@ async def main():
     with open(JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     size_mb = os.path.getsize(JSON_FILE) / 1024 / 1024
-    print(f"✅ ФИНАЛ: {len(movies_out)} фильмов, {len(top_actors_clean)} актёров, JSON {size_mb:.1f} MB")
-    print(f"✅ Постеров: {sum(1 for v in poster_ok.values() if v)}")
-    print(f"✅ Фото актёров: {actor_ok_count}")
+    elapsed = (datetime.now() - t_start).total_seconds() / 60
+
+    # ═══ Итоги ═══
+    legends_in_top = sum(1 for a in top_actors if a["is_legend"])
+    print(f"")
+    print(f"════════ ГОТОВО за {elapsed:.1f} мин ════════")
+    print(f"  Фильмов: {len(movies_out)}")
+    print(f"  Актёров: {len(top_actors_clean)} (легенд: {legends_in_top}/150)")
+    print(f"  JSON: {size_mb:.1f} MB")
+    print(f"  Постеров: {sum(1 for v in poster_ok.values() if v)}")
+    print(f"  Фото: {actor_ok_count}")
 
 if __name__ == "__main__":
     asyncio.run(main())
