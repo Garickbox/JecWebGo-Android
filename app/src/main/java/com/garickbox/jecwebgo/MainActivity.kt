@@ -63,6 +63,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.sp
 
 data class Tab(val route: String, val label: String, val icon: ImageVector)
 val tabs = listOf(
@@ -254,7 +259,7 @@ class MainActivity : ComponentActivity() {
                                         Icon(t.icon, contentDescription = t.label,
                                             modifier = Modifier.size(22.dp), tint = col)
                                         Spacer(Modifier.height(2.dp))
-                                        Text(t.label, fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
+                                        Text(t.label, fontSize = 10.sp,
                                             fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                                             color = col)
                                     }
