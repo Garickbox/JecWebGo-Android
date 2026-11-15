@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garickbox.jecwebgo.ui.theme.Win95Colors
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawBehind
 
 /** Win95 кнопка с pressed state и offset при нажатии */
 @Composable
@@ -106,31 +107,32 @@ fun Win95Progress(
     modifier: Modifier = Modifier,
     height: Dp = 16.dp
 ) {
+    val pct = progress.coerceIn(0f, 1f)
+    val periodDp = 10.dp
+    val navyFraction = 0.8f
     Box(
         modifier = modifier
             .height(height)
             .background(Win95Colors.White)
             .win95Bevel(raised = false, thickness = 1.dp)
             .padding(1.dp)
-    ) {
-        val pct = progress.coerceIn(0f, 1f)
-        if (pct > 0f) {
-            Box(
-                Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(pct)
-                    .background(
-                        Brush.horizontalGradient(
-                            colorStops = Array(28) { i ->
-                                val stop = i / 27f
-                                val color = if ((i / 2) % 2 == 0) Win95Colors.Navy else Win95Colors.Face
-                                stop to color
-                            }
-                        )
+            .drawBehind {
+                if (pct <= 0f) return@drawBehind
+                val fillWidth = size.width * pct
+                val periodPx = periodDp.toPx()
+                val navyPx = periodPx * navyFraction
+                var x = 0f
+                while (x < fillWidth) {
+                    val w = minOf(navyPx, fillWidth - x)
+                    drawRect(
+                        color = Win95Colors.Navy,
+                        topLeft = androidx.compose.ui.geometry.Offset(x, 0f),
+                        size = androidx.compose.ui.geometry.Size(w, size.height)
                     )
-            )
-        }
-    }
+                    x += periodPx
+                }
+            }
+    )
 }
 
 /** Win95 title bar — gradient Navy → NavyLight */

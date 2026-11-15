@@ -67,18 +67,47 @@ fun DownloadScreenWin95(
             // ═══ MENU BAR ═══
             Win95MenuBar(
                 onOpenFolder = {
-                    try {
-                        val folderIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                            setDataAndType(
-                                android.net.Uri.parse("content://com.android.externalstorage.documents/root/primary:Download/JecWeb"),
-                                "resource/folder"
-                            )
-                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        ctx.startActivity(folderIntent)
-                    } catch (_: Exception) {
+                    val authority = "com.android.externalstorage.documents"
+                    val docId = "primary:Download/JecWeb"
+                    var launched = false
+                    if (!launched) {
+                        try {
+                            val uri = android.provider.DocumentsContract.buildDocumentUri(authority, docId)
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, android.provider.DocumentsContract.Document.MIME_TYPE_DIR)
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            ctx.startActivity(intent)
+                            launched = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!launched) {
+                        try {
+                            val uri = android.net.Uri.parse("content://" + authority + "/root/primary")
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, android.provider.DocumentsContract.Document.MIME_TYPE_DIR)
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            ctx.startActivity(intent)
+                            launched = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!launched) {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                setDataAndType(
+                                    android.net.Uri.parse("file:///storage/emulated/0/Download/JecWeb"),
+                                    "resource/folder"
+                                )
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            ctx.startActivity(intent)
+                            launched = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!launched) {
                         android.widget.Toast.makeText(
-                            ctx, "Папка: Downloads/JecWeb", android.widget.Toast.LENGTH_LONG
+                            ctx, "Папка: /storage/emulated/0/Download/JecWeb", android.widget.Toast.LENGTH_LONG
                         ).show()
                     }
                 },
@@ -261,6 +290,7 @@ private fun Win95MenuBar(
                             DropdownSep()
                             DropdownOption("🔤 Сортировать по имени", "") { openMenu = null; onSort(DownloadUiState.Sort.NAME) }
                             DropdownOption("📏 По размеру", "") { openMenu = null; onSort(DownloadUiState.Sort.SIZE) }
+                            DropdownOption("📅 По дате", "") { openMenu = null; onSort(DownloadUiState.Sort.DATE) }
                             DropdownOption("↺ По умолчанию", "") { openMenu = null; onSort(DownloadUiState.Sort.DEFAULT) }
                         }
                         "help" -> {
