@@ -64,18 +64,23 @@ object PlayActions {
 
     fun playHash(ctx: Context, scope: CoroutineScope, hash: String, title: String) {
         bgScope.launch {
-            ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT)
-            val video = findVideoFile(hash)
-            if (video == null) {
-                ctx.toast("Видеофайл не найден", Toast.LENGTH_LONG)
-                return@launch
+            try {
+                ctx.toast("Загрузка торрента…", Toast.LENGTH_SHORT)
+                val video = findVideoFile(hash)
+                if (video == null) {
+                    ctx.toast("Видеофайл не найден", Toast.LENGTH_LONG)
+                    return@launch
+                }
+                val ready = TorrentRepository.waitReady(hash, video.id, 30000L)
+                if (!ready) {
+                    ctx.toast("Торрент не готов за 30с", Toast.LENGTH_LONG)
+                    return@launch
+                }
+                openVlc(ctx, hash, video.id, title, "", video.path.substringAfterLast("/"))
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "playHash fail: ${e.message}")
+                ctx.toast("Ошибка запуска: ${e.message?.take(60) ?: "unknown"}", Toast.LENGTH_LONG)
             }
-            val ready = TorrentRepository.waitReady(hash, video.id, 30000L)
-            if (!ready) {
-                ctx.toast("Торрент не готов за 30с", Toast.LENGTH_LONG)
-                return@launch
-            }
-            openVlc(ctx, hash, video.id, title, "", video.path.substringAfterLast("/"))
         }
     }
 

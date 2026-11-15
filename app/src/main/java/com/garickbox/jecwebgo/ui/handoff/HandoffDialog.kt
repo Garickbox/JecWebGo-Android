@@ -116,11 +116,20 @@ fun HandoffDialog(
                         onClick = {
                             scope.launch {
                                 working = true; errText = null
-                                val h = effectiveMagnet?.let { TorrentRepository.add(it) }
-                                working = false
-                                if (h == null) {
-                                    errText = "Не удалось добавить: нет пиров / магнет мёртв"
-                                } else { PlayActions.playHash(ctx, scope, h, effectiveTitle); onDismiss() }
+                                try {
+                                    val h = effectiveMagnet?.let { TorrentRepository.add(it) }
+                                    if (h == null) {
+                                        errText = "Не удалось добавить: нет пиров / магнет мёртв"
+                                    } else {
+                                        PlayActions.playHash(ctx, scope, h, effectiveTitle)
+                                        onDismiss()
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("JecWeb", "HandoffDialog play fail: ${e.message}")
+                                    errText = "Ошибка: ${e.message?.take(80) ?: "unknown"}"
+                                } finally {
+                                    working = false
+                                }
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -130,25 +139,30 @@ fun HandoffDialog(
                         onClick = {
                             scope.launch {
                                 working = true; errText = null
-                                val h = effectiveMagnet?.let { TorrentRepository.add(it) }
-                                if (h == null) {
+                                try {
+                                    val h = effectiveMagnet?.let { TorrentRepository.add(it) }
+                                    if (h == null) {
+                                        errText = "Не удалось добавить: нет пиров / магнет мёртв"
+                                        return@launch
+                                    }
+                                    TorrentRepository.waitReady(h, 1, 60000L)
+                                    loading = true
+                                    var got: List<TorrentFile> = emptyList()
+                                    val deadline = System.currentTimeMillis() + 20000L
+                                    while (System.currentTimeMillis() < deadline && got.isEmpty()) {
+                                        got = TorrentRepository.getFiles(h)
+                                        if (got.isEmpty()) kotlinx.coroutines.delay(1000)
+                                    }
+                                    files = got
+                                    pickerHash = h
+                                    if (got.isEmpty()) errText = "Нет файлов (нет пиров)"
+                                } catch (e: Exception) {
+                                    android.util.Log.e("JecWeb", "HandoffDialog download fail: ${e.message}")
+                                    errText = "Ошибка: ${e.message?.take(80) ?: "unknown"}"
+                                } finally {
+                                    loading = false
                                     working = false
-                                    errText = "Не удалось добавить: нет пиров / магнет мёртв"
-                                    return@launch
                                 }
-                                TorrentRepository.waitReady(h, 1, 60000L)
-                                loading = true
-                                var got: List<TorrentFile> = emptyList()
-                                val deadline = System.currentTimeMillis() + 20000L
-                                while (System.currentTimeMillis() < deadline && got.isEmpty()) {
-                                    got = TorrentRepository.getFiles(h)
-                                    if (got.isEmpty()) kotlinx.coroutines.delay(1000)
-                                }
-                                files = got
-                                loading = false
-                                working = false
-                                pickerHash = h
-                                if (got.isEmpty()) errText = "Нет файлов (нет пиров)"
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),

@@ -805,12 +805,18 @@ private fun PlayerScreenImpl(
         loadingSeries = true
         seriesSheet = true
         scope.launch {
-            val files = TorrentRepository.getFiles(hash)
-            seriesList = files.filter {
-                val ext = it.path.substringAfterLast(".", "").lowercase()
-                ext in setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
+            try {
+                val files = TorrentRepository.getFiles(hash)
+                seriesList = files.filter {
+                    val ext = it.path.substringAfterLast(".", "").lowercase()
+                    ext in setOf("mp4", "mkv", "avi", "mov", "wmv", "webm", "flv", "m4v", "ts", "m2ts")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "openSeriesSheet fail: ${e.message}")
+                context.toast("Ошибка загрузки серий")
+            } finally {
+                loadingSeries = false
             }
-            loadingSeries = false
         }
     }
 

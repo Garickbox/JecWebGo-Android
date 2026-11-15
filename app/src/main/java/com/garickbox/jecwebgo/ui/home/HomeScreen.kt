@@ -302,20 +302,26 @@ private fun DetailsDialog(
                                 loadingFiles = true
                                 filesFor = emptyList()
                                 scope.launch {
-                                    val h = TorrentRepository.add(item.magnet) ?: MagnetUtil.hashOf(item.magnet)
-                                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                                        TorrentRepository.preload(h, 5, 4)
-                                    }
-                                    var got: List<com.garickbox.jecwebgo.domain.TorrentFile> = emptyList()
-                                    val deadline = System.currentTimeMillis() + 20000L
-                                    while (System.currentTimeMillis() < deadline && got.isEmpty()) {
-                                        got = TorrentRepository.getFiles(h)
-                                        if (got.isEmpty()) kotlinx.coroutines.delay(1000)
-                                    }
-                                    filesFor = got
-                                    loadingFiles = false
-                                    if (got.isEmpty()) {
-                                        ctx.toast("TorrServer не отдал файлы (нет пиров?)", android.widget.Toast.LENGTH_LONG)
+                                    try {
+                                        val h = TorrentRepository.add(item.magnet) ?: MagnetUtil.hashOf(item.magnet)
+                                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                            try { TorrentRepository.preload(h, 5, 4) } catch (_: Exception) {}
+                                        }
+                                        var got: List<com.garickbox.jecwebgo.domain.TorrentFile> = emptyList()
+                                        val deadline = System.currentTimeMillis() + 20000L
+                                        while (System.currentTimeMillis() < deadline && got.isEmpty()) {
+                                            got = TorrentRepository.getFiles(h)
+                                            if (got.isEmpty()) kotlinx.coroutines.delay(1000)
+                                        }
+                                        filesFor = got
+                                        if (got.isEmpty()) {
+                                            ctx.toast("TorrServer не отдал файлы (нет пиров?)", android.widget.Toast.LENGTH_LONG)
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("JecWeb", "HomeScreen pickFiles fail: ${e.message}")
+                                        ctx.toast("Ошибка: ${e.message?.take(60) ?: "unknown"}", android.widget.Toast.LENGTH_LONG)
+                                    } finally {
+                                        loadingFiles = false
                                     }
                                 }
                             }, modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp)) {
