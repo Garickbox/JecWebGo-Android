@@ -14,6 +14,8 @@ import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.ui.ai.AiSheet
 import com.garickbox.jecwebgo.data.network.TmdbGenre
+import com.garickbox.jecwebgo.data.network.TmdbCategory
+import com.garickbox.jecwebgo.data.network.TmdbMovie
 import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
@@ -52,7 +54,13 @@ fun SearchScreen(
     val scope = rememberCoroutineScope()
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     var showAi by remember { mutableStateOf(false) }
-    var selectedGenre by remember { mutableStateOf<TmdbGenre?>(null) }
+    // SheetReq — универсальный запрос: жанр/категория/актёр
+    data class SheetReq(
+        val title: String,
+        val emoji: String,
+        val loadMovies: suspend () -> List<TmdbMovie>
+    )
+    var sheetReq by remember { mutableStateOf<SheetReq?>(null) }
     var downloadFor by remember { mutableStateOf<SearchItem?>(null) }
     val onPlayPhone: (SearchItem) -> Unit = { item ->
         scope.launch {
@@ -102,7 +110,18 @@ fun SearchScreen(
                 s.loading -> Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) { CircularProgressIndicator() }
                 s.error != null -> Text("Ошибка: ${s.error}", modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error)
                 s.items.isEmpty() && s.query.isNotBlank() -> Text("Ничего не найдено", Modifier.padding(12.dp))
-                s.query.isBlank() && s.items.isEmpty() -> GenreGrid(onGenreClick = { g -> selectedGenre = g })
+                s.query.isBlank() && s.items.isEmpty() -> GenreGrid(
+                    onGenreClick = { g ->
+                        sheetReq = SheetReq(g.name, g.emoji) {
+                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byGenre(g.id) ?: emptyList()
+                        }
+                    },
+                    onCategoryClick = { c ->
+                        sheetReq = SheetReq(c.name, c.emoji) {
+                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byCategory(c.key) ?: emptyList()
+                        }
+                    }
+                )
                 else -> LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 72.dp)
@@ -120,11 +139,13 @@ fun SearchScreen(
             onDismiss = { showAi = false },
             onSearch = { q, _ -> vm.onQuery(q); vm.search(); showAi = false }
         )
-        selectedGenre?.let { g ->
+        sheetReq?.let { req ->
             GenreMoviesSheet(
-                genre = g,
-                onDismiss = { selectedGenre = null },
-                onSearch = { title -> vm.onQuery(title); vm.search(); selectedGenre = null }
+                title = req.title,
+                emoji = req.emoji,
+                loadMovies = req.loadMovies,
+                onDismiss = { sheetReq = null },
+                onSearch = { title -> vm.onQuery(title); vm.search(); sheetReq = null }
             )
         }
     }

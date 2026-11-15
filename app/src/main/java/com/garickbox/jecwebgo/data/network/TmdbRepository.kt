@@ -46,7 +46,50 @@ data class TmdbData(
 
     fun genresOf(ids: List<Int>): List<TmdbGenre> =
         ids.mapNotNull { gid -> genres.firstOrNull { it.id == gid } }
+
+    /** 6 категорий из существующих полей (без пересборки tmdb_movies.json) */
+    fun byCategory(key: String, limit: Int = 50): List<TmdbMovie> = when (key) {
+        "new" -> movies.filter { (it.year.toIntOrNull() ?: 0) >= 2025 }
+            .sortedByDescending { it.vote_count }
+        "top" -> movies.filter { it.rating >= 7.5 && it.vote_count >= 500 }
+            .sortedByDescending { it.rating }
+        "blockbuster" -> movies.filter { it.vote_count >= 2000 }
+            .sortedByDescending { it.vote_count }
+        "eight" -> movies.filter { it.rating >= 8.0 }
+            .sortedByDescending { it.rating }
+        "epic" -> movies.filter { it.runtime >= 150 }
+            .sortedByDescending { it.rating }
+        else -> movies.sortedByDescending { it.vote_count }
+    }.take(limit)
+
+    /** Топ актёров по частоте в cast (без фото — для CP-C1 фото будут из сервера) */
+    fun topActors(limit: Int = 36): List<Triple<String, Int, Int>> =
+        movies.flatMap { it.cast }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(limit)
+            .mapIndexed { idx, (name, count) -> Triple(name, count, idx) }
+
+    /** Фильмы по актёру — sorted by rating desc */
+    fun byActor(name: String, limit: Int = 50): List<TmdbMovie> =
+        movies.filter { name in it.cast }
+            .sortedByDescending { it.rating }
+            .take(limit)
 }
+
+/** Категория — статический список (не нужно в JSON) */
+data class TmdbCategory(val key: String, val name: String, val emoji: String)
+
+val TMDB_CATEGORIES = listOf(
+    TmdbCategory("new", "Новинки", "🆕"),
+    TmdbCategory("top", "Топ", "🔥"),
+    TmdbCategory("blockbuster", "Блокбастеры", "💰"),
+    TmdbCategory("eight", "Рейтинг 8+", "⭐"),
+    TmdbCategory("epic", "Эпики", "⏱️"),
+    TmdbCategory("all", "Все", "🎬")
+)
 
 object TmdbRepository {
     private const val URL = "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/tmdb_movies.json"

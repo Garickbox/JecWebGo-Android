@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -14,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -21,27 +22,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import com.garickbox.jecwebgo.data.network.TmdbData
-import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.data.network.TmdbMovie
 import com.garickbox.jecwebgo.data.network.TmdbRepository
 
 @Composable
 fun GenreMoviesSheet(
-    genre: TmdbGenre,
+    title: String,
+    emoji: String,
+    loadMovies: suspend () -> List<TmdbMovie>,
     onDismiss: () -> Unit,
     onSearch: (title: String) -> Unit
 ) {
     val ctx = LocalContext.current
-    var data by remember { mutableStateOf<TmdbData?>(null) }
+    var movies by remember { mutableStateOf<List<TmdbMovie>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var detailsMovie by remember { mutableStateOf<TmdbMovie?>(null) }
 
-    LaunchedEffect(genre.id) {
+    LaunchedEffect(title) {
         loading = true
-        data = TmdbRepository.load(ctx)
+        movies = try { loadMovies() } catch (_: Exception) { emptyList() }
         loading = false
     }
 
@@ -94,7 +93,7 @@ fun GenreMoviesSheet(
                         Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${genre.emoji} ${genre.name}", style = MaterialTheme.typography.titleMedium,
+                        Text("$emoji $title", style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f))
                         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
@@ -104,28 +103,28 @@ fun GenreMoviesSheet(
                 }
                 Spacer(Modifier.height(4.dp))
 
-                val movies = data?.byGenre(genre.id, 50) ?: emptyList()
-
                 when {
                     loading -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
                         CircularProgressIndicator()
                     }
                     movies.isEmpty() -> Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("База TMDB ещё не готова", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Ничего не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(4.dp))
-                            Text("Первый прогон раз в неделю", fontSize = 11.sp,
+                            Text("Попробуйте другую категорию", fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     else -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 140.dp),
-                        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                        contentPadding = PaddingValues(bottom = 12.dp),
+                        columns = GridCells.Adaptive(minSize = 130.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        // contentPadding(78) = NavBar (56) + margin (6) + зазор (8) + padding (8)
+                        // НЕ navigationBarsPadding — наша панель это overlay, не системная
+                        contentPadding = PaddingValues(bottom = 78.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(movies) { movie ->
+                        items(movies, key = { it.id }) { movie ->
                             MovieCard(movie) { detailsMovie = movie }
                         }
                     }
