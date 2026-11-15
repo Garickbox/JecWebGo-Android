@@ -274,10 +274,8 @@ class MainActivity : ComponentActivity() {
                         }
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
                             // StatusBar: на ВСЕХ вкладках (Home/Search/Download/More) + на LoadingView
-                            val vlcActive = subRoute == "player" && playerRequest?.isPlaying == true
-                            val showStatusBar = !inSubroute
-                                || (subRoute == "player" && playerRequest?.loading == true)
-                                || (subRoute == "player" && !vlcActive)
+                            // StatusBar: ТОЛЬКО на Home (page=0). Ни Search, ни Download, ни More, ни player.
+                            val showStatusBar = !inSubroute && pagerState.currentPage == 0
                             if (showStatusBar) {
                                 // НЕ statusBarsPadding — insets = 0 после hide(systemBars) → StatusBar на y=0.
                                 // Фикс. top padding 8dp для отступа от чёлки/края.
