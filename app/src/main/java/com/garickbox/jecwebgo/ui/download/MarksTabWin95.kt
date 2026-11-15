@@ -22,6 +22,7 @@ import com.garickbox.jecwebgo.ui.common.PlayActions
 import com.garickbox.jecwebgo.ui.common.win95.win95Bevel
 import com.garickbox.jecwebgo.ui.theme.Win95Colors
 import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.util.toast
 
 @Composable
 fun MarksTabWin95() {

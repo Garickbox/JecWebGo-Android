@@ -123,8 +123,7 @@ fun PlayerScreen(
             description = description,
             hwMode = effectiveMode,
             localKey = localKey,
-            magnet = magnet,
-        onBack = onBack,
+            onBack = onBack,
             onError = { fallback() }
         )
     }
@@ -142,8 +141,7 @@ private fun PlayerScreenImpl(
     description: String,
     hwMode: String,
     localKey: String,
-    onBack: (,
-    magnet: String = "") -> Unit,
+    onBack: () -> Unit,
     onError: () -> Unit
 ) {
     val context = LocalContext.current
@@ -449,7 +447,7 @@ private fun PlayerScreenImpl(
                 Lifecycle.Event.ON_STOP -> {
                     backgroundedAt = System.currentTimeMillis()
                     if (!PipState.isInPip.value) {
-                        val logMagnet = magnet.ifBlank { localKey }
+                        val logMagnet = (com.garickbox.jecwebgo.ui.player.PendingPlayer.data.value?.magnet ?: "").ifBlank { localKey }
                         if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 1000 && duration > 0) {
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                 try {
@@ -753,7 +751,7 @@ private fun PlayerScreenImpl(
         if (isPlaying && (hash.isNotBlank() || localKey.isNotBlank())) {
             while (true) {
                 delay(20000)
-                val logMagnet = magnet.ifBlank { localKey }
+                val logMagnet = (com.garickbox.jecwebgo.ui.player.PendingPlayer.data.value?.magnet ?: "").ifBlank { localKey }
                 if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 60000 && duration > 0) {
                     try {
                         PlayLogStore.add(context, PlayLogEntry(
