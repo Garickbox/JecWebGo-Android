@@ -43,6 +43,8 @@ private val FALLBACK_GENRES = listOf(
     TmdbGenre(36, "Исторический", "📜")
 )
 
+private const val HERO_ACTORS = 72
+
 @Composable
 fun GenreGrid(
     onGenreClick: (TmdbGenre) -> Unit,
@@ -51,14 +53,39 @@ fun GenreGrid(
 ) {
     val ctx = LocalContext.current
     var genres by remember { mutableStateOf<List<TmdbGenre>>(FALLBACK_GENRES) }
-    var topActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
+    var allActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
+    var heroActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var showAllActors by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val data = TmdbRepository.load(ctx)
-        if (data != null) {
-            if (data.genres.isNotEmpty()) genres = data.genres
-            topActors = data.top_actors
+        isLoading = true
+        try {
+            val data = TmdbRepository.load(ctx)
+            if (data != null) {
+                if (data.genres.isNotEmpty()) genres = data.genres
+                allActors = data.top_actors
+                heroActors = data.top_actors.shuffled().take(HERO_ACTORS)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "GenreGrid load fail: ${e.message}")
+        } finally {
+            isLoading = false
         }
+    }
+
+    if (isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(12.dp))
+                Text("Загрузка базы (~10 сек)",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Первый запуск — потом из кэша",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
     }
 
     LazyColumn(
@@ -97,12 +124,23 @@ fun GenreGrid(
                 }
             }
         }
-        if (topActors.isNotEmpty()) {
+        if (heroActors.isNotEmpty()) {
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionHeader("🎭 Актёры (${topActors.size})")
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🎭 Актёры (${allActors.size})",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showAllActors = true }) {
+                        Text("🔍 Все", fontSize = 11.sp)
+                    }
+                }
             }
-            val rows = topActors.chunked(6)
+            val rows = heroActors.chunked(6)
             rows.forEachIndexed { _, rowActors ->
                 item {
                     Row(
@@ -121,6 +159,17 @@ fun GenreGrid(
                 }
             }
         }
+    }
+
+    if (showAllActors) {
+        AllActorsDialog(
+            actors = allActors,
+            onActorClick = { a ->
+                showAllActors = false
+                onActorClick(a)
+            },
+            onDismiss = { showAllActors = false }
+        )
     }
 }
 

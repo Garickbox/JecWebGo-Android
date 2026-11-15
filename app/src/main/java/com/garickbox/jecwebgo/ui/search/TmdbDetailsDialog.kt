@@ -1,6 +1,7 @@
 package com.garickbox.jecwebgo.ui.search
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,7 +26,7 @@ import com.garickbox.jecwebgo.data.network.TmdbMovie
 import com.garickbox.jecwebgo.data.network.TmdbRepository
 
 @Composable
-fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String) -> Unit) {
+fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String) -> Unit, onActorClick: (Int, String) -> Unit = { _, _ -> }) {
     Dialog(onDismissRequest = onDismiss) {
         Card(Modifier.fillMaxWidth().padding(8.dp).heightIn(max = 720.dp)) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -118,7 +119,8 @@ fun TmdbDetailsDialog(movie: TmdbMovie, onDismiss: () -> Unit, onSearch: (String
                         ) {
                             movie.cast_details.take(8).forEach { c ->
                                 Column(
-                                    Modifier.width(60.dp),
+                                    Modifier.width(60.dp)
+                                        .clickable { onActorClick(c.id, c.name) },
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(

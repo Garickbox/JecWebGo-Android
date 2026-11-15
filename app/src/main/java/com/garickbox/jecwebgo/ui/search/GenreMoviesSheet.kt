@@ -31,12 +31,13 @@ fun GenreMoviesSheet(
     emoji: String,
     loadMovies: suspend () -> List<TmdbMovie>,
     onDismiss: () -> Unit,
-    onSearch: (title: String) -> Unit
+    onSearch: (title: String) -> Unit,
+    onActorClick: (Int, String) -> Unit = { _, _ -> }
 ) {
     val ctx = LocalContext.current
     var movies by remember { mutableStateOf<List<TmdbMovie>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var detailsMovie by remember { mutableStateOf<TmdbMovie?>(null) }
+    var detailsMovie by remember(title) { mutableStateOf<TmdbMovie?>(null) }
 
     LaunchedEffect(title) {
         loading = true
@@ -45,7 +46,7 @@ fun GenreMoviesSheet(
     }
 
     detailsMovie?.let { m ->
-        TmdbDetailsDialog(m, onDismiss = { detailsMovie = null }, onSearch = onSearch)
+        TmdbDetailsDialog(m, onDismiss = { detailsMovie = null }, onSearch = onSearch, onActorClick = onActorClick)
     }
 
     androidx.compose.ui.window.Dialog(

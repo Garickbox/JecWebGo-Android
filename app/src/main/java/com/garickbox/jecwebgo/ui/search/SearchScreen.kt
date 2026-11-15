@@ -150,7 +150,14 @@ fun SearchScreen(
                 emoji = req.emoji,
                 loadMovies = req.loadMovies,
                 onDismiss = { sheetReq = null },
-                onSearch = { title -> vm.onQuery(title); vm.search(); sheetReq = null }
+                onSearch = { title -> vm.onQuery(title); vm.search(); sheetReq = null },
+                onActorClick = { personId, personName ->
+                    // Переключаем Sheet на фильмографию актёра
+                    // (detailsMovie внутри GenreMoviesSheet сбросится через remember(title))
+                    sheetReq = SheetReq(personName, "🎭") {
+                        com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byActorId(personId) ?: emptyList()
+                    }
+                }
             )
         }
     }

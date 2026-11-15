@@ -72,6 +72,7 @@ data class TmdbMovie(
     val runtime: Int = 0,
     val director: String = "",
     val cast: List<String> = emptyList(),
+    val cast_ids: List<Int> = emptyList(),
     val cast_details: List<TmdbCast> = emptyList(),
     val crew: List<TmdbCrew> = emptyList(),
     val genres: List<String> = emptyList(),
@@ -116,7 +117,9 @@ data class TmdbData(
     }.take(limit)
 
     fun byActorId(personId: Int, limit: Int = 100): List<TmdbMovie> =
-        movies.filter { m -> m.cast_details.any { it.id == personId } }
+        movies.filter { m ->
+            personId in m.cast_ids || m.cast_details.any { it.id == personId }
+        }
             .sortedByDescending { it.rating }
             .take(limit)
 
@@ -148,7 +151,7 @@ object TmdbRepository {
     private const val ACTOR_BASE = "https://cdn.jsdelivr.net/gh/Garickbox/JecWebGo-Android@data/posters_actors/"
     private const val FNAME = "tmdb_movies.json"
     private const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
-    private const val MIN_MOVIES = 500
+    private const val MIN_MOVIES = 2000
 
     private val client = okhttp3.OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
