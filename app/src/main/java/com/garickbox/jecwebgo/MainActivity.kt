@@ -255,7 +255,8 @@ class MainActivity : ComponentActivity() {
                             state = pagerState,
                             modifier = Modifier.fillMaxSize(),
                             beyondViewportPageCount = 1,
-                            userScrollEnabled = !(subRoute == "player" && playerRequest?.isPlaying == true)
+                            userScrollEnabled = !(subRoute == "player"
+                                && (playerRequest?.loading == true || playerRequest?.isPlaying == true))
                         ) { page ->
                             when (page) {
                                 0 -> HomeScreen(onOpenSearch = { q ->
@@ -335,10 +336,12 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        // NavBar — overlay ПОВЕРХ content. Скрыта только когда VLC реально ИГРАЕТ (не paused).
-                        val vlcActive = subRoute == "player" && playerRequest?.isPlaying == true
+                        // NavBar — overlay ПОВЕРХ content.
+                        // Скрыта: LoadingView (loading) + VLC playing. Видна: VLC paused, Home/Search/More.
+                        val hideNavBar = subRoute == "player"
+                            && (playerRequest?.loading == true || playerRequest?.isPlaying == true)
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
-                        if (!vlcActive) {
+                        if (!hideNavBar) {
                             Box(
                                 Modifier
                                     .align(Alignment.BottomCenter)
