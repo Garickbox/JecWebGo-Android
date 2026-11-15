@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.garickbox.jecwebgo.ui.theme.Win95Colors
+import androidx.compose.foundation.layout.padding
 
 /**
  * Win95 double-bevel modifier (2 слоя: outer + inner).
@@ -69,6 +70,3 @@ fun Win95Window(
     }
 }
 
-private fun Modifier.padding(dp: Dp) = this.then(
-    androidx.compose.foundation.layout.padding(dp)
-)

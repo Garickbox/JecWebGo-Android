@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.garickbox.jecwebgo.ui.theme.Win95Colors
+import androidx.compose.foundation.clickable
 
 /** Win95 кнопка с pressed state и offset при нажатии */
 @Composable
@@ -64,12 +65,10 @@ fun Win95Button(
 private fun Modifier.androidxClickable(
     interaction: MutableInteractionSource,
     onClick: () -> Unit
-): Modifier = this.then(
-    androidx.compose.foundation.clickable(
-        interactionSource = interaction,
-        indication = null,
-        onClick = onClick
-    )
+): Modifier = this.clickable(
+    interactionSource = interaction,
+    indication = null,
+    onClick = onClick
 )
 
 /** Win95 checkbox — 13×13 белый квадрат с вдавленным bevel и галочкой */

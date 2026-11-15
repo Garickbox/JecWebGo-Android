@@ -1035,8 +1035,6 @@ private fun formatDate(ms: Long): String {
     return sdf.format(java.util.Date(ms))
 }
 
-private fun Modifier.alpha(a: Float): Modifier =
-    this.then(androidx.compose.ui.draw.alpha(a))
 
 // ═══════════════════════════════════════════════════════════
 // DELETE HISTORY DIALOG (Win95 стиль)
