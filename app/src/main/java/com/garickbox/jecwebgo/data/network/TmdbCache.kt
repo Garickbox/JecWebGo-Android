@@ -22,7 +22,16 @@ object TmdbCache {
         data?.let { return it }
         return mutex.withLock {
             data?.let { return@withLock it }
-            val loaded = TmdbRepository.load(ctx, onProgress)
+            val loadedRaw = TmdbRepository.load(ctx, onProgress)
+            // Sanitize: distinctBy id — защита от дубликатов (после слияния origin+фильмографии в tmdb_enrich.py)
+            val loaded = loadedRaw?.let { raw ->
+                val dm = raw.movies.distinctBy { it.id }
+                val da = raw.top_actors.distinctBy { it.id }
+                if (dm.size != raw.movies.size || da.size != raw.top_actors.size) {
+                    android.util.Log.w("JecWeb", "TmdbCache sanitize: movies ${raw.movies.size}->${dm.size}, actors ${raw.top_actors.size}->${da.size}")
+                }
+                raw.copy(movies = dm, top_actors = da)
+            }
             if (loaded != null) {
                 data = loaded
                 android.util.Log.d("JecWeb", "TmdbCache: cached ${loaded.movies.size} movies, ${loaded.top_actors.size} actors")

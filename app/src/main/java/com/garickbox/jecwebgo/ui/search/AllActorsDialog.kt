@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -82,7 +83,7 @@ fun AllActorsDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(filtered, key = { it.id }) { actor ->
+                        itemsIndexed(filtered, key = { idx, a -> "a_${a.id}_$idx" }) { _, actor ->
                             DialogActorTile(actor) { onActorClick(actor) }
                         }
                     }
