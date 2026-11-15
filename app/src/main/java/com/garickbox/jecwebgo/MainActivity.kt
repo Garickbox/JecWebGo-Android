@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -270,8 +271,8 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
-                            // StatusBar: на Home (page=0) или на LoadingView (player + loading, не VLC)
-                            val showStatusBar = (!inSubroute && pagerState.currentPage == 0)
+                            // StatusBar: на ВСЕХ вкладках (Home/Search/Download/More) + на LoadingView
+                            val showStatusBar = !inSubroute
                                 || (subRoute == "player" && playerRequest?.loading == true)
                             if (showStatusBar) {
                                 Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
@@ -336,6 +337,7 @@ class MainActivity : ComponentActivity() {
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
+                                    .navigationBarsPadding()
                                     .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
                                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                                     .background(Color.Black.copy(alpha = 0.35f))

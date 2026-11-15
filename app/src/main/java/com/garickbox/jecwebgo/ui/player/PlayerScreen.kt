@@ -457,8 +457,10 @@ private fun PlayerScreenImpl(
                                 } catch (_: Exception) {}
                             }
                         }
-                        runCatching { mediaPlayer.stop() }
-                        android.util.Log.d("JecWeb", "ON_STOP без PiP -> stop()")
+                        // pause() вместо stop() — сохраняем позицию, мгновенный resume
+                        val savedPos = position
+                        runCatching { mediaPlayer.pause() }
+                        android.util.Log.d("JecWeb", "ON_STOP без PiP -> pause() at ${savedPos}ms")
                     } else {
                         android.util.Log.d("JecWeb", "ON_STOP в PiP -> keep playing")
                     }
@@ -467,8 +469,12 @@ private fun PlayerScreenImpl(
                     if (backgroundedAt > 0L) {
                         if (!PipState.isInPip.value) {
                             val away = System.currentTimeMillis() - backgroundedAt
-                            reloadKey++
-                            android.util.Log.d("JecWeb", "ON_START без PiP -> reload (away=${away}ms)")
+                            // play() + seek на сохранённую позицию — мгновенно (без reload)
+                            runCatching { mediaPlayer.play() }
+                            if (position > 1000) {
+                                runCatching { mediaPlayer.time = position }
+                            }
+                            android.util.Log.d("JecWeb", "ON_START без PiP -> play()+seek($position) (away=${away}ms)")
                         } else {
                             android.util.Log.d("JecWeb", "ON_START в PiP -> no-op")
                         }
