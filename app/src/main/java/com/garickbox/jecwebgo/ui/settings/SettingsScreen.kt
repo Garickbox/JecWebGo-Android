@@ -53,7 +53,7 @@ private fun SettingsScreenBody() {
     }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-    Column(Modifier.fillMaxWidth().widthIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 80.dp),
+    Column(Modifier.fillMaxWidth().widthIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 0.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Настройки", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)
@@ -171,6 +171,9 @@ private fun SettingsScreenBody() {
             SettingsStore.save(ctx, s)
             ctx.toast("Сохранено")
         }, modifier = Modifier.fillMaxWidth()) { Text("Сохранить") }
+        // Spacer(78) — гарантированный отступ под кнопкой, чтобы NavBar её не перекрывал
+        // (padding(bottom) в scrollable Column не работает как ожидается — content скроллится под край)
+        Spacer(Modifier.height(78.dp))
     }
     }  // Box
 }

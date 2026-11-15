@@ -60,12 +60,17 @@ fun StatusBar() {
             .clip(RoundedCornerShape(12.dp))
             .background(Color.Black.copy(alpha = 0.35f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        // 2 слева: TorrServer + JacRed
         Dot("TorrServer", tsAlive)
+        Spacer(Modifier.width(10.dp))
         Dot("JacRed", jacAlive)
+        // Разрыв
+        Spacer(Modifier.weight(1f))
+        // 2 справа: Постеры + База
         Dot("Постеры", posterAlive)
+        Spacer(Modifier.width(10.dp))
         BaseDot(baseAgeHours)
     }
 }

@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         if (!inSubroute && pagerState.currentPage == 0) {
-                            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
                                 StatusBar()
                             }
                         }

@@ -17,5 +17,15 @@ private val Light = lightColorScheme(
     background = Color.White, surface = Color(0xFFF5F5F5)
 )
 @Composable fun JecWebTheme(useDark: Boolean = true, content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (useDark) Dark else Light, content = content)
+    val scheme = if (useDark) Dark else Light
+    MaterialTheme(colorScheme = scheme) {
+        // ФИКС: после удаления Scaffold в CP10.125 LocalContentColor = Color.Black
+        // → все Text без явного color рендерились чёрным на чёрном (Settings/About/Home).
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalContentColor provides scheme.onBackground,
+            androidx.compose.material3.LocalTextStyle provides androidx.compose.material3.MaterialTheme.typography.bodyLarge
+        ) {
+            content()
+        }
+    }
 }
