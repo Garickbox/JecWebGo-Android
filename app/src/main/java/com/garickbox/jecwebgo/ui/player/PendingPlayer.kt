@@ -55,7 +55,10 @@ object PendingPlayer {
         _data.update { it?.copy(loading = false, error = msg, isPlaying = false) }
     }
     fun setPlaying(playing: Boolean) {
-        _data.update { if (it?.isPlaying != playing) it.copy(isPlaying = playing) else it }
+        _data.update { cur ->
+            if (cur == null || cur.isPlaying == playing) cur
+            else cur.copy(isPlaying = playing)
+        }
     }
     fun consume() { _data.value = null }
 }
