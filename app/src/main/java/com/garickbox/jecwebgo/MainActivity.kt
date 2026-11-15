@@ -238,6 +238,14 @@ class MainActivity : ComponentActivity() {
                         wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                         wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     } catch (_: Exception) {}
+                    // ФИКС: при выходе из player (subRoute="empty", page=0) Compose должен
+                    // пересчитать insets → иначе StatusBar/NavBar остаются под скрытыми systemBars.
+                    if (subRoute != "player") {
+                        layoutReloadKey.intValue++
+                        kotlinx.coroutines.delay(150)
+                        layoutReloadKey.intValue++
+                        android.util.Log.d("JecWeb", "bars refresh after player exit, reloadKey=${layoutReloadKey.intValue}")
+                    }
                 }
                 // Scaffold убран: он резервировал pad.bottom → под панелью был чёрный фон.
                 // Box(fillMaxSize) — content идёт на всю высоту, панель поверх (overlay).

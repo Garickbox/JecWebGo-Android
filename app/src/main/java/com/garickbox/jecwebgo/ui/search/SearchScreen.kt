@@ -81,7 +81,8 @@ fun SearchScreen(
                 tmdb?.movies?.firstOrNull { m ->
                     val nmT = norm(com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(m.title))
                     val nmO = norm(m.original_title)
-                    candidates.any { c -> c.isNotBlank() && (nmT == c || nmO == c || nmT.contains(c) || c.contains(nmT)) }
+                    // ТОЛЬКО exact — никаких contains/startsWith (Интерны != Интерн)
+                    candidates.any { c -> c.isNotBlank() && (nmT == c || nmO == c) }
                 }
             } catch (_: Exception) { null }
             val tmdbPoster = tmdbMatch?.let {

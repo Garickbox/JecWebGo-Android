@@ -64,13 +64,8 @@ fun LoadingView(
             tmdb.movies.find { m ->
                 val nmT = norm(TitleUtil.cleanTitle(m.title))
                 val nmO = norm(m.original_title)
-                candidates.any { c ->
-                    if (c.isBlank()) false
-                    else if (nmT == c || nmO == c) true
-                    else if (c.length >= 4 && nmT.length >= 4 && (nmT.startsWith(c) || c.startsWith(nmT))) true
-                    else if (c.length >= 4 && nmO.length >= 4 && (nmO.startsWith(c) || c.startsWith(nmO))) true
-                    else false
-                }
+                // ТОЛЬКО exact — никаких startsWith/contains (Интерны != Интерн)
+                candidates.any { c -> c.isNotBlank() && (nmT == c || nmO == c) }
             }
         } catch (_: Exception) { null }
     }
