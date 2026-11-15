@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -76,7 +77,8 @@ fun LoadingView(
             } else {
                 tmdb.movies.filter { it.poster_file.isNotBlank() }
             }
-            pool.shuffled().take(6)
+            // distinctBy id — защита от дубликатов в JSON (после слияния origin + фильмографии)
+            pool.distinctBy { it.id }.shuffled().take(6)
         } catch (_: Exception) { emptyList() }
     }
 
@@ -89,7 +91,7 @@ fun LoadingView(
                     m.id != currentMovie.id &&
                         m.poster_file.isNotBlank() &&
                         m.genre_ids.any { it in currentMovie.genre_ids }
-                }.sortedByDescending { it.rating }.take(6)
+                }.distinctBy { it.id }.sortedByDescending { it.rating }.take(6)
             } else emptyList()
         } catch (_: Exception) { emptyList() }
     }
@@ -145,7 +147,8 @@ fun LoadingView(
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            items(similar, key = { it.id }) { m ->
+                            // itemsIndexed + составной ключ — защита от дубликатов id в JSON
+                            itemsIndexed(similar, key = { index, m -> "sim_${m.id}_$index" }) { _, m ->
                                 val simUrl = remember(m.poster_file) { POSTER_BASE + m.poster_file }
                                 Column(Modifier.width(52.dp)) {
                                     AsyncImage(
