@@ -120,6 +120,11 @@ fun SearchScreen(
                         sheetReq = SheetReq(c.name, c.emoji) {
                             com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byCategory(c.key) ?: emptyList()
                         }
+                    },
+                    onActorClick = { actor ->
+                        sheetReq = SheetReq(actor.name, "🎭") {
+                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byActorId(actor.id) ?: emptyList()
+                        }
                     }
                 )
                 else -> LazyColumn(

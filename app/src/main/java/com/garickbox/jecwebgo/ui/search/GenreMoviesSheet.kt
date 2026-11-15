@@ -160,6 +160,14 @@ private fun MovieCard(movie: TmdbMovie, onClick: () -> Unit) {
                         color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
+            if (movie.belongs_to_collection != null) {
+                Box(Modifier.align(Alignment.TopEnd).padding(6.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.92f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text("📚", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
             val scrimBrush = remember { Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))) }
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(72.dp).background(scrimBrush))
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(8.dp)) {

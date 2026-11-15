@@ -17,6 +17,48 @@ import java.util.concurrent.TimeUnit
 data class TmdbGenre(val id: Int, val name: String, val emoji: String = "")
 
 @Serializable
+data class TmdbCast(
+    val id: Int = 0,
+    val name: String = "",
+    val profile_path: String = "",
+    val character: String = "",
+    val order: Int = 99,
+    val profile_file: String = ""
+)
+
+@Serializable
+data class TmdbCrew(
+    val id: Int = 0,
+    val name: String = "",
+    val job: String = "",
+    val department: String = ""
+)
+
+@Serializable
+data class TmdbCompany(
+    val id: Int = 0,
+    val name: String = "",
+    val logo_path: String = ""
+)
+
+@Serializable
+data class TmdbCollection(
+    val id: Int = 0,
+    val name: String = "",
+    val poster_path: String = ""
+)
+
+@Serializable
+data class TmdbActor(
+    val id: Int = 0,
+    val name: String = "",
+    val profile_file: String = "",
+    val movie_count: Int = 0,
+    val popularity: Double = 0.0,
+    val avg_rating: Double = 0.0
+)
+
+@Serializable
 data class TmdbMovie(
     val id: Int = 0,
     val title: String = "",
@@ -30,16 +72,28 @@ data class TmdbMovie(
     val runtime: Int = 0,
     val director: String = "",
     val cast: List<String> = emptyList(),
-    val genres: List<String> = emptyList()
+    val cast_details: List<TmdbCast> = emptyList(),
+    val crew: List<TmdbCrew> = emptyList(),
+    val genres: List<String> = emptyList(),
+    val production_companies: List<TmdbCompany> = emptyList(),
+    val belongs_to_collection: TmdbCollection? = null,
+    val budget: Long = 0L,
+    val revenue: Long = 0L,
+    val tagline: String = "",
+    val original_language: String = "",
+    val spoken_languages: List<String> = emptyList(),
+    val keywords: List<String> = emptyList(),
+    val imdb_id: String = ""
 )
 
 @Serializable
 data class TmdbData(
     val generated_at: String = "",
     val genres: List<TmdbGenre> = emptyList(),
+    val top_actors: List<TmdbActor> = emptyList(),
     val movies: List<TmdbMovie> = emptyList()
 ) {
-    fun byGenre(genreId: Int, limit: Int = 50): List<TmdbMovie> =
+    fun byGenre(genreId: Int, limit: Int = 100): List<TmdbMovie> =
         movies.filter { genreId in it.genre_ids }
             .sortedByDescending { it.vote_count }
             .take(limit)
@@ -47,8 +101,7 @@ data class TmdbData(
     fun genresOf(ids: List<Int>): List<TmdbGenre> =
         ids.mapNotNull { gid -> genres.firstOrNull { it.id == gid } }
 
-    /** 6 категорий из существующих полей (без пересборки tmdb_movies.json) */
-    fun byCategory(key: String, limit: Int = 50): List<TmdbMovie> = when (key) {
+    fun byCategory(key: String, limit: Int = 100): List<TmdbMovie> = when (key) {
         "new" -> movies.filter { (it.year.toIntOrNull() ?: 0) >= 2025 }
             .sortedByDescending { it.vote_count }
         "top" -> movies.filter { it.rating >= 7.5 && it.vote_count >= 500 }
@@ -62,24 +115,22 @@ data class TmdbData(
         else -> movies.sortedByDescending { it.vote_count }
     }.take(limit)
 
-    /** Топ актёров по частоте в cast (без фото — для CP-C1 фото будут из сервера) */
-    fun topActors(limit: Int = 36): List<Triple<String, Int, Int>> =
-        movies.flatMap { it.cast }
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedByDescending { it.value }
-            .take(limit)
-            .mapIndexed { idx, (name, count) -> Triple(name, count, idx) }
-
-    /** Фильмы по актёру — sorted by rating desc */
-    fun byActor(name: String, limit: Int = 50): List<TmdbMovie> =
-        movies.filter { name in it.cast }
+    fun byActorId(personId: Int, limit: Int = 100): List<TmdbMovie> =
+        movies.filter { m -> m.cast_details.any { it.id == personId } }
             .sortedByDescending { it.rating }
+            .take(limit)
+
+    fun byCollection(collectionId: Int, limit: Int = 100): List<TmdbMovie> =
+        movies.filter { it.belongs_to_collection?.id == collectionId }
+            .sortedByDescending { it.vote_count }
+            .take(limit)
+
+    fun byStudio(name: String, limit: Int = 100): List<TmdbMovie> =
+        movies.filter { m -> m.production_companies.any { it.name == name } }
+            .sortedByDescending { it.vote_count }
             .take(limit)
 }
 
-/** Категория — статический список (не нужно в JSON) */
 data class TmdbCategory(val key: String, val name: String, val emoji: String)
 
 val TMDB_CATEGORIES = listOf(
@@ -93,13 +144,15 @@ val TMDB_CATEGORIES = listOf(
 
 object TmdbRepository {
     private const val URL = "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/tmdb_movies.json"
-    private const val POSTER_BASE = "https://raw.githubusercontent.com/Garickbox/JecWebGo-Android/data/posters_tmdb/"
+    private const val POSTER_BASE = "https://cdn.jsdelivr.net/gh/Garickbox/JecWebGo-Android@data/posters_tmdb/"
+    private const val ACTOR_BASE = "https://cdn.jsdelivr.net/gh/Garickbox/JecWebGo-Android@data/posters_actors/"
     private const val FNAME = "tmdb_movies.json"
     private const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+    private const val MIN_MOVIES = 500
 
     private val client = okhttp3.OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
         .build()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -125,12 +178,19 @@ object TmdbRepository {
             if (body.length < 100) return@withContext loadCached(ctx)
             val data = json.decodeFromString<TmdbData>(body)
             file(ctx).writeText(body)
+            android.util.Log.d("JecWeb", "Tmdb refresh: ${data.movies.size} movies, ${data.top_actors.size} actors")
             data
-        } catch (e: Exception) { loadCached(ctx) }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "Tmdb refresh fail: ${e.message}")
+            loadCached(ctx)
+        }
     }
 
     suspend fun load(ctx: Context): TmdbData? = withContext(Dispatchers.IO) {
-        if (cacheAge(ctx) > MAX_AGE_MS) refresh(ctx) else loadCached(ctx)
+        val cached = loadCached(ctx)
+        val isOldSchema = cached == null || cached.top_actors.isEmpty() || cached.movies.size < MIN_MOVIES
+        val isStale = cacheAge(ctx) > MAX_AGE_MS
+        if (isStale || isOldSchema) refresh(ctx) else cached
     }
 
     private const val WORKER_BASE = "https://ai-jecweb.garickwot.workers.dev"
@@ -153,12 +213,8 @@ object TmdbRepository {
             val posterPath = first["poster_path"]?.jsonPrimitive?.contentOrNull ?: return@withContext null
             if (posterPath.isBlank()) return@withContext null
             val tmdbUrl = "https://image.tmdb.org/t/p/w342$posterPath"
-            android.util.Log.d("JecWeb", "poster found: $clean -> $posterPath")
             "$WORKER_BASE/img?url=" + java.net.URLEncoder.encode(tmdbUrl, "UTF-8")
-        } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "searchPosterByTitle fail: ${e.message}")
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     data class TmdbSearchInfo(val posterUrl: String, val overview: String)
@@ -182,14 +238,18 @@ object TmdbRepository {
             val overview = first["overview"]?.jsonPrimitive?.contentOrNull ?: ""
             val tmdbUrl = if (posterPath.isBlank()) "" else "https://image.tmdb.org/t/p/w342$posterPath"
             val posterWorkerUrl = if (tmdbUrl.isBlank()) "" else "$WORKER_BASE/img?url=" + java.net.URLEncoder.encode(tmdbUrl, "UTF-8")
-            android.util.Log.d("JecWeb", "searchMovieInfo: $clean poster=${if(posterWorkerUrl.isBlank()) "none" else "yes"} overviewLen=${overview.length}")
             TmdbSearchInfo(posterWorkerUrl, overview)
-        } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "searchMovieInfo fail: ${e.message}")
-            null
-        }
+        } catch (e: Exception) { null }
     }
 
     fun posterUrl(movie: TmdbMovie): String =
         if (movie.poster_file.isBlank()) "" else POSTER_BASE + movie.poster_file
+
+    fun actorPhotoUrl(profileFile: String): String =
+        if (profileFile.isBlank()) "" else ACTOR_BASE + profileFile
+
+    fun collectionPosterUrl(posterPath: String): String {
+        if (posterPath.isBlank()) return ""
+        return "$WORKER_BASE/img?url=" + java.net.URLEncoder.encode("https://image.tmdb.org/t/p/w185$posterPath", "UTF-8")
+    }
 }
