@@ -7,6 +7,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -209,24 +214,35 @@ class MainActivity : ComponentActivity() {
                     } catch (_: Exception) {}
                 }
                 Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0), bottomBar = {
-                    if (subRoute != "player") NavigationBar(
-                        modifier = Modifier.height(56.dp),
-                        containerColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
-                        tonalElevation = 0.dp,
-                        windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
-                    ) {
-                        tabs.forEachIndexed { idx, t ->
-                            NavigationBarItem(
-                                selected = selectedTab == t.route,
-                                onClick = {
-                                    if (t.route == "search") searchResetKey++
-                                    if (inSubroute) nav.popBackStack("empty", inclusive = false)
-                                    scope.launch { pagerState.animateScrollToPage(idx) }
-                                },
-                                icon = {
-                                    Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(22.dp))
+                    if (subRoute != "player") {
+                        // Стеклянная панель: Box с clip+bg+padding, NavigationBar прозрачный
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f))
+                        ) {
+                            NavigationBar(
+                                modifier = Modifier.height(56.dp),
+                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                tonalElevation = 0.dp,
+                                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+                            ) {
+                                tabs.forEachIndexed { idx, t ->
+                                    NavigationBarItem(
+                                        selected = selectedTab == t.route,
+                                        onClick = {
+                                            if (t.route == "search") searchResetKey++
+                                            if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                            scope.launch { pagerState.animateScrollToPage(idx) }
+                                        },
+                                        icon = {
+                                            Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(22.dp))
+                                        }
+                                    )
                                 }
-                            )
+                            }
                         }
                     }
                 }) { pad ->
@@ -335,14 +351,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupPip() {
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
             try {
                 val params = android.app.PictureInPictureParams.Builder()
                     .setAspectRatio(android.util.Rational(16, 9))
-                    .setAutoEnterEnabled(false)
                     .build()
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    params.setAutoEnterEnabled(false)
+                }
                 setPictureInPictureParams(params)
-                android.util.Log.d("JecWeb", "PiP disabled by default")
+                android.util.Log.d("JecWeb", "PiP configured: autoEnter=false ALWAYS")
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "setupPip fail: ${e.message}")
             }
@@ -350,37 +368,46 @@ class MainActivity : ComponentActivity() {
     }
 
     fun updatePipForRoute(route: String) {
+        // ТОЛЬКО запоминаем route. autoEnterEnabled НИКОГДА не ставим true —
+        // иначе система автоматически входит в PiP на любом уходе (баг CP10.121).
+        // Явный вход в PiP — только в onUserLeaveHint при route=="player".
+        val prev = MainState.currentRoute
         MainState.currentRoute = route
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
-            try {
-                val isPlayer = route == "player"
-                val params = android.app.PictureInPictureParams.Builder()
-                    .setAspectRatio(android.util.Rational(16, 9))
-                    .setAutoEnterEnabled(isPlayer)
-                    .build()
-                setPictureInPictureParams(params)
-                android.util.Log.d("JecWeb", "PiP autoEnter=$isPlayer for route=$route")
-            } catch (e: Exception) {
-                android.util.Log.e("JecWeb", "updatePipForRoute fail: ${e.message}")
-            }
+        if (prev != route) {
+            android.util.Log.d("JecWeb", "PiP route: $prev -> $route")
         }
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (MainState.currentRoute != "player") {
-            android.util.Log.d("JecWeb", "onUserLeaveHint ignored (route=${MainState.currentRoute})")
+            android.util.Log.d("JecWeb", "onUserLeaveHint: route=${MainState.currentRoute} — NO PiP")
             return
         }
-        if (android.os.Build.VERSION.SDK_INT in 26..30) {
+        if (android.os.Build.VERSION.SDK_INT < 26) return
+        try {
+            val params = android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(android.util.Rational(16, 9))
+                .build()
+            val ok = enterPictureInPictureMode(params)
+            android.util.Log.d("JecWeb", "enterPip explicit: route=player ok=$ok")
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "enterPip fail: ${e.message}")
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        android.util.Log.d("JecWeb", "onConfigurationChanged: orientation=${newConfig.orientation} screenW=${newConfig.screenWidthDp}dp")
+        // Activity НЕ пересоздаётся (configChanges в манифесте) — надо переприменить hide bars
+        window.decorView.post {
             try {
-                val params = android.app.PictureInPictureParams.Builder()
-                    .setAspectRatio(android.util.Rational(16, 9))
-                    .build()
-                enterPictureInPictureMode(params)
-                android.util.Log.d("JecWeb", "enterPip (API 26-30) route=player")
+                val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                android.util.Log.d("JecWeb", "onConfigChanged: bars re-hidden")
             } catch (e: Exception) {
-                android.util.Log.e("JecWeb", "enterPip fail: ${e.message}")
+                android.util.Log.e("JecWeb", "onConfigChanged hide fail: ${e.message}")
             }
         }
     }
@@ -399,7 +426,7 @@ class MainActivity : ComponentActivity() {
                 wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                 wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             } catch (_: Exception) {}
-            updatePipForRoute(if (MainState.currentRoute == "player") "player" else "empty")
+            // updatePipForRoute УБРАН: был источник PiP на всех окнах
         }
     }
 
