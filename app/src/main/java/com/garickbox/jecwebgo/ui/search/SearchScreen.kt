@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo.ui.search
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -156,7 +157,7 @@ fun SearchScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 72.dp)
                 ) {
-                    items(s.items, key = { it.magnet }) { item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
+                    itemsIndexed(s.items, key = { idx, item -> "${item.magnet}_$idx" }) { _, item -> SearchCard(item, onPlayPhone, onDownload, onBookmark) }
                 }
             }
         }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -1425,7 +1426,7 @@ private fun PlayerScreenImpl(
                 Text("Файлы не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                    items(seriesList, key = { it.id }) { f ->
+                    itemsIndexed(seriesList, key = { idx, f -> "ser_${f.id}_$idx" }) { _, f ->
                         val isCurrent = f.id == currentIdx
                         val fName = f.path.substringAfterLast("/")
                         Row(

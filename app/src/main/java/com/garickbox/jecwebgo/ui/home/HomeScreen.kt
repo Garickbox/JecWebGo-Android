@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,7 +104,7 @@ fun HomeScreen(onOpenSearch: (String) -> Unit, vm: HomeViewModel = viewModel()) 
                     contentPadding = PaddingValues(bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) { items(s.items, key = { "${it.cleanTitle}|${it.year}|${it.count}" }) { g -> GroupCard(g) { selected = g } } }
+                ) { itemsIndexed(s.items, key = { idx, g -> "${g.cleanTitle}|${g.year}|$idx" }) { _, g -> GroupCard(g) { selected = g } } }
             }
         }
         }

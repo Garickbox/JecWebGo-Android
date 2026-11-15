@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -113,7 +115,7 @@ fun AiSheet(
 
             if (s.messages.isNotEmpty()) {
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max = 180.dp)) {
-                    items(s.messages, key = { "${it.role}:${it.text.take(40)}" }) { msg ->
+                    itemsIndexed(s.messages, key = { idx, msg -> "msg_${msg.role}_$idx" }) { _, msg ->
                         Card(
                             Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             colors = CardDefaults.cardColors(
@@ -147,7 +149,7 @@ fun AiSheet(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(s.movies, key = { it.id }) { movie ->
+                    itemsIndexed(s.movies, key = { idx, m -> "ai_${m.id}_$idx" }) { _, movie ->
                         Card(
                             Modifier.fillMaxWidth().combinedClickable(
                                 onClick = { onSearch(movie.title, "-1"); onDismiss() },
