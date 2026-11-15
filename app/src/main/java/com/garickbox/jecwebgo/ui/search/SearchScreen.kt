@@ -68,19 +68,20 @@ fun SearchScreen(
             val hash = com.garickbox.jecwebgo.util.MagnetUtil.hashOf(item.magnet)
             val fromBase = try { com.garickbox.jecwebgo.domain.TorrentRepository.posterInfoByHash(ctx, hash) } catch (_: Exception) { null }
             // TMDB локальный поиск по title (10k база) — приоритет над случайным анонсом
+            // Нормализация: только буквы+цифры (убираем пунктуацию, скобки, ":" и т.д.)
+            fun norm(s: String) = s.lowercase().replace(Regex("[^а-яёa-z0-9]"), "")
+            val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(item.title).trim()
+            val normT = norm(cleanT)
+            val candidates = mutableListOf(normT)
+            if (cleanT.contains(":")) candidates.add(norm(cleanT.substringBefore(":")))
+            if (cleanT.contains(" - ")) candidates.add(norm(cleanT.substringBefore(" - ")))
+            val tmdb = com.garickbox.jecwebgo.data.network.TmdbCache.peek()
+                ?: com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)
             val tmdbMatch = try {
-                com.garickbox.jecwebgo.data.network.TmdbCache.peek()?.let { tmdb ->
-                    val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(item.title).lowercase().trim()
-                    tmdb.movies.firstOrNull { m ->
-                        val mt = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(m.title).lowercase().trim()
-                        mt == cleanT || (mt.isNotBlank() && cleanT.contains(mt)) || (cleanT.isNotBlank() && mt.contains(cleanT))
-                    }
-                } ?: com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)?.let { tmdb ->
-                    val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(item.title).lowercase().trim()
-                    tmdb.movies.firstOrNull { m ->
-                        val mt = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(m.title).lowercase().trim()
-                        mt == cleanT || (mt.isNotBlank() && cleanT.contains(mt)) || (cleanT.isNotBlank() && mt.contains(cleanT))
-                    }
+                tmdb?.movies?.firstOrNull { m ->
+                    val nmT = norm(com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(m.title))
+                    val nmO = norm(m.original_title)
+                    candidates.any { c -> c.isNotBlank() && (nmT == c || nmO == c || nmT.contains(c) || c.contains(nmT)) }
                 }
             } catch (_: Exception) { null }
             val tmdbPoster = tmdbMatch?.let {
@@ -92,9 +93,11 @@ fun SearchScreen(
             val p = fromBase?.poster?.takeIf { it.isNotBlank() }
                 ?: tmdbPoster.takeIf { it.isNotBlank() }
                 ?: ""
+            // НЕ показываем randomAnnouncement — это ЧУЖОЙ фильм, пользователь путается.
+            // Если описание не нашли — пусто (LoadingView покажет только title).
             val d = fromBase?.description?.takeIf { it.isNotBlank() }
                 ?: tmdbDesc.takeIf { it.isNotBlank() }
-                ?: try { com.garickbox.jecwebgo.domain.TorrentRepository.randomAnnouncement(ctx) } catch (_: Exception) { "🎬 Подключение к торренту..." }
+                ?: ""
             android.util.Log.d("JecWeb", "onPlayPhone: hash=${hash.take(8)} base=${fromBase != null} tmdb=${tmdbMatch != null} poster=$p descLen=${d.length}")
             PlayActions.playPhone(ctx, scope, item.magnet, item.title, p, d)
         }
