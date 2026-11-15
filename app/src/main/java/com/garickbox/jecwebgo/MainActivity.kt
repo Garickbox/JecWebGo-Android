@@ -261,9 +261,11 @@ class MainActivity : ComponentActivity() {
                                 3 -> MoreScreen(nav)
                             }
                         }
-                        if (!inSubroute && pagerState.currentPage == 0) {
-                            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
-                                StatusBar()
+                        androidx.compose.runtime.key(layoutReloadKey.intValue) {
+                            if (!inSubroute && pagerState.currentPage == 0) {
+                                Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
+                                    StatusBar()
+                                }
                             }
                         }
                         NavHost(nav, "empty", Modifier.fillMaxSize()) {
@@ -317,6 +319,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         // NavBar — overlay ПОВЕРХ content (прозрачная, видно контент под ней)
+                        androidx.compose.runtime.key(layoutReloadKey.intValue) {
                         if (subRoute != "player") {
                             Box(
                                 Modifier
@@ -360,6 +363,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+                        }  // key(layoutReloadKey) NavBar
                 }
             }
         }
@@ -433,20 +437,27 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Compose-state: при rotate Compose пересоздаёт StatusBar/NavBar с новыми insets
+    private val layoutReloadKey = androidx.compose.runtime.mutableIntStateOf(0)
+
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         android.util.Log.d("JecWeb", "onConfigurationChanged: orientation=${newConfig.orientation} screenW=${newConfig.screenWidthDp}dp")
-        // Activity НЕ пересоздаётся (configChanges в манифесте) — надо переприменить hide bars
-        window.decorView.post {
+        // Инкремент reloadKey → Compose пересоздаст StatusBar/NavBar с новыми insets
+        layoutReloadKey.intValue++
+        // hide через 300ms — Compose layout успеет пересчитать insets
+        window.decorView.postDelayed({
             try {
                 val wic = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                 wic.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
                 wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                android.util.Log.d("JecWeb", "onConfigChanged: bars re-hidden")
+                // Ещё инкремент — insets гарантированно обновились
+                layoutReloadKey.intValue++
+                android.util.Log.d("JecWeb", "onConfigChanged: bars re-hidden, reloadKey=${layoutReloadKey.intValue}")
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "onConfigChanged hide fail: ${e.message}")
             }
-        }
+        }, 300)
     }
 
     override fun onPictureInPictureModeChanged(isInPip: Boolean, newConfig: android.content.res.Configuration) {

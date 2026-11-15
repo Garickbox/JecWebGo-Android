@@ -170,9 +170,17 @@ private fun PlayerScreenImpl(
             wic.hide(WindowInsetsCompat.Type.systemBars())
         }
         onDispose {
-            activity?.let {
-                val wic = WindowCompat.getInsetsController(it.window, it.window.decorView)
-                wic.hide(WindowInsetsCompat.Type.systemBars())
+            // После выхода из плеера: Compose layout пересчитает insets.
+            // hide через postDelayed(100) — Compose уже отрисовал StatusBar/NavBar,
+            // потом скрываем systemBars → Compose снова пересчитает padding.
+            activity?.let { act ->
+                val wic = WindowCompat.getInsetsController(act.window, act.window.decorView)
+                act.window.decorView.postDelayed({
+                    try {
+                        wic.hide(WindowInsetsCompat.Type.systemBars())
+                        wic.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    } catch (_: Exception) {}
+                }, 100)
             }
         }
     }
