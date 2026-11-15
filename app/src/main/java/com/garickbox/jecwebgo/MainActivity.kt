@@ -254,7 +254,8 @@ class MainActivity : ComponentActivity() {
                         HorizontalPager(
                             state = pagerState,
                             modifier = Modifier.fillMaxSize(),
-                            beyondViewportPageCount = 1
+                            beyondViewportPageCount = 1,
+                            userScrollEnabled = subRoute != "player"
                         ) { page ->
                             when (page) {
                                 0 -> HomeScreen(onOpenSearch = { q ->
@@ -275,7 +276,9 @@ class MainActivity : ComponentActivity() {
                             val showStatusBar = !inSubroute
                                 || (subRoute == "player" && playerRequest?.loading == true)
                             if (showStatusBar) {
-                                Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
+                                // НЕ statusBarsPadding — insets = 0 после hide(systemBars) → StatusBar на y=0.
+                                // Фикс. top padding 8dp для отступа от чёлки/края.
+                                Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(top = 8.dp)) {
                                     StatusBar()
                                 }
                             }
@@ -434,8 +437,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (MainState.currentRoute != "player") {
-            android.util.Log.d("JecWeb", "onUserLeaveHint: route=${MainState.currentRoute} — NO PiP")
+        // PiP ТОЛЬКО если реально VLC играет (не LoadingView, не error, не пустой url)
+        val pr = PendingPlayer.data.value
+        val vlcPlaying = pr != null
+            && !pr.loading
+            && pr.error == null
+            && pr.url.isNotBlank()
+        if (!vlcPlaying) {
+            android.util.Log.d("JecWeb", "onUserLeaveHint: NO PiP (loading=${pr?.loading} err=${pr?.error} url=${pr?.url?.take(20)})")
             return
         }
         if (android.os.Build.VERSION.SDK_INT < 26) return
@@ -444,7 +453,7 @@ class MainActivity : ComponentActivity() {
                 .setAspectRatio(android.util.Rational(16, 9))
                 .build()
             val ok = enterPictureInPictureMode(params)
-            android.util.Log.d("JecWeb", "enterPip explicit: route=player ok=$ok")
+            android.util.Log.d("JecWeb", "enterPip explicit: VLC playing, ok=$ok")
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "enterPip fail: ${e.message}")
         }
