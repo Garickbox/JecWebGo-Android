@@ -341,9 +341,10 @@ private fun PlayerScreenImpl(
         }
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
-                MediaPlayer.Event.Playing -> { isPlaying = true; vlcErrorCount = 0; activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); android.util.Log.d("JecWeb", "VLC Playing") }
+                MediaPlayer.Event.Playing -> { isPlaying = true; vlcErrorCount = 0; PendingPlayer.setPlaying(true); activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); android.util.Log.d("JecWeb", "VLC Playing") }
                 MediaPlayer.Event.Paused -> {
                     isPlaying = false
+                    PendingPlayer.setPlaying(false)
                     activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     if (playbackRate != 1.0f) {
                         mediaPlayer.rate = 1.0f
@@ -351,7 +352,7 @@ private fun PlayerScreenImpl(
                         android.util.Log.d("JecWeb", "VLC rate reset to 1.0 after pause")
                     }
                 }
-                MediaPlayer.Event.Stopped -> { isPlaying = false; activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+                MediaPlayer.Event.Stopped -> { isPlaying = false; PendingPlayer.setPlaying(false); activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 MediaPlayer.Event.EndReached -> {
                     android.util.Log.d("JecWeb", "EndReached seriesList=${seriesList.size} curIdx=$currentIdx stopAtFileEnd=$stopAtFileEnd")
                     if (stopAtFileEnd) {

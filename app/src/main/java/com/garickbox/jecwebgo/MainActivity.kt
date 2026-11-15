@@ -255,7 +255,7 @@ class MainActivity : ComponentActivity() {
                             state = pagerState,
                             modifier = Modifier.fillMaxSize(),
                             beyondViewportPageCount = 1,
-                            userScrollEnabled = subRoute != "player"
+                            userScrollEnabled = !(subRoute == "player" && playerRequest?.isPlaying == true)
                         ) { page ->
                             when (page) {
                                 0 -> HomeScreen(onOpenSearch = { q ->
@@ -273,8 +273,10 @@ class MainActivity : ComponentActivity() {
                         }
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
                             // StatusBar: на ВСЕХ вкладках (Home/Search/Download/More) + на LoadingView
+                            val vlcActive = subRoute == "player" && playerRequest?.isPlaying == true
                             val showStatusBar = !inSubroute
                                 || (subRoute == "player" && playerRequest?.loading == true)
+                                || (subRoute == "player" && !vlcActive)
                             if (showStatusBar) {
                                 // НЕ statusBarsPadding — insets = 0 после hide(systemBars) → StatusBar на y=0.
                                 // Фикс. top padding 8dp для отступа от чёлки/края.
@@ -333,9 +335,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        // NavBar — overlay ПОВЕРХ content (прозрачная, видно контент под ней)
+                        // NavBar — overlay ПОВЕРХ content. Скрыта только когда VLC реально ИГРАЕТ (не paused).
+                        val vlcActive = subRoute == "player" && playerRequest?.isPlaying == true
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
-                        if (subRoute != "player") {
+                        if (!vlcActive) {
                             Box(
                                 Modifier
                                     .align(Alignment.BottomCenter)
@@ -437,14 +440,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // PiP ТОЛЬКО если реально VLC играет (не LoadingView, не error, не пустой url)
+        // PiP ТОЛЬКО если VLC реально ИГРАЕТ (isPlaying=true, не paused)
         val pr = PendingPlayer.data.value
-        val vlcPlaying = pr != null
-            && !pr.loading
-            && pr.error == null
-            && pr.url.isNotBlank()
+        val vlcPlaying = pr != null && pr.isPlaying
         if (!vlcPlaying) {
-            android.util.Log.d("JecWeb", "onUserLeaveHint: NO PiP (loading=${pr?.loading} err=${pr?.error} url=${pr?.url?.take(20)})")
+            android.util.Log.d("JecWeb", "onUserLeaveHint: NO PiP (isPlaying=${pr?.isPlaying} loading=${pr?.loading})")
             return
         }
         if (android.os.Build.VERSION.SDK_INT < 26) return
