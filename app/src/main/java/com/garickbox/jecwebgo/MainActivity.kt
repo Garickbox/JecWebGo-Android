@@ -290,7 +290,7 @@ class MainActivity : ComponentActivity() {
                             composable("empty") {}
                             composable("history") { HistoryScreen(onBack = { nav.popBackStack() }) }
                             composable("bookmarks") { BookmarksScreen(onBack = { nav.popBackStack() }) }
-                            composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
+                            composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }, bottomBarHeight = 56.dp) }
                             composable("about") { AboutScreen(onBack = { nav.popBackStack() }) }
                             composable("player") {
                                 val pr = playerRequest
