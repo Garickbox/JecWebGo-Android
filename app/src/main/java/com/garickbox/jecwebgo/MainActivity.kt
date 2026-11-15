@@ -262,7 +262,10 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
-                            if (!inSubroute && pagerState.currentPage == 0) {
+                            // StatusBar: на Home (page=0) или на LoadingView (player + loading, не VLC)
+                            val showStatusBar = (!inSubroute && pagerState.currentPage == 0)
+                                || (subRoute == "player" && playerRequest?.loading == true)
+                            if (showStatusBar) {
                                 Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding()) {
                                     StatusBar()
                                 }
