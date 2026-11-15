@@ -217,7 +217,8 @@ object DownloadRepository {
         cancelled = false
         val newItem = DownloadedItem(
             id = item.id, title = item.request.title, fileName = item.request.fileName,
-            uri = uri, sizeBytes = size, completedAt = System.currentTimeMillis()
+            uri = uri, sizeBytes = size, completedAt = System.currentTimeMillis(),
+            magnet = item.request.magnet
         )
         _history.update { listOf(newItem) + it }
         persist()

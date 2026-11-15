@@ -2,6 +2,7 @@ package com.garickbox.jecwebgo.ui.download
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,12 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.ui.common.win95.Win95Button
 import com.garickbox.jecwebgo.ui.common.win95.Win95TabsStrip
+import com.garickbox.jecwebgo.ui.common.win95.openFile
+import com.garickbox.jecwebgo.ui.common.win95.openDownloadsFolder
+import com.garickbox.jecwebgo.ui.common.win95.shareMagnet
+import com.garickbox.jecwebgo.ui.common.win95.copyMagnetToClipboard
+import com.garickbox.jecwebgo.ui.common.win95.Win95ContextMenuItem
+import com.garickbox.jecwebgo.ui.common.win95.Win95ContextMenu
 import com.garickbox.jecwebgo.ui.common.win95.Win95SubTab
 import com.garickbox.jecwebgo.ui.common.win95.Win95Progress
 import com.garickbox.jecwebgo.ui.common.win95.Win95TitleBar
@@ -851,6 +858,12 @@ private fun ActiveCardWin95(
     Column(
         Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+                onLongClick = { onProps() }
+            )
             .background(Win95Colors.Face)
             .win95Bevel(raised = true, thickness = 2.dp)
             .padding(5.dp)
@@ -963,10 +976,11 @@ private fun FolderCardWin95(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clickable(
+                .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = if (isFolder) onToggleExpand else onProps
+                    onClick = { if (isFolder) onToggleExpand() else onProps() },
+                    onLongClick = { onProps() }
                 )
                 .padding(horizontal = 4.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -1116,6 +1130,12 @@ private fun HistoryRowWin95(
     Row(
         Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onProps() },
+                onLongClick = { onDelete() }
+            )
             .background(if (isSelected) Win95Colors.Navy.copy(alpha = 0.15f) else Win95Colors.Face)
             .win95Border(raised = true)
             .padding(horizontal = 4.dp, vertical = 3.dp),

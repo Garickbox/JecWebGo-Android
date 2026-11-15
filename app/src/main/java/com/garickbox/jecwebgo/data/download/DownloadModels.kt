@@ -38,5 +38,6 @@ data class DownloadedItem(
     val fileName: String,
     val uri: String,
     val sizeBytes: Long,
-    val completedAt: Long
+    val completedAt: Long,
+    val magnet: String = ""
 )
