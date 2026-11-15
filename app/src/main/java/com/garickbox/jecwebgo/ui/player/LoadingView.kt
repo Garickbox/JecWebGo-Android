@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.garickbox.jecwebgo.util.PosterUtil
-import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun LoadingView(

@@ -25,6 +25,27 @@ object PlayActions {
             com.garickbox.jecwebgo.ui.player.PendingPlayer.openLoading(title, poster, description)
             com.garickbox.jecwebgo.ui.player.PendingPlayer.updateStatus("Добавляем торрент...")
 
+            // ПАРАЛЛЕЛЬНО: remote TMDB через worker — если локально postera/desc нет
+            if (poster.isBlank() || description.isBlank()) {
+                bgScope.launch {
+                    try {
+                        val tmdbInfo = com.garickbox.jecwebgo.data.network.TmdbRepository.searchMovieInfo(title, "")
+                        if (tmdbInfo != null) {
+                            if (poster.isBlank() && tmdbInfo.posterUrl.isNotBlank()) {
+                                com.garickbox.jecwebgo.ui.player.PendingPlayer.updatePoster(tmdbInfo.posterUrl)
+                                android.util.Log.d("JecWeb", "playPhone: TMDB remote poster -> $title")
+                            }
+                            if (description.isBlank() && tmdbInfo.overview.isNotBlank()) {
+                                com.garickbox.jecwebgo.ui.player.PendingPlayer.updateDescription(tmdbInfo.overview)
+                                android.util.Log.d("JecWeb", "playPhone: TMDB remote desc -> $title (${tmdbInfo.overview.length})")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("JecWeb", "playPhone TMDB remote fail: ${e.message}")
+                    }
+                }
+            }
+
             val result = TorrentRepository.addWithFile(magnet)
             android.util.Log.d("JecWeb", "play_phone result hash=${result?.hash?.take(8)} idx=${result?.firstVideoIndex}")
             val hash: String

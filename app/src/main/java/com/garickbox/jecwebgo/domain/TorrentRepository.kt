@@ -427,9 +427,28 @@ object TorrentRepository {
             }
         }
 
-    /** Анонс для 10% (нет в базе): случайный фильм с описанием из KP. */
+    /** Анонс для 10% (нет в базе): случайный фильм с описанием.
+     *  Приоритет — TMDB (10k), fallback — rutor (5k). */
     suspend fun randomAnnouncement(ctx: android.content.Context): String = withContext(Dispatchers.IO) {
         try {
+            // 1. TMDB (10k фильмов, лучше описания)
+            val tmdb = try {
+                com.garickbox.jecwebgo.data.network.TmdbCache.peek()
+                    ?: com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)
+            } catch (_: Exception) { null }
+            if (tmdb != null) {
+                val tmdbMovies = tmdb.movies.filter {
+                    it.overview.isNotBlank() && it.poster_file.isNotBlank() && it.title.isNotBlank()
+                }
+                if (tmdbMovies.isNotEmpty()) {
+                    val r = tmdbMovies.random()
+                    val rating = if (r.rating > 0.0) " ★${"%.1f".format(r.rating)}" else ""
+                    val year = if (r.year.isNotBlank()) " (${r.year})" else ""
+                    android.util.Log.d("JecWeb", "randomAnnouncement: TMDB ${r.title}")
+                    return@withContext "🎬 А пока посмотрите:\n\n${r.title}$year$rating\n\n${r.overview}"
+                }
+            }
+            // 2. Fallback — rutor (5k)
             val all = com.garickbox.jecwebgo.data.network.DataRepository.loadCached(ctx)
                 .filter { it.description.isNotBlank() && it.poster.isNotBlank() && it.title.isNotBlank() }
             if (all.isEmpty()) return@withContext "🎬 Подключение к торренту..."
