@@ -63,6 +63,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.garickbox.jecwebgo.data.network.TmdbCache
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
@@ -109,6 +113,18 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         requestRuntimePermissions()
         setupPip()
+        // Warmup: фоновая загрузка tmdb_movies.json (~52 MB) пока юзер на Главной.
+        // Когда он зайдёт в Search — данные уже в TmdbCache (0 сек).
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val t0 = System.currentTimeMillis()
+                val data = TmdbCache.load(applicationContext)
+                val ms = System.currentTimeMillis() - t0
+                android.util.Log.d("JecWeb", "warmup: ${data?.movies?.size ?: 0} movies, ${data?.top_actors?.size ?: 0} actors in ${ms}ms")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "warmup fail: ${e.message}")
+            }
+        }
         setContent {
             JecWebTheme {
                 HandoffDialog(

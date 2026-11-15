@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,9 +25,11 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.garickbox.jecwebgo.data.network.TMDB_CATEGORIES
 import com.garickbox.jecwebgo.data.network.TmdbActor
+import com.garickbox.jecwebgo.data.network.TmdbCache
 import com.garickbox.jecwebgo.data.network.TmdbCategory
 import com.garickbox.jecwebgo.data.network.TmdbGenre
 import com.garickbox.jecwebgo.data.network.TmdbRepository
+import kotlin.random.Random
 
 private val FALLBACK_GENRES = listOf(
     TmdbGenre(28, "Боевик", "💥"),
@@ -52,23 +55,43 @@ fun GenreGrid(
     onActorClick: (TmdbActor) -> Unit
 ) {
     val ctx = LocalContext.current
+    // Seed для рандома — rememberSaveable, стабилен при пересоздании
+    var seed by rememberSaveable { mutableIntStateOf(Random.nextInt()) }
     var genres by remember { mutableStateOf<List<TmdbGenre>>(FALLBACK_GENRES) }
     var allActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
-    var heroActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var progressRead by remember { mutableLongStateOf(0L) }
+    var progressTotal by remember { mutableLongStateOf(0L) }
     var showAllActors by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
+        // Если TmdbCache уже в памяти — мгновенно (0 сек)
+        val cached = TmdbCache.peek()
+        if (cached != null) {
+            genres = if (cached.genres.isNotEmpty()) cached.genres else FALLBACK_GENRES
+            allActors = cached.top_actors
+            isLoading = false
+            android.util.Log.d("JecWeb", "GenreGrid: from cache ${cached.movies.size} movies")
+            return@LaunchedEffect
+        }
+        // Первый раз — загрузка с прогрессом
         isLoading = true
+        loadError = null
         try {
-            val data = TmdbRepository.load(ctx)
+            val data = TmdbCache.load(ctx) { read, total ->
+                progressRead = read
+                progressTotal = total
+            }
             if (data != null) {
-                if (data.genres.isNotEmpty()) genres = data.genres
+                genres = if (data.genres.isNotEmpty()) data.genres else FALLBACK_GENRES
                 allActors = data.top_actors
-                heroActors = data.top_actors.shuffled().take(HERO_ACTORS)
+            } else {
+                loadError = "Не удалось загрузить базу"
             }
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "GenreGrid load fail: ${e.message}")
+            loadError = e.message
         } finally {
             isLoading = false
         }
@@ -79,13 +102,48 @@ fun GenreGrid(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator()
                 Spacer(Modifier.height(12.dp))
-                Text("Загрузка базы (~10 сек)",
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Первый запуск — потом из кэша",
+                if (progressTotal > 0) {
+                    val readMb = progressRead / 1048576.0
+                    val totalMb = progressTotal / 1048576.0
+                    val pct = (progressRead * 100 / progressTotal).toInt()
+                    Text("Загрузка базы $pct%",
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(4.dp))
+                    Text("%.1f / %.1f MB".format(readMb, totalMb),
+                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Загрузка базы...",
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Первый запуск — потом мгновенно",
                     fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         return
+    }
+
+    if (loadError != null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("⚠️", fontSize = 48.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(loadError ?: "Ошибка", color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = {
+                    // Сброс + повторный заход через переход вкладки
+                    TmdbCache.invalidate()
+                }) { Text("Сбросить кэш") }
+            }
+        }
+        return
+    }
+
+    // heroActors — стабильны пока seed и allActors не меняются
+    val heroActors = remember(allActors, seed) {
+        if (allActors.isEmpty()) emptyList()
+        else allActors.shuffled(Random(seed)).take(HERO_ACTORS)
     }
 
     LazyColumn(
@@ -131,12 +189,15 @@ fun GenreGrid(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🎭 Актёры (${allActors.size})",
+                    Text("🎭 Актёры · $HERO_ACTORS из ${allActors.size}",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f))
                     TextButton(onClick = { showAllActors = true }) {
                         Text("🔍 Все", fontSize = 11.sp)
+                    }
+                    TextButton(onClick = { seed = Random.nextInt() }) {
+                        Text("🎲", fontSize = 11.sp)
                     }
                 }
             }

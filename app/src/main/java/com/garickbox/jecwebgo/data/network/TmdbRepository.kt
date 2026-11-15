@@ -151,7 +151,7 @@ object TmdbRepository {
     private const val ACTOR_BASE = "https://cdn.jsdelivr.net/gh/Garickbox/JecWebGo-Android@data/posters_actors/"
     private const val FNAME = "tmdb_movies.json"
     private const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
-    private const val MIN_MOVIES = 2000
+    private const val MIN_MOVIES = 9000
 
     private val client = okhttp3.OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -171,17 +171,36 @@ object TmdbRepository {
         return if (f.exists()) System.currentTimeMillis() - f.lastModified() else Long.MAX_VALUE
     }
 
-    suspend fun refresh(ctx: Context): TmdbData? = withContext(Dispatchers.IO) {
+    suspend fun refresh(
+        ctx: Context,
+        onProgress: (Long, Long) -> Unit = { _, _ -> }
+    ): TmdbData? = withContext(Dispatchers.IO) {
         try {
-            val req = Request.Builder().url(URL).build()
+            val req = Request.Builder().url(URL)
+                .header("Accept-Encoding", "gzip")
+                .build()
             val body = client.newCall(req).execute().use { r ->
                 if (!r.isSuccessful) return@withContext loadCached(ctx)
-                r.body?.string().orEmpty()
+                val total = r.body?.contentLength() ?: 0L
+                val encoding = r.header("Content-Encoding") ?: "none"
+                android.util.Log.d("JecWeb", "Tmdb refresh: contentLength=$total enc=$encoding")
+                val stream = r.body?.byteStream() ?: return@withContext loadCached(ctx)
+                val bos = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(65536)
+                var read = 0L
+                while (true) {
+                    val n = stream.read(buf)
+                    if (n <= 0) break
+                    bos.write(buf, 0, n)
+                    read += n
+                    onProgress(read, total)
+                }
+                bos.toByteArray().toString(Charsets.UTF_8)
             }
             if (body.length < 100) return@withContext loadCached(ctx)
             val data = json.decodeFromString<TmdbData>(body)
             file(ctx).writeText(body)
-            android.util.Log.d("JecWeb", "Tmdb refresh: ${data.movies.size} movies, ${data.top_actors.size} actors")
+            android.util.Log.d("JecWeb", "Tmdb refresh OK: ${data.movies.size} movies, ${data.top_actors.size} actors")
             data
         } catch (e: Exception) {
             android.util.Log.e("JecWeb", "Tmdb refresh fail: ${e.message}")
@@ -189,11 +208,15 @@ object TmdbRepository {
         }
     }
 
-    suspend fun load(ctx: Context): TmdbData? = withContext(Dispatchers.IO) {
+    suspend fun load(
+        ctx: Context,
+        onProgress: (Long, Long) -> Unit = { _, _ -> }
+    ): TmdbData? = withContext(Dispatchers.IO) {
         val cached = loadCached(ctx)
         val isOldSchema = cached == null || cached.top_actors.isEmpty() || cached.movies.size < MIN_MOVIES
         val isStale = cacheAge(ctx) > MAX_AGE_MS
-        if (isStale || isOldSchema) refresh(ctx) else cached
+        android.util.Log.d("JecWeb", "Tmdb load: cached=${cached?.movies?.size ?: 0} oldSchema=$isOldSchema stale=$isStale")
+        if (isStale || isOldSchema) refresh(ctx, onProgress) else cached
     }
 
     private const val WORKER_BASE = "https://ai-jecweb.garickwot.workers.dev"
