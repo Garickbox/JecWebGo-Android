@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     permissions:
       contents: write
     steps:
@@ -29,11 +29,15 @@ jobs:
           git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git fetch -q origin data || true
           git checkout -q -B data origin/data 2>/dev/null || git checkout -q --orphan data
-          rm -rf posters_tmdb tmdb_movies.json
+          rm -rf posters_tmdb posters_actors tmdb_movies.json
           cp $GITHUB_WORKSPACE/scripts/tmdb_movies.json .
           cp -r $GITHUB_WORKSPACE/scripts/posters_tmdb .
+          if [ -d "$GITHUB_WORKSPACE/scripts/posters_actors" ]; then
+            cp -r $GITHUB_WORKSPACE/scripts/posters_actors .
+            echo "posters_actors: $(ls posters_actors | wc -l) files"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -q -m "tmdb: $(date -u +%F)" || echo "no changes"
+          git commit -q -m "tmdb: $(date -u +%F) actors+mega" || echo "no changes"
           git push -f origin data
