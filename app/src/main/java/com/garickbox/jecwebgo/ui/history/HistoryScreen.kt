@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +41,8 @@ fun HistoryScreen(onBack: () -> Unit = {}) {
 private fun HistoryScreenBody() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val cfg = LocalConfiguration.current
+    val isLandscape = cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var searches by remember { mutableStateOf<List<HistoryEntry>>(emptyList()) }
     var playlog by remember { mutableStateOf<List<PlayLogEntry>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -63,7 +66,7 @@ private fun HistoryScreenBody() {
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-    LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = if (isLandscape) 480.dp else 700.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (searches.isNotEmpty()) {
             item { Text("Запросы", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
             itemsIndexed(searches) { idx, h ->

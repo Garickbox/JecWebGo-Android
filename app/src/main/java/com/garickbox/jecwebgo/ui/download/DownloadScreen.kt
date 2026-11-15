@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,8 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
     val history by vm.history.collectAsState()
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
     val scope = rememberCoroutineScope()
+    val cfg = LocalConfiguration.current
+    val isLandscape = cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var deleteDialogFor by remember { mutableStateOf<DownloadedItem?>(null) }
     var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     var activeCollapsed by remember { mutableStateOf(false) }
@@ -89,7 +92,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
         }
         val groupKeys = remember(queue) { queue.map { DownloadRepository.groupKeyOf(it) }.distinct() }
         Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.TopCenter) {
-        LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp),
+        LazyColumn(Modifier.fillMaxWidth().widthIn(max = if (isLandscape) 480.dp else 700.dp).padding(12.dp),
             contentPadding = PaddingValues(bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val a = active

@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,8 @@ fun BookmarksScreen(onBack: () -> Unit = {}) {
 private fun BookmarksScreenBody() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val cfg = LocalConfiguration.current
+    val isLandscape = cfg.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     var items by remember { mutableStateOf<List<Bookmark>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var downloadMagnet by remember { mutableStateOf<String?>(null) }
@@ -55,7 +58,7 @@ private fun BookmarksScreenBody() {
     }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-    LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = if (isLandscape) 480.dp else 700.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(items) { idx, b ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {

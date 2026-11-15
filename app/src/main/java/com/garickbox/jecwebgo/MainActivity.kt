@@ -223,52 +223,9 @@ class MainActivity : ComponentActivity() {
                         wic.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     } catch (_: Exception) {}
                 }
-                Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0), bottomBar = {
-                    if (subRoute != "player") {
-                        // РЕАЛЬНО прозрачная панель: Box(clip+bg) + кастомный Row (без NavigationBarItem-pill)
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                .background(Color.Black.copy(alpha = 0.35f))
-                        ) {
-                            Row(
-                                Modifier.fillMaxWidth().height(56.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                tabs.forEachIndexed { idx, t ->
-                                    val isSel = selectedTab == t.route
-                                    val col = if (isSel) MaterialTheme.colorScheme.primary
-                                              else Color.White.copy(alpha = 0.6f)
-                                    Column(
-                                        Modifier
-                                            .weight(1f)
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null
-                                            ) {
-                                                if (t.route == "search") searchResetKey++
-                                                if (inSubroute) nav.popBackStack("empty", inclusive = false)
-                                                scope.launch { pagerState.animateScrollToPage(idx) }
-                                            }
-                                            .padding(vertical = 6.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Icon(t.icon, contentDescription = t.label,
-                                            modifier = Modifier.size(22.dp), tint = col)
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(t.label, fontSize = 10.sp,
-                                            fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = col)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }) { pad ->
-                    Box(Modifier.padding(pad).fillMaxSize()) {
+                // Scaffold убран: он резервировал pad.bottom → под панелью был чёрный фон.
+                // Box(fillMaxSize) — content идёт на всю высоту, панель поверх (overlay).
+                Box(Modifier.fillMaxSize()) {
                         HorizontalPager(
                             state = pagerState,
                             modifier = Modifier.fillMaxSize(),
@@ -343,7 +300,50 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                    }
+                        // NavBar — overlay ПОВЕРХ content (прозрачная, видно контент под ней)
+                        if (subRoute != "player") {
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                    .background(Color.Black.copy(alpha = 0.35f))
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth().height(56.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    tabs.forEachIndexed { idx, t ->
+                                        val isSel = selectedTab == t.route
+                                        val col = if (isSel) MaterialTheme.colorScheme.primary
+                                                  else Color.White.copy(alpha = 0.6f)
+                                        Column(
+                                            Modifier
+                                                .weight(1f)
+                                                .clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null
+                                                ) {
+                                                    if (t.route == "search") searchResetKey++
+                                                    if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                                    scope.launch { pagerState.animateScrollToPage(idx) }
+                                                }
+                                                .padding(vertical = 6.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(t.icon, contentDescription = t.label,
+                                                modifier = Modifier.size(22.dp), tint = col)
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(t.label, fontSize = 10.sp,
+                                                fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = col)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                 }
             }
         }
