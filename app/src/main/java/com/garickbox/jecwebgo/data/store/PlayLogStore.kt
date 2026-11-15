@@ -31,13 +31,19 @@ object PlayLogStore {
     }
 
     suspend fun add(ctx: Context, entry: PlayLogEntry, limit: Int = 100) = withContext(Dispatchers.IO) {
+        val existing = list(ctx)
+        // Защита: если новый entry.magnet пуст, но старая запись с тем же hash имеет magnet — сохраняем magnet
+        val enriched = if (entry.magnet.isBlank() && entry.hash.isNotBlank()) {
+            val oldWithMagnet = existing.firstOrNull { it.hash == entry.hash && it.magnet.isNotBlank() }
+            if (oldWithMagnet != null) entry.copy(magnet = oldWithMagnet.magnet) else entry
+        } else entry
         // Дедуп как в Go: удалить старую запись с тем же magnet (или hash если magnet пуст)
-        val cur = list(ctx).filter { old ->
-            val sameMagnet = entry.magnet.isNotBlank() && old.magnet == entry.magnet
-            val sameHash = entry.magnet.isBlank() && entry.hash.isNotBlank() && old.hash == entry.hash
+        val cur = existing.filter { old ->
+            val sameMagnet = enriched.magnet.isNotBlank() && old.magnet == enriched.magnet
+            val sameHash = enriched.magnet.isBlank() && enriched.hash.isNotBlank() && old.hash == enriched.hash
             !sameMagnet && !sameHash
         }.toMutableList()
-        cur.add(entry)
+        cur.add(enriched)
         if (cur.size > limit) cur.subList(0, cur.size - limit).clear()
         file(ctx).writeText(json.encodeToString<List<PlayLogEntry>>(cur))
         Unit

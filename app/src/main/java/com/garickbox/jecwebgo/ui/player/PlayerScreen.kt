@@ -89,6 +89,7 @@ fun PlayerScreen(
     poster: String = "",
     description: String = "",
     localKey: String = "",
+    magnet: String = "",
     onBack: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -122,7 +123,8 @@ fun PlayerScreen(
             description = description,
             hwMode = effectiveMode,
             localKey = localKey,
-            onBack = onBack,
+            magnet = magnet,
+        onBack = onBack,
             onError = { fallback() }
         )
     }
@@ -140,7 +142,8 @@ private fun PlayerScreenImpl(
     description: String,
     hwMode: String,
     localKey: String,
-    onBack: () -> Unit,
+    onBack: (,
+    magnet: String = "") -> Unit,
     onError: () -> Unit
 ) {
     val context = LocalContext.current
@@ -446,7 +449,7 @@ private fun PlayerScreenImpl(
                 Lifecycle.Event.ON_STOP -> {
                     backgroundedAt = System.currentTimeMillis()
                     if (!PipState.isInPip.value) {
-                        val logMagnet = if (localKey.isNotBlank()) localKey else ""
+                        val logMagnet = magnet.ifBlank { localKey }
                         if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 1000 && duration > 0) {
                             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                 try {
@@ -750,7 +753,7 @@ private fun PlayerScreenImpl(
         if (isPlaying && (hash.isNotBlank() || localKey.isNotBlank())) {
             while (true) {
                 delay(20000)
-                val logMagnet = if (localKey.isNotBlank()) localKey else ""
+                val logMagnet = magnet.ifBlank { localKey }
                 if ((hash.isNotBlank() || localKey.isNotBlank()) && position > 60000 && duration > 0) {
                     try {
                         PlayLogStore.add(context, PlayLogEntry(

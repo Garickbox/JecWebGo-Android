@@ -72,7 +72,7 @@ fun SettingsScreen(
             Win95TitleBar(
                 title = "Настройки — JecWeb",
                 icon = "⚙",
-                onClose = onBack
+                showClose = false
             )
 
             Column(
@@ -227,19 +227,30 @@ fun SettingsScreen(
                 }
 
                 Spacer(Modifier.height(6.dp))
+            }
+
+            // ═══ [OK] [Отмена] внизу окна (Q2=C) ═══
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Win95Button(
                     onClick = {
                         SettingsStore.save(ctx, s)
                         ctx.toast("Сохранено")
+                        onBack()
                     },
-                    modifier = Modifier.fillMaxWidth().height(32.dp)
+                    modifier = Modifier.weight(1f).height(32.dp)
                 ) {
-                    Text(
-                        "💾 Сохранить",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    Text("OK", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                }
+                Win95Button(
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f).height(32.dp)
+                ) {
+                    Text("Отмена", fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
 

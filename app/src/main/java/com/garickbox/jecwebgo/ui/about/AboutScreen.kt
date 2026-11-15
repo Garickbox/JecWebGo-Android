@@ -63,7 +63,7 @@ fun AboutScreen(
             Win95TitleBar(
                 title = "О программе — JecWeb",
                 icon = "ℹ",
-                onClose = onBack
+                showClose = false
             )
 
             Column(
@@ -221,6 +221,20 @@ fun AboutScreen(
                         fontFamily = FontFamily.Monospace,
                         color = Win95Colors.TextDim
                     )
+                }
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Win95Button(
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f).height(32.dp)
+                ) {
+                    Text("OK", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             }
 

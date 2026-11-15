@@ -297,6 +297,14 @@ private fun DetailsDialog(
                                 Text("▶", fontSize = 14.sp)
                             }
                             Spacer(Modifier.width(4.dp))
+                            OutlinedButton(onClick = {
+                                scope.launch {
+                                    com.garickbox.jecwebgo.data.store.BookmarkStore.addRaw(ctx, item.title, item.magnet)
+                                    ctx.toast("В метки: ${item.title}")
+                                }
+                            }, modifier = Modifier.height(36.dp).width(46.dp), contentPadding = PaddingValues(0.dp)) {
+                                Text("🔖", fontSize = 14.sp)
+                            }
                             Spacer(Modifier.width(4.dp))
                             Button(onClick = {
                                 pickerFor = item

@@ -136,6 +136,6 @@ object PlayActions {
         val url = "$base&t=${System.currentTimeMillis()}"
         val cleanT = com.garickbox.jecwebgo.util.TitleUtil.cleanTitle(title)
         android.util.Log.d("JecWeb", "openVlc file=$fileName hash=${hash.take(8)} idx=$index")
-        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index, fileName)
+        com.garickbox.jecwebgo.ui.player.PendingPlayer.openReady(url, cleanT, hash, index, fileName, magnet = magnet)
     }
 }

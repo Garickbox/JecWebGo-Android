@@ -90,7 +90,17 @@ fun MarksTabWin95() {
                 itemsIndexed(items, key = { idx, b -> "bm_${b.added}_${b.title.hashCode()}_$idx" }) { idx, b ->
                     MarksRowWin95(
                         b = b,
-                        onPlay = { PlayActions.playPhone(ctx, scope, b.magnet, b.title) },
+                        onPlay = {
+                            if (b.magnet.isBlank()) {
+                                ctx.toast("Торрент мёртв, удалён из меток")
+                                scope.launch {
+                                    BookmarkStore.removeAt(ctx, idx)
+                                    reload()
+                                }
+                            } else {
+                                PlayActions.playPhone(ctx, scope, b.magnet, b.title)
+                            }
+                        },
                         onDownload = {
                             downloadMagnet = b.magnet
                             downloadTitle = b.title
@@ -155,9 +165,9 @@ private fun MarksSmallBtn(label: String, onClick: () -> Unit) {
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) { onClick() }
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.Text)
+        Text(label, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.Text)
     }
 }

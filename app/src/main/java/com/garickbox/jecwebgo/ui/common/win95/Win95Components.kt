@@ -142,7 +142,8 @@ fun Win95TitleBar(
     icon: String = "",
     onClose: (() -> Unit)? = null,
     onMinimize: (() -> Unit)? = null,
-    onMaximize: (() -> Unit)? = null
+    onMaximize: (() -> Unit)? = null,
+    showClose: Boolean = true
 ) {
     Row(
         modifier = Modifier
@@ -167,11 +168,17 @@ fun Win95TitleBar(
             modifier = Modifier.weight(1f),
             maxLines = 1
         )
-        Win95TitleButton("_", onMinimize)
-        Spacer(Modifier.width(2.dp))
-        Win95TitleButton("□", onMaximize)
-        Spacer(Modifier.width(2.dp))
-        Win95TitleButton("×", onClose)
+        if (onMinimize != null) {
+            Win95TitleButton("_", onMinimize)
+            Spacer(Modifier.width(2.dp))
+        }
+        if (onMaximize != null) {
+            Win95TitleButton("□", onMaximize)
+            Spacer(Modifier.width(2.dp))
+        }
+        if (showClose && onClose != null) {
+            Win95TitleButton("×", onClose)
+        }
     }
 }
 
@@ -179,13 +186,13 @@ fun Win95TitleBar(
 private fun Win95TitleButton(label: String, onClick: (() -> Unit)?) {
     Box(
         modifier = Modifier
-            .size(16.dp, 14.dp)
+            .size(32.dp, 24.dp)
             .background(Win95Colors.Face)
-            .win95Bevel(raised = true, thickness = 1.dp)
+            .win95Bevel(raised = true, thickness = 2.dp)
             .androidxClickable(remember { MutableInteractionSource() }) { onClick?.invoke() },
         contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Win95Colors.Black)
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Win95Colors.Black)
     }
 }
 

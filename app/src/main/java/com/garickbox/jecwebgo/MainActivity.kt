@@ -324,6 +324,7 @@ class MainActivity : ComponentActivity() {
                                         poster = pr.poster,
                                         description = pr.description,
                                         localKey = pr.localKey,
+                                        magnet = pr.magnet,
                                         onBack = {
                                             PendingPlayer.consume()
                                             nav.popBackStack()

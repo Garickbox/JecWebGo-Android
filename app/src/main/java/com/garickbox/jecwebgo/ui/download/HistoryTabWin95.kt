@@ -98,7 +98,20 @@ fun HistoryTabWin95() {
                     HistoryRowWin95(
                         entry = p,
                         dateStr = fmt.format(Date(p.time * 1000)),
-                        onPlay = { PlayActions.playPhone(ctx, scope, p.magnet, p.title) },
+                        onPlay = {
+                            val effectiveMagnet = p.magnet.ifBlank {
+                                if (p.hash.isNotBlank()) "magnet:?xt=urn:btih:${p.hash}" else ""
+                            }
+                            if (effectiveMagnet.isBlank()) {
+                                ctx.toast("Торрент мёртв, удалён из истории")
+                                scope.launch {
+                                    PlayLogStore.removeAt(ctx, playlog.size - 1 - idx)
+                                    reload()
+                                }
+                            } else {
+                                PlayActions.playPhone(ctx, scope, effectiveMagnet, p.title)
+                            }
+                        },
                         onDownload = {
                             downloadMagnet = p.magnet
                             downloadTitle = p.title
@@ -179,9 +192,9 @@ private fun Win95SmallBtn(label: String, onClick: () -> Unit) {
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) { onClick() }
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 10.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.Text)
+        Text(label, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.Text)
     }
 }

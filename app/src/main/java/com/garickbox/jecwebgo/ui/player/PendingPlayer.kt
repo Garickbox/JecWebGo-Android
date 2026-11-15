@@ -44,12 +44,12 @@ object PendingPlayer {
         if (text.isBlank()) return
         _data.update { it?.copy(description = text) }
     }
-    fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "", localKey: String = "") {
+    fun openReady(url: String, title: String, hash: String, currentIndex: Int, fileName: String = "", localKey: String = "", magnet: String = "") {
         _data.value = _data.value?.copy(
             url = url, title = title, hash = hash,
-            currentIndex = currentIndex, fileName = fileName, localKey = localKey,
+            currentIndex = currentIndex, fileName = fileName, localKey = localKey, magnet = magnet,
             loading = false, error = null, isPlaying = false
-        ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, fileName = fileName, localKey = localKey, isPlaying = false)
+        ) ?: PlayerRequest(url = url, title = title, hash = hash, currentIndex = currentIndex, fileName = fileName, localKey = localKey, magnet = magnet, isPlaying = false)
     }
     fun error(msg: String) {
         _data.update { it?.copy(loading = false, error = msg, isPlaying = false) }
