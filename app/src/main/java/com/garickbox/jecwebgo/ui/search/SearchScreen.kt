@@ -113,17 +113,17 @@ fun SearchScreen(
                 s.query.isBlank() && s.items.isEmpty() -> GenreGrid(
                     onGenreClick = { g ->
                         sheetReq = SheetReq(g.name, g.emoji) {
-                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byGenre(g.id) ?: emptyList()
+                            com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)?.byGenre(g.id) ?: emptyList()
                         }
                     },
                     onCategoryClick = { c ->
                         sheetReq = SheetReq(c.name, c.emoji) {
-                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byCategory(c.key) ?: emptyList()
+                            com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)?.byCategory(c.key) ?: emptyList()
                         }
                     },
                     onActorClick = { actor ->
                         sheetReq = SheetReq(actor.name, "🎭") {
-                            com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byActorId(actor.id) ?: emptyList()
+                            com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)?.byActorId(actor.id) ?: emptyList()
                         }
                     }
                 )
@@ -155,7 +155,7 @@ fun SearchScreen(
                     // Переключаем Sheet на фильмографию актёра
                     // (detailsMovie внутри GenreMoviesSheet сбросится через remember(title))
                     sheetReq = SheetReq(personName, "🎭") {
-                        com.garickbox.jecwebgo.data.network.TmdbRepository.load(ctx)?.byActorId(personId) ?: emptyList()
+                        com.garickbox.jecwebgo.data.network.TmdbCache.load(ctx)?.byActorId(personId) ?: emptyList()
                     }
                 }
             )

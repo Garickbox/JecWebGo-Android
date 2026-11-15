@@ -35,4 +35,13 @@ object TmdbCache {
     fun peek(): TmdbData? = data
     fun isReady(): Boolean = data != null
     fun invalidate() { data = null; firstLoadDone = false }
+
+    /**
+     * Быстрый доступ: если данные в памяти — вернуть мгновенно.
+     * Если нет — suspend load (загрузка с прогрессом).
+     */
+    suspend fun peekOrLoad(ctx: Context): TmdbData? {
+        data?.let { return it }
+        return load(ctx)
+    }
 }

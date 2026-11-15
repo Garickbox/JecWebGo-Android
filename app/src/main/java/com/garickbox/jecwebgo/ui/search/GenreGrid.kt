@@ -57,6 +57,7 @@ fun GenreGrid(
     val ctx = LocalContext.current
     // Seed для рандома — rememberSaveable, стабилен при пересоздании
     var seed by rememberSaveable { mutableIntStateOf(Random.nextInt()) }
+    var reloadKey by remember { mutableIntStateOf(0) }
     var genres by remember { mutableStateOf<List<TmdbGenre>>(FALLBACK_GENRES) }
     var allActors by remember { mutableStateOf<List<TmdbActor>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -65,7 +66,7 @@ fun GenreGrid(
     var showAllActors by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(reloadKey) {
         // Если TmdbCache уже в памяти — мгновенно (0 сек)
         val cached = TmdbCache.peek()
         if (cached != null) {
@@ -132,8 +133,8 @@ fun GenreGrid(
                 Text(loadError ?: "Ошибка", color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = {
-                    // Сброс + повторный заход через переход вкладки
                     TmdbCache.invalidate()
+                    reloadKey++
                 }) { Text("Сбросить кэш") }
             }
         }

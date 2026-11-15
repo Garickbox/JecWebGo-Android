@@ -176,12 +176,13 @@ object TmdbRepository {
         onProgress: (Long, Long) -> Unit = { _, _ -> }
     ): TmdbData? = withContext(Dispatchers.IO) {
         try {
-            val req = Request.Builder().url(URL)
-                .header("Accept-Encoding", "gzip")
-                .build()
+            // OkHttp САМ добавит Accept-Encoding: gzip и САМ распакует byteStream().
+            // Ручной header ломал авто-распаковку → отдавало сжатые байты.
+            val req = Request.Builder().url(URL).build()
             val body = client.newCall(req).execute().use { r ->
                 if (!r.isSuccessful) return@withContext loadCached(ctx)
-                val total = r.body?.contentLength() ?: 0L
+                // contentLength() = -1 для gzip (OkHttp не знает распакованный размер)
+                val total = r.body?.contentLength() ?: -1L
                 val encoding = r.header("Content-Encoding") ?: "none"
                 android.util.Log.d("JecWeb", "Tmdb refresh: contentLength=$total enc=$encoding")
                 val stream = r.body?.byteStream() ?: return@withContext loadCached(ctx)
@@ -193,7 +194,8 @@ object TmdbRepository {
                     if (n <= 0) break
                     bos.write(buf, 0, n)
                     read += n
-                    onProgress(read, total)
+                    // total может быть -1 (gzip) → показываем только "скачано"
+                    onProgress(read, if (total > 0) total else 0L)
                 }
                 bos.toByteArray().toString(Charsets.UTF_8)
             }
