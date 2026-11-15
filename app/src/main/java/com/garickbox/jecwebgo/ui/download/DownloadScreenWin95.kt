@@ -40,7 +40,8 @@ import androidx.compose.foundation.verticalScroll
 @Composable
 fun DownloadScreenWin95(
     vm: DownloadViewModel = viewModel(),
-    onNavigate: (String) -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    bottomBarHeight: androidx.compose.ui.unit.Dp = androidx.compose.ui.unit.Dp(0f)
 ) {
     val state by vm.state.collectAsState()
     val ctx = LocalContext.current
@@ -51,7 +52,9 @@ fun DownloadScreenWin95(
         Modifier
             .fillMaxSize()
             .background(Win95Colors.Teal)
+            .navigationBarsPadding()
             .padding(4.dp)
+            .padding(bottom = bottomBarHeight)
     ) {
         Column(
             Modifier
@@ -640,8 +643,6 @@ private fun DownloadContentWin95(
                             onWatch = { vm.watchActive(ctx) },
                             onProps = { vm.showProps(DownloadUiState.PropsTarget("active", a.id, a.request.title)) }
                         )
-                    } else {
-                        EmptySectionWin95("⏹", "Нет активных загрузок")
                     }
                 }
             }
@@ -735,9 +736,7 @@ private fun DownloadContentWin95(
                 )
             }
             if ("history" !in state.collapsedSections) {
-                if (hist.isEmpty()) {
-                    item(key = "hist_empty") { EmptySectionWin95("✅", "История пуста") }
-                } else {
+                if (hist.isNotEmpty()) {
                     itemsIndexed(hist, key = { idx, h -> "h_${h.id}_$idx" }) { _, item ->
                         HistoryRowWin95(
                             item = item,
@@ -855,7 +854,7 @@ private fun ActiveCardWin95(
             .padding(5.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("🎬", fontSize = 12.sp)
+            Text("📥", fontSize = 12.sp)
             Spacer(Modifier.width(4.dp))
             Text(
                 item.request.title,
@@ -982,7 +981,7 @@ private fun FolderCardWin95(
                 Text("📁", fontSize = 14.sp)
             } else {
                 Spacer(Modifier.width(10.dp))
-                Text("🎬", fontSize = 14.sp)
+                Text("📄", fontSize = 14.sp)
             }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
@@ -1125,7 +1124,7 @@ private fun HistoryRowWin95(
             onToggle = onToggleSelect
         )
         Spacer(Modifier.width(4.dp))
-        Text("✅", fontSize = 12.sp)
+        Text("💾", fontSize = 12.sp)
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f)) {
             Text(
@@ -1245,7 +1244,7 @@ private fun PropertiesDialogWin95(
                     "active" -> {
                         val a = state.active
                         if (a != null) {
-                            PropsHeaderWin95(icon = "🎬", title = a.request.title, sub = a.request.fileName)
+                            PropsHeaderWin95(icon = "📥", title = a.request.title, sub = a.request.fileName)
                             PropsRow("Статус:", if (a.status == DownloadItem.Status.PAUSED) "⏸ Пауза" else "⬇ Загрузка")
                             PropsRow("Прогресс:", "${(a.progress * 100).toInt()}%")
                             PropsRow("Скачано:", com.garickbox.jecwebgo.util.Helpers.formatSize(a.downloadedBytes))
@@ -1260,7 +1259,7 @@ private fun PropertiesDialogWin95(
                         if (group != null) {
                             val isFolder = group.isFolder
                             PropsHeaderWin95(
-                                icon = if (isFolder) "📁" else "🎬",
+                                icon = if (isFolder) "📁" else "📄",
                                 title = group.title,
                                 sub = if (isFolder) "${group.fileCount} файлов" else "Одиночный файл"
                             )
@@ -1292,7 +1291,7 @@ private fun PropertiesDialogWin95(
                     "history" -> {
                         val h = state.history.firstOrNull { it.id == target.key }
                         if (h != null) {
-                            PropsHeaderWin95(icon = "✅", title = h.fileName, sub = "Скачано ${formatDate(h.completedAt)}")
+                            PropsHeaderWin95(icon = "💾", title = h.fileName, sub = "Скачано ${formatDate(h.completedAt)}")
                             PropsRow("Размер:", com.garickbox.jecwebgo.util.Helpers.formatSize(h.sizeBytes))
                             PropsRow("Дата:", formatDate(h.completedAt))
                             PropsRow("Title:", h.title)

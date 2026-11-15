@@ -268,7 +268,10 @@ class MainActivity : ComponentActivity() {
                                     onQueryConsumed = { pendingSearch = null },
                                     resetKey = searchResetKey
                                 )
-                                2 -> DownloadScreenWin95(onNavigate = { route -> nav.navigate(route) { launchSingleTop = true } })
+                                2 -> DownloadScreenWin95(
+                                    onNavigate = { route -> nav.navigate(route) { launchSingleTop = true } },
+                                    bottomBarHeight = 56.dp
+                                )
                             }
                         }
                         androidx.compose.runtime.key(layoutReloadKey.intValue) {
@@ -345,18 +348,59 @@ class MainActivity : ComponentActivity() {
                                     .fillMaxWidth()
                                     .navigationBarsPadding()
                             ) {
-                                Win95BottomBar(
-                                    tabs = tabs.map { t -> Win95Tab(t.route, t.label, t.icon) },
-                                    selectedRoute = selectedTab,
-                                    onSelect = { tab ->
-                                        val idx = tabs.indexOfFirst { it.route == tab.route }
-                                        if (idx >= 0) {
-                                            if (tab.route == "search") searchResetKey++
-                                            if (inSubroute) nav.popBackStack("empty", inclusive = false)
-                                            scope.launch { pagerState.animateScrollToPage(idx) }
+                                if (selectedTab == "downloads") {
+                                    Win95BottomBar(
+                                        tabs = tabs.map { t -> Win95Tab(t.route, t.label, t.icon) },
+                                        selectedRoute = "downloads",
+                                        onSelect = { tab ->
+                                            val idx = tabs.indexOfFirst { it.route == tab.route }
+                                            if (idx >= 0) {
+                                                if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                                scope.launch { pagerState.animateScrollToPage(idx) }
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier
+                                            .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
+                                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                            .background(Color.Black.copy(alpha = 0.35f))
+                                    ) {
+                                        Row(
+                                            Modifier.fillMaxWidth().height(56.dp),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            tabs.forEachIndexed { idx, t ->
+                                                val isSel = selectedTab == t.route
+                                                val col = if (isSel) MaterialTheme.colorScheme.primary
+                                                          else Color.White.copy(alpha = 0.6f)
+                                                Column(
+                                                    Modifier
+                                                        .weight(1f)
+                                                        .clickable(
+                                                            interactionSource = remember { MutableInteractionSource() },
+                                                            indication = null
+                                                        ) {
+                                                            if (t.route == "search") searchResetKey++
+                                                            if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                                            scope.launch { pagerState.animateScrollToPage(idx) }
+                                                        }
+                                                        .padding(vertical = 6.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Icon(t.icon, contentDescription = t.label,
+                                                        modifier = Modifier.size(22.dp), tint = col)
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(t.label, fontSize = 10.sp,
+                                                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                                        color = col)
+                                                }
+                                            }
                                         }
                                     }
-                                )
+                                }
                             }
                         }
                         }  // key(layoutReloadKey) NavBar
