@@ -36,9 +36,13 @@ import com.garickbox.jecwebgo.ui.common.win95.Win95Text
 import androidx.compose.foundation.verticalScroll
 
 @Composable
-fun DownloadScreenWin95(vm: DownloadViewModel = viewModel()) {
+fun DownloadScreenWin95(
+    vm: DownloadViewModel = viewModel(),
+    onNavigate: (String) -> Unit = {}
+) {
     val state by vm.state.collectAsState()
     val ctx = LocalContext.current
+    var helpDialog by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -62,8 +66,23 @@ fun DownloadScreenWin95(vm: DownloadViewModel = viewModel()) {
 
             // ═══ MENU BAR ═══
             Win95MenuBar(
-                onOpenFolder = { /* TODO Блок 5 */ },
-                onSettings = { /* TODO Блок 5 */ },
+                onOpenFolder = {
+                    try {
+                        val folderIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            setDataAndType(
+                                android.net.Uri.parse("content://com.android.externalstorage.documents/root/primary:Download/JecWeb"),
+                                "resource/folder"
+                            )
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        ctx.startActivity(folderIntent)
+                    } catch (_: Exception) {
+                        android.widget.Toast.makeText(
+                            ctx, "Папка: Downloads/JecWeb", android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                },
+                onSettings = { onNavigate("settings") },
                 onRefresh = { vm.onSearch(state.search) },
                 onPauseAll = { vm.pauseAll() },
                 onResumeAll = { vm.resumeAll() },
@@ -73,8 +92,8 @@ fun DownloadScreenWin95(vm: DownloadViewModel = viewModel()) {
                 onExpandAll = { vm.expandAllFolders() },
                 onCollapseAll = { vm.collapseAllFolders() },
                 onSort = { vm.onSort(it) },
-                onAbout = { /* TODO Блок 5 */ },
-                onHelp = { /* TODO Блок 5 */ }
+                onAbout = { onNavigate("about") },
+                onHelp = { helpDialog = true }
             )
 
             // ═══ TOOLBAR ═══
@@ -124,6 +143,54 @@ fun DownloadScreenWin95(vm: DownloadViewModel = viewModel()) {
             state = state,
             onClose = { vm.hideProps() }
         )
+    }
+
+    if (helpDialog) {
+        HelpDialogWin95(onClose = { helpDialog = false })
+    }
+}
+
+@Composable
+private fun HelpDialogWin95(onClose: () -> Unit) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            Modifier
+                .width(340.dp)
+                .background(Win95Colors.Face)
+                .win95Bevel(raised = true, thickness = 2.dp)
+                .padding(2.dp)
+        ) {
+            Win95TitleBar(title = "Справка — JecWeb Загрузки", icon = "❓")
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.padding(horizontal = 12.dp)) {
+                Win95Text("Файл → Открыть папку", bold = true, fontSize = 11)
+                Win95Text("Переход в Downloads/JecWeb", fontSize = 10, color = Win95Colors.TextDim)
+                Spacer(Modifier.height(8.dp))
+                Win95Text("Правка → Пауза / Возобновить", bold = true, fontSize = 11)
+                Win95Text("Управление очередью загрузок", fontSize = 10, color = Win95Colors.TextDim)
+                Spacer(Modifier.height(8.dp))
+                Win95Text("Вид → Сортировка", bold = true, fontSize = 11)
+                Win95Text("По имени / размеру / умолчанию", fontSize = 10, color = Win95Colors.TextDim)
+                Spacer(Modifier.height(8.dp))
+                Win95Text("Выбор файлов", bold = true, fontSize = 11)
+                Win95Text("Галочка слева — выбрать. Панель сверху — действия", fontSize = 10, color = Win95Colors.TextDim)
+                Spacer(Modifier.height(8.dp))
+                Win95Text("Долгое нажатие", bold = true, fontSize = 11)
+                Win95Text("Контекстное меню на папке (в CP-C7c)", fontSize = 10, color = Win95Colors.TextDim)
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Win95Button(onClick = onClose, modifier = Modifier.width(90.dp).height(24.dp)) {
+                    Text("OK", fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+        }
     }
 }
 
@@ -194,7 +261,6 @@ private fun Win95MenuBar(
                             DropdownSep()
                             DropdownOption("🔤 Сортировать по имени", "") { openMenu = null; onSort(DownloadUiState.Sort.NAME) }
                             DropdownOption("📏 По размеру", "") { openMenu = null; onSort(DownloadUiState.Sort.SIZE) }
-                            DropdownOption("📅 По дате", "") { openMenu = null; onSort(DownloadUiState.Sort.DATE) }
                             DropdownOption("↺ По умолчанию", "") { openMenu = null; onSort(DownloadUiState.Sort.DEFAULT) }
                         }
                         "help" -> {

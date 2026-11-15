@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
                                     onQueryConsumed = { pendingSearch = null },
                                     resetKey = searchResetKey
                                 )
-                                2 -> DownloadScreenWin95()
+                                2 -> DownloadScreenWin95(onNavigate = { route -> nav.navigate(route) { launchSingleTop = true } })
                                 3 -> MoreScreen(nav)
                             }
                         }
