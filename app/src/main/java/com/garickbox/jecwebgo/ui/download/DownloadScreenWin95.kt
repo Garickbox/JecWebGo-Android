@@ -22,6 +22,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.garickbox.jecwebgo.ui.common.win95.Win95Button
+import com.garickbox.jecwebgo.ui.common.win95.Win95TabsStrip
+import com.garickbox.jecwebgo.ui.common.win95.Win95SubTab
 import com.garickbox.jecwebgo.ui.common.win95.Win95Progress
 import com.garickbox.jecwebgo.ui.common.win95.Win95TitleBar
 import com.garickbox.jecwebgo.ui.common.win95.win95Bevel
@@ -43,6 +45,7 @@ fun DownloadScreenWin95(
     val state by vm.state.collectAsState()
     val ctx = LocalContext.current
     var helpDialog by remember { mutableStateOf(false) }
+    var currentTab by remember { mutableStateOf("downloads") }
 
     Column(
         Modifier
@@ -125,6 +128,17 @@ fun DownloadScreenWin95(
                 onHelp = { helpDialog = true }
             )
 
+            // ═══ SUB-TABS: Загрузки / История / Метки ═══
+            Win95TabsStrip(
+                tabs = listOf(
+                    Win95SubTab("downloads", "Загрузки"),
+                    Win95SubTab("history", "История"),
+                    Win95SubTab("marks", "Метки")
+                ),
+                selectedId = currentTab,
+                onSelect = { currentTab = it }
+            )
+
             // ═══ TOOLBAR ═══
             Win95Toolbar(
                 search = state.search,
@@ -146,7 +160,12 @@ fun DownloadScreenWin95(
 
             // ═══ CONTENT (Блок 4) ═══
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                DownloadContentWin95(state, vm, ctx)
+                when (currentTab) {
+                    "downloads" -> DownloadContentWin95(state, vm, ctx)
+                    "history" -> Win95PlaceholderTab("История", "Будет в CP-C8c", "🕐")
+                    "marks" -> Win95PlaceholderTab("Метки", "Будет в CP-C8c", "🔖")
+                    else -> DownloadContentWin95(state, vm, ctx)
+                }
             }
 
             // ═══ STATUS BAR ═══
@@ -1330,5 +1349,35 @@ private fun PropsRow(label: String, value: String) {
         Win95Text(label, fontSize = 10, color = Win95Colors.TextDim, modifier = Modifier.width(80.dp))
         Spacer(Modifier.width(4.dp))
         Win95Text(value, fontSize = 10, maxLines = 2, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun Win95PlaceholderTab(title: String, subtitle: String, emoji: String) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Win95Colors.Face)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(emoji, fontSize = 36.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = Win95Colors.Text
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                subtitle,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Win95Colors.TextDim
+            )
+        }
     }
 }
