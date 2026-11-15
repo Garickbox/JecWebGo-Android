@@ -39,8 +39,9 @@ fun AboutScreen(onBack: () -> Unit = {}) {
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = { com.garickbox.jecwebgo.ui.common.SubScreenTopBar("О приложении", onBack) }
     ) { pad ->
+        Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.TopCenter) {
         Column(
-            Modifier.fillMaxSize().padding(pad).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(24.dp))
@@ -96,5 +97,6 @@ fun AboutScreen(onBack: () -> Unit = {}) {
             Text("Made with ❤️ in Termux",
                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        }  // Box
     }
 }

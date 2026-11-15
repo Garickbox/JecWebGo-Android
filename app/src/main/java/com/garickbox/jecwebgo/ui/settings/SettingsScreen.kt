@@ -52,7 +52,8 @@ private fun SettingsScreenBody() {
         } catch (_: Exception) {}
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.fillMaxWidth().widthIn(max = 600.dp).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Настройки", style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary)
@@ -171,4 +172,5 @@ private fun SettingsScreenBody() {
             ctx.toast("Сохранено")
         }, modifier = Modifier.fillMaxWidth()) { Text("Сохранить") }
     }
+    }  // Box
 }

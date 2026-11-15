@@ -58,6 +58,11 @@ import com.garickbox.jecwebgo.ui.search.SearchScreen
 import com.garickbox.jecwebgo.ui.settings.SettingsScreen
 import com.garickbox.jecwebgo.ui.status.StatusBar
 import com.garickbox.jecwebgo.ui.theme.JecWebTheme
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 
 data class Tab(val route: String, val label: String, val icon: ImageVector)
 val tabs = listOf(
@@ -215,32 +220,44 @@ class MainActivity : ComponentActivity() {
                 }
                 Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0), bottomBar = {
                     if (subRoute != "player") {
-                        // Стеклянная панель: Box с clip+bg+padding, NavigationBar прозрачный
+                        // РЕАЛЬНО прозрачная панель: Box(clip+bg) + кастомный Row (без NavigationBarItem-pill)
                         Box(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+                                .background(Color.Black.copy(alpha = 0.35f))
                         ) {
-                            NavigationBar(
-                                modifier = Modifier.height(56.dp),
-                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                                tonalElevation = 0.dp,
-                                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+                            Row(
+                                Modifier.fillMaxWidth().height(56.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 tabs.forEachIndexed { idx, t ->
-                                    NavigationBarItem(
-                                        selected = selectedTab == t.route,
-                                        onClick = {
-                                            if (t.route == "search") searchResetKey++
-                                            if (inSubroute) nav.popBackStack("empty", inclusive = false)
-                                            scope.launch { pagerState.animateScrollToPage(idx) }
-                                        },
-                                        icon = {
-                                            Icon(t.icon, contentDescription = t.label, modifier = Modifier.size(22.dp))
-                                        }
-                                    )
+                                    val isSel = selectedTab == t.route
+                                    val col = if (isSel) MaterialTheme.colorScheme.primary
+                                              else Color.White.copy(alpha = 0.6f)
+                                    Column(
+                                        Modifier
+                                            .weight(1f)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                if (t.route == "search") searchResetKey++
+                                                if (inSubroute) nav.popBackStack("empty", inclusive = false)
+                                                scope.launch { pagerState.animateScrollToPage(idx) }
+                                            }
+                                            .padding(vertical = 6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(t.icon, contentDescription = t.label,
+                                            modifier = Modifier.size(22.dp), tint = col)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(t.label, fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp),
+                                            fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = col)
+                                    }
                                 }
                             }
                         }

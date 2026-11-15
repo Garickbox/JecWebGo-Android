@@ -88,7 +88,8 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
             queue.groupBy { DownloadRepository.groupKeyOf(it) }
         }
         val groupKeys = remember(queue) { queue.map { DownloadRepository.groupKeyOf(it) }.distinct() }
-        LazyColumn(Modifier.fillMaxSize().padding(pad).padding(12.dp),
+        Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp),
             contentPadding = PaddingValues(bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val a = active
@@ -205,6 +206,7 @@ fun DownloadScreen(vm: DownloadViewModel = viewModel()) {
                 }
             }
         }
+        }  // Box
     }
     deleteDialogFor?.let { h ->
         DeleteHistoryDialog(

@@ -54,7 +54,8 @@ private fun BookmarksScreenBody() {
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(items) { idx, b ->
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
@@ -80,4 +81,5 @@ private fun BookmarksScreenBody() {
             }
         }
     }
+    }  // Box
 }

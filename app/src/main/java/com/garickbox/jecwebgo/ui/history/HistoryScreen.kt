@@ -62,7 +62,8 @@ private fun HistoryScreenBody() {
 
     val fmt = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
 
-    LazyColumn(Modifier.fillMaxSize().padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    LazyColumn(Modifier.fillMaxWidth().widthIn(max = 600.dp).padding(12.dp), contentPadding = PaddingValues(bottom = 72.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (searches.isNotEmpty()) {
             item { Text("Запросы", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
             itemsIndexed(searches) { idx, h ->
@@ -112,4 +113,5 @@ private fun HistoryScreenBody() {
             item { Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) { Text("История пуста", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         }
     }
+    }  // Box
 }
