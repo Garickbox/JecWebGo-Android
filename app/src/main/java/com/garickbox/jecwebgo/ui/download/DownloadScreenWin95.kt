@@ -955,16 +955,42 @@ private fun DownloadContentWin95(
             }
             if ("history" !in state.collapsedSections) {
                 if (hist.isNotEmpty()) {
-                    itemsIndexed(hist, key = { idx, h -> "h_${h.id}_$idx" }) { _, item ->
-                        HistoryRowWin95(
-                            item = item,
-                            isSelected = item.id in state.selection,
-                            onToggleSelect = { vm.toggleSelection(item.id) },
-                            onPlay = { vm.openItem(ctx, item) },
-                            onDelete = { vm.showDeleteDialog(item) },
-                            onProps = { vm.showProps(DownloadUiState.PropsTarget("history", item.id, item.fileName)) },
-                            onLongPress = { pos -> onHistoryLongPress(pos, item) }
-                        )
+                    val groupsH = state.historyGroups
+                    groupsH.forEach { g ->
+                        if (g.isFolder) {
+                            item(key = "hgrp_${g.key}") {
+                                HistoryFolderRowWin95(
+                                    group = g,
+                                    isExpanded = g.key in state.expandedHistoryFolders,
+                                    onToggle = { vm.toggleHistoryFolder(g.key) }
+                                )
+                            }
+                            if (g.key in state.expandedHistoryFolders) {
+                                itemsIndexed(g.items, key = { idx, h -> "hfg_${g.key}_${h.id}_$idx" }) { _, item ->
+                                    HistoryRowWin95(
+                                        item = item,
+                                        isSelected = item.id in state.selection,
+                                        onToggleSelect = { vm.toggleSelection(item.id) },
+                                        onPlay = { vm.openItem(ctx, item) },
+                                        onDelete = { vm.showDeleteDialog(item) },
+                                        onProps = { vm.showProps(DownloadUiState.PropsTarget("history", item.id, item.fileName)) },
+                                        onLongPress = { pos -> onHistoryLongPress(pos, item) }
+                                    )
+                                }
+                            }
+                        } else {
+                            itemsIndexed(g.items, key = { idx, h -> "hroot_${h.id}_$idx" }) { _, item ->
+                                HistoryRowWin95(
+                                    item = item,
+                                    isSelected = item.id in state.selection,
+                                    onToggleSelect = { vm.toggleSelection(item.id) },
+                                    onPlay = { vm.openItem(ctx, item) },
+                                    onDelete = { vm.showDeleteDialog(item) },
+                                    onProps = { vm.showProps(DownloadUiState.PropsTarget("history", item.id, item.fileName)) },
+                                    onLongPress = { pos -> onHistoryLongPress(pos, item) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1342,6 +1368,54 @@ private fun HorizontalDividerWin95() {
 // ═══════════════════════════════════════════════════════════
 
 @OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HistoryFolderRowWin95(
+    group: HistoryGroup,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Win95Colors.Face)
+            .win95Bevel(raised = true, thickness = 2.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onToggle
+            )
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(if (isExpanded) "▼" else "▶",
+            fontSize = 8.sp, color = Win95Colors.Text,
+            fontFamily = FontFamily.Monospace, modifier = Modifier.width(10.dp))
+        Text("📁", fontSize = 14.sp)
+        Spacer(Modifier.width(4.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    group.name,
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace, color = Win95Colors.Text,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "(${group.fileCount} ${if (group.fileCount == 1) "файл" else if (group.fileCount < 5) "файла" else "файлов"})",
+                    fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.TextDim
+                )
+            }
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            com.garickbox.jecwebgo.util.Helpers.formatSize(group.totalBytes),
+            fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.TextDim
+        )
+    }
+}
+
 @Composable
 private fun HistoryRowWin95(
     item: com.garickbox.jecwebgo.data.download.DownloadedItem,

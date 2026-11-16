@@ -225,7 +225,8 @@ object DownloadRepository {
         val newItem = DownloadedItem(
             id = item.id, title = item.request.title, fileName = item.request.fileName,
             uri = uri, sizeBytes = size, completedAt = System.currentTimeMillis(),
-            magnet = item.request.magnet
+            magnet = item.request.magnet,
+            relativePath = item.request.relPath.substringBeforeLast("/", "")
         )
         _history.update { listOf(newItem) + it }
         val snapshot = _history.value
@@ -294,6 +295,10 @@ object DownloadRepository {
                 ext in setOf("mp4","mkv","avi","mov","wmv","webm","flv","m4v","ts","m2ts","srt","ass","sub","vtt")
             }
             if (!isMedia) continue
+            val relPrefix = "Download/JecWeb/"
+            val subDir = if (f.relativePath.startsWith(relPrefix))
+                f.relativePath.removePrefix(relPrefix).trimEnd('/')
+            else ""
             result.add(DownloadedItem(
                 id = "scan_" + f.uri.hashCode().toString(16),
                 title = f.displayName.substringBeforeLast('.'),
@@ -303,7 +308,8 @@ object DownloadRepository {
                 completedAt = if (f.mtimeSec > 0) f.mtimeSec * 1000 else System.currentTimeMillis(),
                 magnet = "",
                 recovered = true,
-                fileExists = true
+                fileExists = true,
+                relativePath = subDir
             ))
         }
 

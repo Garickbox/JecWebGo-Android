@@ -32,6 +32,16 @@ data class QueueGroup(
         get() = if (totalBytes > 0) (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
 }
 
+data class HistoryGroup(
+    val key: String,       // relativePath или "" для корня
+    val name: String,      // "Холод" или "Скачано (корень)"
+    val items: List<DownloadedItem>
+) {
+    val isFolder: Boolean get() = key.isNotBlank()
+    val fileCount: Int get() = items.size
+    val totalBytes: Long get() = items.sumOf { it.sizeBytes }
+}
+
 data class DownloadUiState(
     // raw from repo
     val active: DownloadItem? = null,
@@ -44,6 +54,7 @@ data class DownloadUiState(
     val selection: Set<String> = emptySet(),
     val collapsedSections: Set<String> = emptySet(),
     val expandedFolders: Set<String> = emptySet(),
+    val expandedHistoryFolders: Set<String> = emptySet(),
     // dialogs
     val deleteDialogFor: DownloadedItem? = null,
     val propsFor: PropsTarget? = null
@@ -106,6 +117,22 @@ data class DownloadUiState(
             }
         }
 
+    // ═══ Derived: группировка history по relativePath ═══
+    val historyGroups: List<HistoryGroup>
+        get() {
+            val flat = filteredHistory
+            if (flat.isEmpty()) return emptyList()
+            val rootItems = flat.filter { it.relativePath.isBlank() }
+            val folderItems = flat.filter { it.relativePath.isNotBlank() }
+                .groupBy { it.relativePath }
+                .map { (key, items) -> HistoryGroup(key = key, name = key, items = items) }
+                .sortedBy { it.name.lowercase() }
+            val result = mutableListOf<HistoryGroup>()
+            if (folderItems.isNotEmpty()) result.addAll(folderItems)
+            if (rootItems.isNotEmpty()) result.add(HistoryGroup(key = "", name = "Корень", items = rootItems))
+            return result
+        }
+
     // ═══ Derived: показать активную секцию ═══
     val showActiveSection: Boolean
         get() = (filter == Filter.ALL || filter == Filter.ACTIVE) &&
@@ -149,6 +176,13 @@ class DownloadViewModel : ViewModel() {
         _state.update { st ->
             val e = st.expandedFolders
             st.copy(expandedFolders = if (key in e) e - key else e + key)
+        }
+    }
+
+    fun toggleHistoryFolder(key: String) {
+        _state.update { st ->
+            val e = st.expandedHistoryFolders
+            st.copy(expandedHistoryFolders = if (key in e) e - key else e + key)
         }
     }
 

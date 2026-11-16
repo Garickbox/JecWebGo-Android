@@ -42,5 +42,6 @@ data class DownloadedItem(
     val completedAt: Long,
     val magnet: String = "",
     val recovered: Boolean = false,
-    val fileExists: Boolean = true
+    val fileExists: Boolean = true,
+    val relativePath: String = ""
 )
