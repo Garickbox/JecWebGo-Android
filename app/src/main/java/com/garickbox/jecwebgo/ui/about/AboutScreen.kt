@@ -63,7 +63,8 @@ fun AboutScreen(
             Win95TitleBar(
                 title = "О программе — JecWeb",
                 icon = "ℹ",
-                showClose = false
+                onClose = onBack,
+                showClose = true
             )
 
             Column(
