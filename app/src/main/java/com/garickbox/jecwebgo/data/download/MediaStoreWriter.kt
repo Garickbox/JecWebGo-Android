@@ -136,12 +136,13 @@ object MediaStoreWriter {
             MediaStore.Downloads.RELATIVE_PATH,
             MediaStore.Downloads.MIME_TYPE
         )
-        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
-        val args = arrayOf(Environment.DIRECTORY_DOWNLOADS + "/JecWeb%")
+        // LIKE через bind-args на POCO возвращал 5 из 19. Берём все Downloads,
+        // фильтруем в Kotlin по relativePath.startsWith — гарантированно.
+        val prefix = Environment.DIRECTORY_DOWNLOADS + "/JecWeb"
         try {
             ctx.contentResolver.query(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                projection, selection, args,
+                projection, null, null,
                 "${MediaStore.Downloads.DATE_MODIFIED} DESC"
             )?.use { c ->
                 val iId = c.getColumnIndex(MediaStore.Downloads._ID)
@@ -151,6 +152,8 @@ object MediaStoreWriter {
                 val iRel = c.getColumnIndex(MediaStore.Downloads.RELATIVE_PATH)
                 val iMime = c.getColumnIndex(MediaStore.Downloads.MIME_TYPE)
                 while (c.moveToNext() && result.size < 1000) {
+                    val rel = if (iRel >= 0) c.getString(iRel) ?: "" else ""
+                    if (!rel.startsWith(prefix)) continue
                     val id = if (iId >= 0) c.getLong(iId) else continue
                     val name = if (iName >= 0) c.getString(iName) ?: "" else ""
                     if (name.isBlank()) continue
@@ -162,7 +165,7 @@ object MediaStoreWriter {
                         displayName = name,
                         sizeBytes = if (iSize >= 0) c.getLong(iSize) else 0L,
                         mtimeSec = if (iMtime >= 0) c.getLong(iMtime) else 0L,
-                        relativePath = if (iRel >= 0) c.getString(iRel) ?: "" else "",
+                        relativePath = rel,
                         mimeType = if (iMime >= 0) c.getString(iMime) ?: "" else ""
                     ))
                 }
@@ -171,6 +174,9 @@ object MediaStoreWriter {
             android.util.Log.e("JecWeb", "scanJecWeb fail: ${e.message}")
         }
         android.util.Log.d("JecWeb", "scanJecWeb: ${result.size} файлов в JecWeb")
+        result.take(10).forEach { f ->
+            android.util.Log.d("JecWeb", "  scan: ${f.relativePath}${f.displayName} (${f.sizeBytes})")
+        }
         return result
     }
 
