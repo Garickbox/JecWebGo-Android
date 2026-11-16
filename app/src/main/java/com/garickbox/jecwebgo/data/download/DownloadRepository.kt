@@ -221,16 +221,18 @@ object DownloadRepository {
             magnet = item.request.magnet
         )
         _history.update { listOf(newItem) + it }
+        val snapshot = _history.value
         persist()
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            DownloadHistoryStore.save(ctx, _history.value)
+            DownloadHistoryStore.save(ctx, snapshot)
         }
     }
 
     fun removeHistory(ctx: Context, id: String) {
         _history.update { h -> h.filter { it.id != id } }
+        val snapshot = _history.value
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            DownloadHistoryStore.save(ctx, _history.value)
+            DownloadHistoryStore.save(ctx, snapshot)
         }
     }
 
