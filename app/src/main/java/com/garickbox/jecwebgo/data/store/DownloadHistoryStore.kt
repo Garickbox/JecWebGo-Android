@@ -32,20 +32,19 @@ object DownloadHistoryStore {
         }
     }
 
-    suspend fun save(ctx: Context, items: List<DownloadedItem>) = withContext(Dispatchers.IO) {
+    suspend fun save(ctx: Context, items: List<DownloadedItem>): Unit = withContext(Dispatchers.IO) {
         mutex.withLock {
             try {
                 val tmp = tmpFile(ctx)
                 tmp.writeText(json.encodeToString(items))
-                // atomic rename — если kill между writeText и rename, основной файл не тронут
                 if (!tmp.renameTo(file(ctx))) {
-                    // fallback: rename не сработал (бывает на некоторых ФС) — прямая запись
                     file(ctx).writeText(json.encodeToString(items))
                     tmp.delete()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("JecWeb", "history.save fail: ${e.message}")
             }
+            Unit
         }
     }
 }
