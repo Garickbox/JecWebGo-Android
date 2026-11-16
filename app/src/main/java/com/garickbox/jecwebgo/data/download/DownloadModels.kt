@@ -32,6 +32,7 @@ data class DownloadItem(
 }
 
 @Immutable
+@Serializable
 data class DownloadedItem(
     val id: String,
     val title: String,
