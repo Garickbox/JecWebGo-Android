@@ -40,5 +40,7 @@ data class DownloadedItem(
     val uri: String,
     val sizeBytes: Long,
     val completedAt: Long,
-    val magnet: String = ""
+    val magnet: String = "",
+    val recovered: Boolean = false,
+    val fileExists: Boolean = true
 )

@@ -142,7 +142,7 @@ fun DownloadScreenWin95(
                     }
                 },
                 onSettings = { onNavigate("settings") },
-                onRefresh = { vm.onSearch(state.search) },
+                onRefresh = { vm.rescanHistory(ctx) },
                 onPauseAll = { vm.pauseAll() },
                 onResumeAll = { vm.resumeAll() },
                 onSelectAll = { vm.selectAll() },
@@ -374,10 +374,10 @@ private fun buildHistoryMenu(
     ctx: android.content.Context,
     h: DownloadedItem
 ): List<Win95ContextMenuItem> = buildList {
-    add(Win95ContextMenuItem("\u25B6", "Воспроизвести") { vm.openItem(ctx, h) })
+    add(Win95ContextMenuItem("\u25B6", "Воспроизвести", disabled = !h.fileExists) { vm.openItem(ctx, h) })
     add(Win95ContextMenuItem.sep())
     add(Win95ContextMenuItem("\uD83D\uDCC2", "Открыть папку") { openDownloadsFolder(ctx) })
-    add(Win95ContextMenuItem("\uD83D\uDCC4", "Открыть файл") { openFile(ctx, h.uri) })
+    add(Win95ContextMenuItem("\uD83D\uDCC4", "Открыть файл", disabled = !h.fileExists) { openFile(ctx, h.uri) })
     add(Win95ContextMenuItem.sep())
     add(Win95ContextMenuItem("\uD83D\uDD17", "Копировать magnet", disabled = h.magnet.isBlank()) {
         copyMagnetToClipboard(ctx, h.magnet)

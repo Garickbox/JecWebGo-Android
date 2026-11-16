@@ -243,6 +243,10 @@ class DownloadViewModel : ViewModel() {
         )
     }
 
+    fun rescanHistory(ctx: Context) {
+        DownloadRepository.rescanHistory(ctx)
+    }
+
     fun clearHistory(ctx: Context) {
         val list = _state.value.history
         list.forEach { DownloadRepository.removeHistory(ctx, it.id) }

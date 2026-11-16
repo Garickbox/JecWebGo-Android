@@ -30,6 +30,13 @@ object DownloadRepository {
     fun init(ctx: Context) {
         appCtx = ctx.applicationContext
         _history.value = DownloadHistoryStore.load(ctx)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                rescanHistoryInternal(ctx)
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "init rescan fail: ${e.message}")
+            }
+        }
         val persisted = DownloadStateStore.load(ctx)
         if (persisted.isNotEmpty()) {
             android.util.Log.d("JecWeb", "restoring ${persisted.size} interrupted downloads")
@@ -257,5 +264,74 @@ object DownloadRepository {
         cancelled = false
         persist()
         android.util.Log.e("JecWeb", "download fail: ${item.request.fileName} — $error")
+    }
+
+    // ═══ MEDIASTORE SCAN + MERGE ═══
+
+    /** Мерж loaded (JSON) + scanned (MediaStore). 3 состояния: rich / recovered / ghost. */
+    private fun mergeHistory(
+        loaded: List<DownloadedItem>,
+        scanned: List<MediaStoreWriter.ScannedFile>
+    ): List<DownloadedItem> {
+        val scannedByUri = scanned.associateBy { it.uri }
+        val usedScannedUris = mutableSetOf<String>()
+        val result = mutableListOf<DownloadedItem>()
+
+        for (h in loaded) {
+            val file = scannedByUri[h.uri]
+            if (file != null) {
+                result.add(h.copy(fileExists = true, recovered = false))
+                usedScannedUris.add(file.uri)
+            } else {
+                result.add(h.copy(fileExists = false, recovered = false))
+            }
+        }
+
+        for (f in scanned) {
+            if (f.uri in usedScannedUris) continue
+            val isMedia = f.mimeType.startsWith("video/") || f.mimeType.startsWith("audio/") || run {
+                val ext = f.displayName.substringAfterLast('.', "").lowercase()
+                ext in setOf("mp4","mkv","avi","mov","wmv","webm","flv","m4v","ts","m2ts","srt","ass","sub","vtt")
+            }
+            if (!isMedia) continue
+            result.add(DownloadedItem(
+                id = "scan_" + f.uri.hashCode().toString(16),
+                title = f.displayName.substringBeforeLast('.'),
+                fileName = f.displayName,
+                uri = f.uri,
+                sizeBytes = f.sizeBytes,
+                completedAt = if (f.mtimeSec > 0) f.mtimeSec * 1000 else System.currentTimeMillis(),
+                magnet = "",
+                recovered = true,
+                fileExists = true
+            ))
+        }
+
+        return result.sortedByDescending { it.completedAt }
+    }
+
+    private suspend fun rescanHistoryInternal(ctx: Context) {
+        val scanned = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            MediaStoreWriter.scanJecWeb(ctx)
+        }
+        var snapshot: List<DownloadedItem> = emptyList()
+        _history.update { cur ->
+            val merged = mergeHistory(cur, scanned)
+            snapshot = merged
+            merged
+        }
+        DownloadHistoryStore.save(ctx, snapshot)
+    }
+
+    /** Публичный rescan для «Файл → Обновить список» */
+    fun rescanHistory(ctx: Context) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                rescanHistoryInternal(ctx)
+                android.util.Log.d("JecWeb", "rescanHistory done")
+            } catch (e: Exception) {
+                android.util.Log.e("JecWeb", "rescanHistory fail: ${e.message}")
+            }
+        }
     }
 }

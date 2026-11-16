@@ -115,6 +115,65 @@ object MediaStoreWriter {
         }
     }
 
+    /** Файл из MediaStore — результат scanJecWeb() */
+    data class ScannedFile(
+        val uri: String,
+        val displayName: String,
+        val sizeBytes: Long,
+        val mtimeSec: Long,
+        val relativePath: String,
+        val mimeType: String
+    )
+
+    /** Сканирует Downloads/JecWeb/** в MediaStore */
+    fun scanJecWeb(ctx: Context): List<ScannedFile> {
+        val result = mutableListOf<ScannedFile>()
+        val projection = arrayOf(
+            MediaStore.Downloads._ID,
+            MediaStore.Downloads.DISPLAY_NAME,
+            MediaStore.Downloads.SIZE,
+            MediaStore.Downloads.DATE_MODIFIED,
+            MediaStore.Downloads.RELATIVE_PATH,
+            MediaStore.Downloads.MIME_TYPE
+        )
+        val selection = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
+        val args = arrayOf(Environment.DIRECTORY_DOWNLOADS + "/JecWeb%")
+        try {
+            ctx.contentResolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                projection, selection, args,
+                "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+            )?.use { c ->
+                val iId = c.getColumnIndex(MediaStore.Downloads._ID)
+                val iName = c.getColumnIndex(MediaStore.Downloads.DISPLAY_NAME)
+                val iSize = c.getColumnIndex(MediaStore.Downloads.SIZE)
+                val iMtime = c.getColumnIndex(MediaStore.Downloads.DATE_MODIFIED)
+                val iRel = c.getColumnIndex(MediaStore.Downloads.RELATIVE_PATH)
+                val iMime = c.getColumnIndex(MediaStore.Downloads.MIME_TYPE)
+                while (c.moveToNext() && result.size < 1000) {
+                    val id = if (iId >= 0) c.getLong(iId) else continue
+                    val name = if (iName >= 0) c.getString(iName) ?: "" else ""
+                    if (name.isBlank()) continue
+                    val uri = android.content.ContentUris.withAppendedId(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, id
+                    ).toString()
+                    result.add(ScannedFile(
+                        uri = uri,
+                        displayName = name,
+                        sizeBytes = if (iSize >= 0) c.getLong(iSize) else 0L,
+                        mtimeSec = if (iMtime >= 0) c.getLong(iMtime) else 0L,
+                        relativePath = if (iRel >= 0) c.getString(iRel) ?: "" else "",
+                        mimeType = if (iMime >= 0) c.getString(iMime) ?: "" else ""
+                    ))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("JecWeb", "scanJecWeb fail: ${e.message}")
+        }
+        android.util.Log.d("JecWeb", "scanJecWeb: ${result.size} файлов в JecWeb")
+        return result
+    }
+
     /** Снять IS_PENDING чтобы файл не удалялся системой при паузе/убийстве процесса */
     fun unfinalizeFile(ctx: Context, uri: Uri) {
         val values = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 1) }
