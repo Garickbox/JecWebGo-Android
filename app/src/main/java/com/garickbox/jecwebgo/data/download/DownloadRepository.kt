@@ -277,16 +277,23 @@ object DownloadRepository {
         val scannedByUri = scanned.associateBy { it.uri }
         val usedScannedUris = mutableSetOf<String>()
         val result = mutableListOf<DownloadedItem>()
+        val relPrefix = "Download/JecWeb/"
+        fun relOf(rp: String): String =
+            if (rp.startsWith(relPrefix)) rp.removePrefix(relPrefix).trimEnd('/') else ""
 
+        var updated = 0
         for (h in loaded) {
             val file = scannedByUri[h.uri]
             if (file != null) {
-                result.add(h.copy(fileExists = true, recovered = false))
+                val newRel = relOf(file.relativePath)
+                if (newRel != h.relativePath) updated++
+                result.add(h.copy(fileExists = true, recovered = false, relativePath = newRel))
                 usedScannedUris.add(file.uri)
             } else {
                 result.add(h.copy(fileExists = false, recovered = false))
             }
         }
+        android.util.Log.d("JecWeb", "mergeHistory: loaded=${loaded.size} scanned=${scanned.size} relUpdated=$updated")
 
         for (f in scanned) {
             if (f.uri in usedScannedUris) continue
@@ -295,10 +302,7 @@ object DownloadRepository {
                 ext in setOf("mp4","mkv","avi","mov","wmv","webm","flv","m4v","ts","m2ts","srt","ass","sub","vtt")
             }
             if (!isMedia) continue
-            val relPrefix = "Download/JecWeb/"
-            val subDir = if (f.relativePath.startsWith(relPrefix))
-                f.relativePath.removePrefix(relPrefix).trimEnd('/')
-            else ""
+            val subDir = relOf(f.relativePath)
             result.add(DownloadedItem(
                 id = "scan_" + f.uri.hashCode().toString(16),
                 title = f.displayName.substringBeforeLast('.'),

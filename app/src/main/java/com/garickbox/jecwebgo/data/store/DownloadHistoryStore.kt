@@ -11,7 +11,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 object DownloadHistoryStore {
-    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
     private val mutex = Mutex()  // сериализует save() — два параллельных writeText ломали файл
 
     private fun file(ctx: Context) = File(ctx.filesDir, "downloads.json")
