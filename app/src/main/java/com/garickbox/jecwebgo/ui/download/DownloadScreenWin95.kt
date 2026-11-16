@@ -95,6 +95,7 @@ fun DownloadScreenWin95(
 
             // ═══ MENU BAR ═══
             Win95MenuBar(
+                state = state,
                 onOpenFolder = {
                     val authority = "com.android.externalstorage.documents"
                     val docId = "primary:Download/JecWeb"
@@ -442,6 +443,7 @@ private fun HelpDialogWin95(onClose: () -> Unit) {
 
 @Composable
 private fun Win95MenuBar(
+    state: DownloadUiState,
     onOpenFolder: () -> Unit,
     onSettings: () -> Unit,
     onRefresh: () -> Unit,
@@ -489,17 +491,19 @@ private fun Win95MenuBar(
                             DropdownOption("🔄 Обновить список", "F5") { openMenu = null; onRefresh() }
                         }
                         "edit" -> {
-                            DropdownOption("⏸ Пауза всех", "") { openMenu = null; onPauseAll() }
-                            DropdownOption("▶ Возобновить всех", "") { openMenu = null; onResumeAll() }
+                            val canPause = state.active != null || state.queue.any { it.status != DownloadItem.Status.PAUSED }
+                            val canResume = state.active?.status == DownloadItem.Status.PAUSED || state.queue.any { it.status == DownloadItem.Status.PAUSED }
+                            DropdownOption("⏸ Пауза всех", "", disabled = !canPause) { openMenu = null; onPauseAll() }
+                            DropdownOption("▶ Возобновить всех", "", disabled = !canResume) { openMenu = null; onResumeAll() }
                             DropdownSep()
-                            DropdownOption("☑ Выбрать всё", "Ctrl+A") { openMenu = null; onSelectAll() }
-                            DropdownOption("✕ Снять выбор", "") { openMenu = null; onClearSelection() }
+                            DropdownOption("☑ Выбрать всё", "Ctrl+A", disabled = state.queueGroups.isEmpty() && state.history.isEmpty()) { openMenu = null; onSelectAll() }
+                            DropdownOption("✕ Снять выбор", "", disabled = state.selection.isEmpty()) { openMenu = null; onClearSelection() }
                             DropdownSep()
-                            DropdownOption("🗑 Очистить завершённые", "") { openMenu = null; onClearCompleted() }
+                            DropdownOption("🗑 Очистить завершённые", "", disabled = state.history.isEmpty()) { openMenu = null; onClearCompleted() }
                         }
                         "view" -> {
-                            DropdownOption("📂 Развернуть все папки", "") { openMenu = null; onExpandAll() }
-                            DropdownOption("📁 Свернуть все папки", "") { openMenu = null; onCollapseAll() }
+                            DropdownOption("📂 Развернуть все папки", "", disabled = state.queueGroups.isEmpty() || state.queueGroups.all { it.key in state.expandedFolders }) { openMenu = null; onExpandAll() }
+                            DropdownOption("📁 Свернуть все папки", "", disabled = state.expandedFolders.isEmpty()) { openMenu = null; onCollapseAll() }
                             DropdownSep()
                             DropdownOption("🔤 Сортировать по имени", "") { openMenu = null; onSort(DownloadUiState.Sort.NAME) }
                             DropdownOption("📏 По размеру", "") { openMenu = null; onSort(DownloadUiState.Sort.SIZE) }
@@ -551,15 +555,32 @@ private fun Win95DropdownMenu(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun DropdownOption(label: String, shortcut: String, onClick: () -> Unit) {
+private fun DropdownOption(
+    label: String,
+    shortcut: String,
+    disabled: Boolean = false,
+    onClick: () -> Unit
+) {
     var hovered by remember { mutableStateOf(false) }
+    val effHover = hovered && !disabled
+    val labelColor = when {
+        disabled -> Win95Colors.TextDisabled
+        effHover -> Win95Colors.TextLight
+        else -> Win95Colors.Text
+    }
+    val shortcutColor = when {
+        disabled -> Win95Colors.TextDisabled
+        effHover -> Win95Colors.TextLight
+        else -> Win95Colors.TextDim
+    }
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (hovered) Win95Colors.Navy else Win95Colors.Face)
+            .background(if (effHover) Win95Colors.Navy else Win95Colors.Face)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = !disabled,
                 onClick = onClick
             )
             .padding(horizontal = 20.dp, vertical = 3.dp),
@@ -569,7 +590,7 @@ private fun DropdownOption(label: String, shortcut: String, onClick: () -> Unit)
             label,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
-            color = if (hovered) Win95Colors.TextLight else Win95Colors.Text,
+            color = labelColor,
             modifier = Modifier.weight(1f)
         )
         if (shortcut.isNotBlank()) {
@@ -577,7 +598,7 @@ private fun DropdownOption(label: String, shortcut: String, onClick: () -> Unit)
                 shortcut,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
-                color = if (hovered) Win95Colors.TextLight else Win95Colors.TextDim
+                color = shortcutColor
             )
         }
     }

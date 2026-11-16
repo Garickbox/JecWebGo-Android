@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
@@ -92,7 +93,8 @@ fun Win95ContextMenu(
                                 Text(
                                     item.icon,
                                     fontSize = 11.sp,
-                                    color = textColor
+                                    color = textColor,
+                                    modifier = if (item.disabled) Modifier.alpha(0.4f) else Modifier
                                 )
                             }
                         }
@@ -110,7 +112,7 @@ fun Win95ContextMenu(
                                 item.shortcut,
                                 fontSize = 9.sp,
                                 fontFamily = FontFamily.Monospace,
-                                color = Win95Colors.TextDim
+                                color = if (item.disabled) Win95Colors.TextDisabled else Win95Colors.TextDim
                             )
                         }
                     }
