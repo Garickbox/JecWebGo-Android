@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -41,9 +42,12 @@ data class Win95ContextMenuItem(
 fun Win95ContextMenu(
     items: List<Win95ContextMenuItem>,
     onDismiss: () -> Unit,
+    anchor: IntOffset = IntOffset.Zero,
     modifier: Modifier = Modifier
 ) {
     Popup(
+        alignment = Alignment.TopStart,
+        offset = anchor,
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true)
     ) {

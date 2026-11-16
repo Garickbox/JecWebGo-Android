@@ -13,6 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -45,6 +50,11 @@ import com.garickbox.jecwebgo.data.download.DownloadedItem
 import com.garickbox.jecwebgo.ui.common.win95.Win95Text
 import androidx.compose.foundation.verticalScroll
 
+data class CtxMenuState(
+    val anchor: IntOffset,
+    val items: List<Win95ContextMenuItem>
+)
+
 @Composable
 fun DownloadScreenWin95(
     vm: DownloadViewModel = viewModel(),
@@ -55,6 +65,7 @@ fun DownloadScreenWin95(
     val ctx = LocalContext.current
     var helpDialog by remember { mutableStateOf(false) }
     var currentTab by remember { mutableStateOf("downloads") }
+    var ctxMenu by remember { mutableStateOf<CtxMenuState?>(null) }
 
     Column(
         Modifier
@@ -174,7 +185,18 @@ fun DownloadScreenWin95(
             // ═══ CONTENT (Блок 4) ═══
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (currentTab) {
-                    "downloads" -> DownloadContentWin95(state, vm, ctx)
+                    "downloads" -> DownloadContentWin95(
+                        state, vm, ctx,
+                        onActiveLongPress = { pos, a ->
+                            ctxMenu = CtxMenuState(pos, buildActiveMenu(vm, ctx, a))
+                        },
+                        onGroupLongPress = { pos, g, up, down ->
+                            ctxMenu = CtxMenuState(pos, buildGroupMenu(vm, ctx, g, up, down))
+                        },
+                        onHistoryLongPress = { pos, h ->
+                            ctxMenu = CtxMenuState(pos, buildHistoryMenu(vm, ctx, h))
+                        }
+                    )
                     "history" -> HistoryTabWin95()
                     "marks" -> MarksTabWin95()
                     else -> DownloadContentWin95(state, vm, ctx)
@@ -209,6 +231,108 @@ fun DownloadScreenWin95(
     if (helpDialog) {
         HelpDialogWin95(onClose = { helpDialog = false })
     }
+
+    val cm = ctxMenu
+    if (cm != null) {
+        Win95ContextMenu(
+            items = cm.items,
+            anchor = cm.anchor,
+            onDismiss = { ctxMenu = null }
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONTEXT MENU BUILDERS
+// ═══════════════════════════════════════════════════════════
+
+private fun buildActiveMenu(
+    vm: DownloadViewModel,
+    ctx: android.content.Context,
+    a: DownloadItem
+): List<Win95ContextMenuItem> = buildList {
+    val isPaused = a.status == DownloadItem.Status.PAUSED
+    if (isPaused) {
+        add(Win95ContextMenuItem("\u25B6", "Возобновить") { vm.resumeActive() })
+    } else {
+        add(Win95ContextMenuItem("\u23F8", "Пауза") { vm.pauseActive() })
+    }
+    add(Win95ContextMenuItem("\u23F9", "Стоп") { vm.stopActive() })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\u25B6", "Смотреть (стрим)") { vm.watchActive(ctx) })
+    add(Win95ContextMenuItem.sep())
+    val magnet = a.request.magnet
+    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = magnet.isBlank()) {
+        copyMagnetToClipboard(ctx, magnet)
+    })
+    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = magnet.isBlank()) {
+        shareMagnet(ctx, magnet, a.request.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+        vm.showProps(DownloadUiState.PropsTarget("active", a.id, a.request.title))
+    })
+}
+
+private fun buildGroupMenu(
+    vm: DownloadViewModel,
+    ctx: android.content.Context,
+    group: QueueGroup,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean
+): List<Win95ContextMenuItem> = buildList {
+    val first = group.items.firstOrNull()
+    val magnet = first?.request?.magnet ?: ""
+    if (group.isPaused) {
+        add(Win95ContextMenuItem("\u25B6", "Возобновить") { vm.resumeGroup(group.key) })
+    } else {
+        add(Win95ContextMenuItem("\u23F8", "Пауза") { vm.pauseGroup(group.key) })
+    }
+    add(Win95ContextMenuItem.sep())
+    if (group.isFolder) {
+        add(Win95ContextMenuItem("\U0001F4C2", "Развернуть / Свернуть") { vm.toggleFolder(group.key) })
+        add(Win95ContextMenuItem.sep())
+    }
+    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = magnet.isBlank()) {
+        copyMagnetToClipboard(ctx, magnet)
+    })
+    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = magnet.isBlank()) {
+        shareMagnet(ctx, magnet, group.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\u2191", "Вверх", disabled = !canMoveUp) { vm.moveGroupUp(group.key) })
+    add(Win95ContextMenuItem("\u2193", "Вниз", disabled = !canMoveDown) { vm.moveGroupDown(group.key) })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+        vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title))
+    })
+    add(Win95ContextMenuItem("\U0001F5D1", "Удалить из очереди", danger = true) {
+        vm.removeGroup(group.key)
+    })
+}
+
+private fun buildHistoryMenu(
+    vm: DownloadViewModel,
+    ctx: android.content.Context,
+    h: DownloadedItem
+): List<Win95ContextMenuItem> = buildList {
+    add(Win95ContextMenuItem("\u25B6", "Воспроизвести") { vm.openItem(ctx, h) })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\U0001F4C2", "Открыть папку") { openDownloadsFolder(ctx) })
+    add(Win95ContextMenuItem("\U0001F4C4", "Открыть файл") { openFile(ctx, h.uri) })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = h.magnet.isBlank()) {
+        copyMagnetToClipboard(ctx, h.magnet)
+    })
+    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = h.magnet.isBlank()) {
+        shareMagnet(ctx, h.magnet, h.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+        vm.showProps(DownloadUiState.PropsTarget("history", h.id, h.fileName))
+    })
+    add(Win95ContextMenuItem("\U0001F5D1", "Убрать из истории") { vm.removeFromList(ctx, h) })
+    add(Win95ContextMenuItem("\U0001F5D1", "Удалить файл", danger = true) { vm.showDeleteDialog(h) })
 }
 
 @Composable
