@@ -1271,6 +1271,12 @@ private fun FolderCardWin95(
                         fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.TextDim,
                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
+                val err = group.items.firstNotNullOfOrNull { it.error }
+                if (err != null) {
+                    Text("⚠ $err",
+                        fontSize = 9.sp, fontFamily = FontFamily.Monospace, color = Win95Colors.Red,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
             }
             Spacer(Modifier.width(4.dp))
             Column(horizontalAlignment = Alignment.End) {

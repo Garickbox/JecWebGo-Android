@@ -14,7 +14,8 @@ data class PersistedDownload(
     val id: String,
     val request: DownloadRequest,
     val uri: String = "",
-    val downloadedBytes: Long = 0L
+    val downloadedBytes: Long = 0L,
+    val error: String? = null
 )
 
 object DownloadStateStore {
@@ -37,17 +38,22 @@ object DownloadStateStore {
         emptyList()
     }
 
-    /** НЕ suspend — вызывается из persist() на любом потоке. Mutex синхронный. */
+    /** НЕ suspend — вызывается из persist() на любом потоке. Mutex через runBlocking. */
     fun save(ctx: Context, items: List<PersistedDownload>) {
-        try {
-            val tmp = tmpFile(ctx)
-            tmp.writeText(json.encodeToString(items))
-            if (!tmp.renameTo(file(ctx))) {
-                file(ctx).writeText(json.encodeToString(items))
-                tmp.delete()
+        kotlinx.coroutines.runBlocking {
+            mutex.withLock {
+                try {
+                    val tmp = tmpFile(ctx)
+                    tmp.writeText(json.encodeToString(items))
+                    if (!tmp.renameTo(file(ctx))) {
+                        file(ctx).writeText(json.encodeToString(items))
+                        tmp.delete()
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("JecWeb", "state.save fail: ${e.message}")
+                }
+                Unit
             }
-        } catch (e: Exception) {
-            android.util.Log.e("JecWeb", "state.save fail: ${e.message}")
         }
     }
 }

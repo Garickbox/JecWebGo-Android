@@ -62,7 +62,8 @@ object DownloadRepository {
                     totalBytes = p.request.totalBytes,
                     downloadedBytes = p.downloadedBytes,
                     status = DownloadItem.Status.QUEUED,
-                    existingUri = uri
+                    existingUri = uri,
+                    error = p.error
                 )
             }
             DownloadService.start(ctx)
@@ -76,7 +77,7 @@ object DownloadRepository {
         if (!force && now - _lastPersistMs < 3000L) return
         _lastPersistMs = now
         val items = (listOfNotNull(_active.value) + _queue.value).map {
-            PersistedDownload(it.id, it.request, it.existingUri ?: "", it.downloadedBytes)
+            PersistedDownload(it.id, it.request, it.existingUri ?: "", it.downloadedBytes, it.error)
         }
         DownloadStateStore.save(ctx, items)
     }
@@ -263,6 +264,8 @@ object DownloadRepository {
         _active.value = null
         paused = false
         cancelled = false
+        val failed = item.copy(status = DownloadItem.Status.PAUSED, error = error, speedBps = 0L)
+        _queue.update { q -> listOf(failed) + q }
         persist()
         android.util.Log.e("JecWeb", "download fail: ${item.request.fileName} — $error")
     }
