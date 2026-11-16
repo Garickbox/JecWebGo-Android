@@ -429,6 +429,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (needAllFilesRequest && android.os.Build.VERSION.SDK_INT >= 30) {
+            if (android.os.Environment.isExternalStorageManager()) {
+                needAllFilesRequest = false
+                android.util.Log.d("JecWeb", "MANAGE_EXTERNAL_STORAGE granted — rescan")
+                // Разрешение дано — пересканировать папку
+                com.garickbox.jecwebgo.data.download.DownloadRepository.rescanHistory(this)
+            }
+        }
+    }
+
     private fun setupPip() {
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             try {
