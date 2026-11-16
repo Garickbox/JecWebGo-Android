@@ -262,14 +262,14 @@ private fun buildActiveMenu(
     add(Win95ContextMenuItem("\u25B6", "Смотреть (стрим)") { vm.watchActive(ctx) })
     add(Win95ContextMenuItem.sep())
     val magnet = a.request.magnet
-    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDD17", "Копировать magnet", disabled = magnet.isBlank()) {
         copyMagnetToClipboard(ctx, magnet)
     })
-    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDCE4", "Поделиться magnet", disabled = magnet.isBlank()) {
         shareMagnet(ctx, magnet, a.request.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+    add(Win95ContextMenuItem("\uD83D\uDCCB", "Свойства") {
         vm.showProps(DownloadUiState.PropsTarget("active", a.id, a.request.title))
     })
 }
@@ -290,23 +290,23 @@ private fun buildGroupMenu(
     }
     add(Win95ContextMenuItem.sep())
     if (group.isFolder) {
-        add(Win95ContextMenuItem("\U0001F4C2", "Развернуть / Свернуть") { vm.toggleFolder(group.key) })
+        add(Win95ContextMenuItem("\uD83D\uDCC2", "Развернуть / Свернуть") { vm.toggleFolder(group.key) })
         add(Win95ContextMenuItem.sep())
     }
-    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDD17", "Копировать magnet", disabled = magnet.isBlank()) {
         copyMagnetToClipboard(ctx, magnet)
     })
-    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDCE4", "Поделиться magnet", disabled = magnet.isBlank()) {
         shareMagnet(ctx, magnet, group.title)
     })
     add(Win95ContextMenuItem.sep())
     add(Win95ContextMenuItem("\u2191", "Вверх", disabled = !canMoveUp) { vm.moveGroupUp(group.key) })
     add(Win95ContextMenuItem("\u2193", "Вниз", disabled = !canMoveDown) { vm.moveGroupDown(group.key) })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+    add(Win95ContextMenuItem("\uD83D\uDCCB", "Свойства") {
         vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title))
     })
-    add(Win95ContextMenuItem("\U0001F5D1", "Удалить из очереди", danger = true) {
+    add(Win95ContextMenuItem("\uD83D\uDDD1", "Удалить из очереди", danger = true) {
         vm.removeGroup(group.key)
     })
 }
@@ -318,21 +318,21 @@ private fun buildHistoryMenu(
 ): List<Win95ContextMenuItem> = buildList {
     add(Win95ContextMenuItem("\u25B6", "Воспроизвести") { vm.openItem(ctx, h) })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\U0001F4C2", "Открыть папку") { openDownloadsFolder(ctx) })
-    add(Win95ContextMenuItem("\U0001F4C4", "Открыть файл") { openFile(ctx, h.uri) })
+    add(Win95ContextMenuItem("\uD83D\uDCC2", "Открыть папку") { openDownloadsFolder(ctx) })
+    add(Win95ContextMenuItem("\uD83D\uDCC4", "Открыть файл") { openFile(ctx, h.uri) })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\U0001F517", "Копировать magnet", disabled = h.magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDD17", "Копировать magnet", disabled = h.magnet.isBlank()) {
         copyMagnetToClipboard(ctx, h.magnet)
     })
-    add(Win95ContextMenuItem("\U0001F4E4", "Поделиться magnet", disabled = h.magnet.isBlank()) {
+    add(Win95ContextMenuItem("\uD83D\uDCE4", "Поделиться magnet", disabled = h.magnet.isBlank()) {
         shareMagnet(ctx, h.magnet, h.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\U0001F4CB", "Свойства") {
+    add(Win95ContextMenuItem("\uD83D\uDCCB", "Свойства") {
         vm.showProps(DownloadUiState.PropsTarget("history", h.id, h.fileName))
     })
-    add(Win95ContextMenuItem("\U0001F5D1", "Убрать из истории") { vm.removeFromList(ctx, h) })
-    add(Win95ContextMenuItem("\U0001F5D1", "Удалить файл", danger = true) { vm.showDeleteDialog(h) })
+    add(Win95ContextMenuItem("\uD83D\uDDD1", "Убрать из истории") { vm.removeFromList(ctx, h) })
+    add(Win95ContextMenuItem("\uD83D\uDDD1", "Удалить файл", danger = true) { vm.showDeleteDialog(h) })
 }
 
 @Composable
@@ -742,7 +742,10 @@ private fun StatusSegment(text: String, modifier: Modifier) {
 private fun DownloadContentWin95(
     state: DownloadUiState,
     vm: DownloadViewModel,
-    ctx: android.content.Context
+    ctx: android.content.Context,
+    onActiveLongPress: (IntOffset, DownloadItem) -> Unit = { _, _ -> },
+    onGroupLongPress: (IntOffset, QueueGroup, Boolean, Boolean) -> Unit = { _, _, _, _ -> },
+    onHistoryLongPress: (IntOffset, DownloadedItem) -> Unit = { _, _ -> }
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
@@ -775,7 +778,8 @@ private fun DownloadContentWin95(
                             onResume = { vm.resumeActive() },
                             onStop = { vm.stopActive() },
                             onWatch = { vm.watchActive(ctx) },
-                            onProps = { vm.showProps(DownloadUiState.PropsTarget("active", a.id, a.request.title)) }
+                            onProps = { vm.showProps(DownloadUiState.PropsTarget("active", a.id, a.request.title)) },
+                            onLongPress = { pos -> onActiveLongPress(pos, a) }
                         )
                     }
                 }
@@ -815,7 +819,8 @@ private fun DownloadContentWin95(
                         onFilePause = { vm.pauseFile(it) },
                         onFileResume = { vm.resumeFile(it) },
                         onFileRemove = { vm.removeFile(it) },
-                        onProps = { vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title)) }
+                        onProps = { vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title)) },
+                        onLongPress = { pos -> onGroupLongPress(pos, group, idx > 0, idx < activeGroups.size - 1) }
                     )
                 }
             }
@@ -850,7 +855,8 @@ private fun DownloadContentWin95(
                         onFilePause = { vm.pauseFile(it) },
                         onFileResume = { vm.resumeFile(it) },
                         onFileRemove = { vm.removeFile(it) },
-                        onProps = { vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title)) }
+                        onProps = { vm.showProps(DownloadUiState.PropsTarget("group", group.key, group.title)) },
+                        onLongPress = { pos -> onGroupLongPress(pos, group, false, false) }
                     )
                 }
             }
@@ -878,7 +884,8 @@ private fun DownloadContentWin95(
                             onToggleSelect = { vm.toggleSelection(item.id) },
                             onPlay = { vm.openItem(ctx, item) },
                             onDelete = { vm.showDeleteDialog(item) },
-                            onProps = { vm.showProps(DownloadUiState.PropsTarget("history", item.id, item.fileName)) }
+                            onProps = { vm.showProps(DownloadUiState.PropsTarget("history", item.id, item.fileName)) },
+                            onLongPress = { pos -> onHistoryLongPress(pos, item) }
                         )
                     }
                 }
@@ -979,17 +986,22 @@ private fun ActiveCardWin95(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onWatch: () -> Unit,
-    onProps: () -> Unit
+    onProps: () -> Unit,
+    onLongPress: (IntOffset) -> Unit = {}
 ) {
+    var posInRoot by remember { mutableStateOf(Offset.Zero) }
     Column(
         Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {},
-                onLongClick = { onProps() }
-            )
+            .onGloballyPositioned { posInRoot = it.positionInRoot() }
+            .pointerInput(item.id) {
+                detectTapGestures(
+                    onLongPress = { local ->
+                        val abs = posInRoot + local
+                        onLongPress(IntOffset(abs.x.toInt(), abs.y.toInt()))
+                    }
+                )
+            }
             .background(Win95Colors.Face)
             .win95Bevel(raised = true, thickness = 2.dp)
             .padding(5.dp)
@@ -1087,10 +1099,12 @@ private fun FolderCardWin95(
     onFilePause: (String) -> Unit,
     onFileResume: (String) -> Unit,
     onFileRemove: (String) -> Unit,
-    onProps: () -> Unit
+    onProps: () -> Unit,
+    onLongPress: (IntOffset) -> Unit = {}
 ) {
     val isFolder = group.isFolder
     val alpha = if (group.isPaused) 0.65f else 1f
+    var posInRoot by remember { mutableStateOf(Offset.Zero) }
 
     Column(
         Modifier
@@ -1103,12 +1117,16 @@ private fun FolderCardWin95(
         Row(
             Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { if (isFolder) onToggleExpand() else onProps() },
-                    onLongClick = { onProps() }
-                )
+                .onGloballyPositioned { posInRoot = it.positionInRoot() }
+                .pointerInput(group.key) {
+                    detectTapGestures(
+                        onTap = { if (isFolder) onToggleExpand() else onProps() },
+                        onLongPress = { local ->
+                            val abs = posInRoot + local
+                            onLongPress(IntOffset(abs.x.toInt(), abs.y.toInt()))
+                        }
+                    )
+                }
                 .padding(horizontal = 4.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1253,17 +1271,23 @@ private fun HistoryRowWin95(
     onToggleSelect: () -> Unit,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
-    onProps: () -> Unit
+    onProps: () -> Unit,
+    onLongPress: (IntOffset) -> Unit = {}
 ) {
+    var posInRoot by remember { mutableStateOf(Offset.Zero) }
     Row(
         Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onProps() },
-                onLongClick = { onDelete() }
-            )
+            .onGloballyPositioned { posInRoot = it.positionInRoot() }
+            .pointerInput(item.id) {
+                detectTapGestures(
+                    onTap = { onProps() },
+                    onLongPress = { local ->
+                        val abs = posInRoot + local
+                        onLongPress(IntOffset(abs.x.toInt(), abs.y.toInt()))
+                    }
+                )
+            }
             .background(if (isSelected) Win95Colors.Navy.copy(alpha = 0.15f) else Win95Colors.Face)
             .win95Border(raised = true)
             .padding(horizontal = 4.dp, vertical = 3.dp),
