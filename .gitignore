@@ -7,3 +7,21 @@ scripts/__pycache__/
 tmdb_movies.json
 posters_tmdb/
 scripts/meta.json
+
+# Gradle — локально в Termux (в репо не нужны, CI использует setup-gradle)
+.gradle/
+gradlew
+gradlew.bat
+gradle/wrapper/
+build/
+app/build/
+.kotlin/
+local.properties
+
+# IDE
+*.iml
+.idea/
+
+# Logs
+*.log
+.DS_Store
