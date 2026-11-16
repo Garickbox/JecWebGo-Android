@@ -15,6 +15,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import com.garickbox.jecwebgo.data.store.Bookmark
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.ui.common.DownloadFromMagnetFlow
@@ -25,7 +31,9 @@ import kotlinx.coroutines.launch
 import com.garickbox.jecwebgo.util.toast
 
 @Composable
-fun MarksTabWin95() {
+fun MarksTabWin95(
+    onLongPress: (IntOffset, Bookmark) -> Unit = { _, _ -> }
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<Bookmark>>(emptyList()) }
@@ -111,7 +119,8 @@ fun MarksTabWin95() {
                                 BookmarkStore.removeAt(ctx, idx)
                                 reload()
                             }
-                        }
+                        },
+                        onLongPress = { pos -> onLongPress(pos, b) }
                     )
                 }
             }
@@ -124,11 +133,22 @@ private fun MarksRowWin95(
     b: Bookmark,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onLongPress: (IntOffset) -> Unit = {}
 ) {
+    var posInRoot by remember { mutableStateOf(Offset.Zero) }
     Column(
         Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { posInRoot = it.positionInRoot() }
+            .pointerInput(b.added, b.title) {
+                detectTapGestures(
+                    onLongPress = { local ->
+                        val abs = posInRoot + local
+                        onLongPress(IntOffset(abs.x.toInt(), abs.y.toInt()))
+                    }
+                )
+            }
             .background(Win95Colors.Face)
             .win95Bevel(raised = true, thickness = 2.dp)
             .padding(5.dp)

@@ -42,6 +42,9 @@ import com.garickbox.jecwebgo.ui.common.win95.Win95TitleBar
 import com.garickbox.jecwebgo.ui.common.win95.win95Bevel
 import com.garickbox.jecwebgo.ui.common.win95.win95Border
 import com.garickbox.jecwebgo.ui.theme.Win95Colors
+import com.garickbox.jecwebgo.ui.common.PlayActions
+import com.garickbox.jecwebgo.data.store.Bookmark
+import com.garickbox.jecwebgo.data.store.PlayLogEntry
 import androidx.compose.ui.draw.alpha
 import com.garickbox.jecwebgo.ui.common.win95.Win95Checkbox
 import com.garickbox.jecwebgo.data.download.DownloadItem
@@ -66,6 +69,7 @@ fun DownloadScreenWin95(
     var helpDialog by remember { mutableStateOf(false) }
     var currentTab by remember { mutableStateOf("downloads") }
     var ctxMenu by remember { mutableStateOf<CtxMenuState?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     Column(
         Modifier
@@ -197,8 +201,16 @@ fun DownloadScreenWin95(
                             ctxMenu = CtxMenuState(pos, buildHistoryMenu(vm, ctx, h))
                         }
                     )
-                    "history" -> HistoryTabWin95()
-                    "marks" -> MarksTabWin95()
+                    "history" -> HistoryTabWin95(
+                        onLongPress = { pos, entry ->
+                            ctxMenu = CtxMenuState(pos, buildPlayLogMenu(ctx, scope, entry))
+                        }
+                    )
+                    "marks" -> MarksTabWin95(
+                        onLongPress = { pos, b ->
+                            ctxMenu = CtxMenuState(pos, buildBookmarkMenu(ctx, scope, b))
+                        }
+                    )
                     else -> DownloadContentWin95(state, vm, ctx)
                 }
             }
@@ -245,6 +257,51 @@ fun DownloadScreenWin95(
 // ═══════════════════════════════════════════════════════════
 // CONTEXT MENU BUILDERS
 // ═══════════════════════════════════════════════════════════
+
+private fun buildPlayLogMenu(
+    ctx: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    entry: PlayLogEntry
+): List<Win95ContextMenuItem> = buildList {
+    val effMagnet = entry.magnet.ifBlank {
+        if (entry.hash.isNotBlank()) "magnet:?xt=urn:btih:${entry.hash}" else ""
+    }
+    add(Win95ContextMenuItem("\\u25B6", "Воспроизвести", disabled = effMagnet.isBlank()) {
+        if (effMagnet.isNotBlank()) PlayActions.playPhone(ctx, scope, effMagnet, entry.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\\uD83D\\uDD17", "Копировать magnet", disabled = effMagnet.isBlank()) {
+        copyMagnetToClipboard(ctx, effMagnet)
+    })
+    add(Win95ContextMenuItem("\\uD83D\\uDCE4", "Поделиться magnet", disabled = effMagnet.isBlank()) {
+        shareMagnet(ctx, effMagnet, entry.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\\uD83D\\uDCC2", "Открыть папку") {
+        openDownloadsFolder(ctx)
+    })
+}
+
+private fun buildBookmarkMenu(
+    ctx: android.content.Context,
+    scope: kotlinx.coroutines.CoroutineScope,
+    b: Bookmark
+): List<Win95ContextMenuItem> = buildList {
+    add(Win95ContextMenuItem("\\u25B6", "Воспроизвести", disabled = b.magnet.isBlank()) {
+        if (b.magnet.isNotBlank()) PlayActions.playPhone(ctx, scope, b.magnet, b.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\\uD83D\\uDD17", "Копировать magnet", disabled = b.magnet.isBlank()) {
+        copyMagnetToClipboard(ctx, b.magnet)
+    })
+    add(Win95ContextMenuItem("\\uD83D\\uDCE4", "Поделиться magnet", disabled = b.magnet.isBlank()) {
+        shareMagnet(ctx, b.magnet, b.title)
+    })
+    add(Win95ContextMenuItem.sep())
+    add(Win95ContextMenuItem("\\uD83D\\uDCC2", "Открыть папку") {
+        openDownloadsFolder(ctx)
+    })
+}
 
 private fun buildActiveMenu(
     vm: DownloadViewModel,

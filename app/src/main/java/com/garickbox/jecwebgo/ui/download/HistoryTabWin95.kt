@@ -15,6 +15,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import com.garickbox.jecwebgo.data.store.BookmarkStore
 import com.garickbox.jecwebgo.data.store.PlayLogEntry
 import com.garickbox.jecwebgo.data.store.PlayLogStore
@@ -29,7 +35,9 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun HistoryTabWin95() {
+fun HistoryTabWin95(
+    onLongPress: (IntOffset, PlayLogEntry) -> Unit = { _, _ -> }
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var playlog by remember { mutableStateOf<List<PlayLogEntry>>(emptyList()) }
@@ -127,7 +135,8 @@ fun HistoryTabWin95() {
                                 PlayLogStore.removeAt(ctx, playlog.size - 1 - idx)
                                 reload()
                             }
-                        }
+                        },
+                        onLongPress = { pos -> onLongPress(pos, p) }
                     )
                 }
             }
@@ -142,11 +151,22 @@ private fun HistoryRowWin95(
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     onBookmark: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onLongPress: (IntOffset) -> Unit = {}
 ) {
+    var posInRoot by remember { mutableStateOf(Offset.Zero) }
     Column(
         Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { posInRoot = it.positionInRoot() }
+            .pointerInput(entry.time, entry.title) {
+                detectTapGestures(
+                    onLongPress = { local ->
+                        val abs = posInRoot + local
+                        onLongPress(IntOffset(abs.x.toInt(), abs.y.toInt()))
+                    }
+                )
+            }
             .background(Win95Colors.Face)
             .win95Bevel(raised = true, thickness = 2.dp)
             .padding(5.dp)

@@ -56,7 +56,7 @@ fun Win95ContextMenu(
                 .background(Win95Colors.Face)
                 .win95Bevel(raised = true, thickness = 2.dp)
                 .padding(2.dp)
-                .widthIn(min = 210.dp)
+                .widthIn(min = 210.dp, max = 280.dp)
         ) {
             items.forEach { item ->
                 if (item.separator) {
