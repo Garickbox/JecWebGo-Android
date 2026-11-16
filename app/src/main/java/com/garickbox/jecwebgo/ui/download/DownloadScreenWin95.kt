@@ -266,18 +266,18 @@ private fun buildPlayLogMenu(
     val effMagnet = entry.magnet.ifBlank {
         if (entry.hash.isNotBlank()) "magnet:?xt=urn:btih:${entry.hash}" else ""
     }
-    add(Win95ContextMenuItem("\\u25B6", "Воспроизвести", disabled = effMagnet.isBlank()) {
+    add(Win95ContextMenuItem("▶", "Воспроизвести", disabled = effMagnet.isBlank()) {
         if (effMagnet.isNotBlank()) PlayActions.playPhone(ctx, scope, effMagnet, entry.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\\uD83D\\uDD17", "Копировать magnet", disabled = effMagnet.isBlank()) {
+    add(Win95ContextMenuItem("🔗", "Копировать magnet", disabled = effMagnet.isBlank()) {
         copyMagnetToClipboard(ctx, effMagnet)
     })
-    add(Win95ContextMenuItem("\\uD83D\\uDCE4", "Поделиться magnet", disabled = effMagnet.isBlank()) {
+    add(Win95ContextMenuItem("📤", "Поделиться magnet", disabled = effMagnet.isBlank()) {
         shareMagnet(ctx, effMagnet, entry.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\\uD83D\\uDCC2", "Открыть папку") {
+    add(Win95ContextMenuItem("📂", "Открыть папку") {
         openDownloadsFolder(ctx)
     })
 }
@@ -287,18 +287,18 @@ private fun buildBookmarkMenu(
     scope: kotlinx.coroutines.CoroutineScope,
     b: Bookmark
 ): List<Win95ContextMenuItem> = buildList {
-    add(Win95ContextMenuItem("\\u25B6", "Воспроизвести", disabled = b.magnet.isBlank()) {
+    add(Win95ContextMenuItem("▶", "Воспроизвести", disabled = b.magnet.isBlank()) {
         if (b.magnet.isNotBlank()) PlayActions.playPhone(ctx, scope, b.magnet, b.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\\uD83D\\uDD17", "Копировать magnet", disabled = b.magnet.isBlank()) {
+    add(Win95ContextMenuItem("🔗", "Копировать magnet", disabled = b.magnet.isBlank()) {
         copyMagnetToClipboard(ctx, b.magnet)
     })
-    add(Win95ContextMenuItem("\\uD83D\\uDCE4", "Поделиться magnet", disabled = b.magnet.isBlank()) {
+    add(Win95ContextMenuItem("📤", "Поделиться magnet", disabled = b.magnet.isBlank()) {
         shareMagnet(ctx, b.magnet, b.title)
     })
     add(Win95ContextMenuItem.sep())
-    add(Win95ContextMenuItem("\\uD83D\\uDCC2", "Открыть папку") {
+    add(Win95ContextMenuItem("📂", "Открыть папку") {
         openDownloadsFolder(ctx)
     })
 }

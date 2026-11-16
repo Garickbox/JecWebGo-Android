@@ -63,7 +63,7 @@ object DownloadRepository {
     }
 
     private var _lastPersistMs = 0L
-    private fun persist(force: Boolean = false) {
+    private fun persist(force: Boolean = true) {
         val ctx = appCtx ?: return
         val now = System.currentTimeMillis()
         if (!force && now - _lastPersistMs < 3000L) return
@@ -185,7 +185,7 @@ object DownloadRepository {
             totalBytes = if (total > 0) total else cur.totalBytes,
             speedBps = speed
         )
-        persist()
+        persist(force = false)
     }
 
     fun pause() {
