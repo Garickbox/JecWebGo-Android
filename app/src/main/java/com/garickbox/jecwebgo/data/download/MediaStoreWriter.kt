@@ -125,7 +125,7 @@ object MediaStoreWriter {
         val mimeType: String
     )
 
-    /** Сканирует Downloads/JecWeb/** в MediaStore */
+    /** Сканирует Downloads/JecWeb (все подпапки) в MediaStore */
     fun scanJecWeb(ctx: Context): List<ScannedFile> {
         val result = mutableListOf<ScannedFile>()
         val projection = arrayOf(
