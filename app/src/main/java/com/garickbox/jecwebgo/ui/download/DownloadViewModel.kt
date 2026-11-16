@@ -50,7 +50,7 @@ data class DownloadUiState(
     // ui controls
     val search: String = "",
     val filter: Filter = Filter.ALL,
-    val sort: Sort = Sort.DEFAULT,
+    val sort: Sort = Sort.NAME,
     val selection: Set<String> = emptySet(),
     val collapsedSections: Set<String> = emptySet(),
     val expandedFolders: Set<String> = emptySet(),
