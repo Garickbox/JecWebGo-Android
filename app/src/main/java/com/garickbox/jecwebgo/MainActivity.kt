@@ -193,6 +193,36 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+                if (needAllFilesRequest) {
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { needAllFilesRequest = false },
+                        title = { androidx.compose.material3.Text("📂 Доступ ко всем файлам") },
+                        text = { androidx.compose.material3.Text(
+                            "Чтобы видеть в Скачано все файлы папки Download/JecWeb (включая подпапки и файлы из других приложений), " +
+                            "разрешите JecWeb Go доступ ко всем файлам.\n\n" +
+                            "Настройки → Специальный доступ → Управление всеми файлами → JecWeb Go → Разрешить."
+                        ) },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                needAllFilesRequest = false
+                                try {
+                                    val i = android.content.Intent(
+                                        android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                        android.net.Uri.parse("package:$packageName")
+                                    )
+                                    startActivity(i)
+                                } catch (_: Exception) {
+                                    try { startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) } catch (_: Exception) {}
+                                }
+                            }) { androidx.compose.material3.Text("Открыть настройки") }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { needAllFilesRequest = false }) {
+                                androidx.compose.material3.Text("Позже")
+                            }
+                        }
+                    )
+                }
                 val nav = rememberNavController()
                 val pagerState = rememberPagerState(pageCount = { tabs.size })
                 val scope = rememberCoroutineScope()
@@ -410,11 +440,21 @@ class MainActivity : ComponentActivity() {
     private var pendingTabFromIntent by mutableStateOf<String?>(null)
 
     private var needAdminRequest by mutableStateOf(false)
+    private var needAllFilesRequest by mutableStateOf(false)
 
     private fun requestRuntimePermissions() {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 100)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            if (!android.os.Environment.isExternalStorageManager()) {
+                needAllFilesRequest = true
+            }
+        } else {
+            if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE), 101)
+            }
         }
         try {
             val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
